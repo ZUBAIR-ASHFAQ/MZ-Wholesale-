@@ -1,0 +1,146 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1785921771776,
+      "tag": "0000_module_1_business_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785928605907,
+      "tag": "0001_module_2_admin_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785950271445,
+      "tag": "0002_module_3_product_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785977977302,
+      "tag": "0003_module_4_customer_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785980138467,
+      "tag": "0004_product_unit_source_of_truth",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785980934684,
+      "tag": "0005_module_5_supplier_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785993894670,
+      "tag": "0006_remove_unused_phone_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785998552737,
+      "tag": "0007_module_6_inventory_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786008246960,
+      "tag": "0008_inventory_idempotency",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786014000000,
+      "tag": "0009_module_7_ledgers",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786020000000,
+      "tag": "0010_module_8_payment_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786121000000,
+      "tag": "0011_module_9_purchase_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786130000000,
+      "tag": "0012_module_10_counter_sales",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786150000000,
+      "tag": "0013_module_11_returns",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786180865729,
+      "tag": "0014_module_12_expense_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1786181400000,
+      "tag": "0015_module_12_expense_movement_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1786200000000,
+      "tag": "0016_module_15_import_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786215000000,
+      "tag": "0017_module_15_validated_import_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786220000000,
+      "tag": "0018_module_15_audit_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786221000000,
+      "tag": "0019_module_15_failed_login_audit",
+      "breakpoints": true
+    }
+  ]
+}
