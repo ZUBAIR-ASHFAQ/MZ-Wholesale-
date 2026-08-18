@@ -24,7 +24,6 @@ const supplierFormSchema = z.object({
   phone: z.string().trim().max(30, "Phone is too long."),
   email: optionalEmailSchema,
   address: z.string().trim().max(500, "Address is too long."),
-  taxId: z.string().trim().max(100, "Tax ID is too long."),
   openingBalance: z
     .string()
     .trim()
@@ -53,7 +52,6 @@ function createDefaultValues(supplier?: Supplier): SupplierFormValues {
     phone: supplier?.phone ?? "",
     email: supplier?.email ?? "",
     address: supplier?.address ?? "",
-    taxId: supplier?.taxId ?? "",
     openingBalance: "0.00",
     isActive: supplier?.isActive ?? true,
   };
@@ -110,7 +108,6 @@ export function SupplierForm({
       phone: optionalText(values.phone),
       email: optionalText(values.email),
       address: optionalText(values.address),
-      taxId: optionalText(values.taxId),
     };
 
     try {
@@ -151,12 +148,6 @@ export function SupplierForm({
           <span>Email</span>
           <input type="email" {...register("email")} />
           {errors.email ? <small className="error-message">{errors.email.message}</small> : null}
-        </label>
-
-        <label className="ui-field">
-          <span>Tax ID</span>
-          <input {...register("taxId")} />
-          {errors.taxId ? <small className="error-message">{errors.taxId.message}</small> : null}
         </label>
 
         {!isEditing ? (

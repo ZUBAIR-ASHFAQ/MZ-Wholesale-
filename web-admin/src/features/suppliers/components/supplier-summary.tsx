@@ -35,7 +35,6 @@ export function SupplierSummary({
         <div><dt>Phone</dt><dd>{displayValue(supplier.phone)}</dd></div>
         <div><dt>Email</dt><dd>{displayValue(supplier.email)}</dd></div>
         <div><dt>Address</dt><dd>{displayValue(supplier.address)}</dd></div>
-        <div><dt>Tax ID</dt><dd>{displayValue(supplier.taxId)}</dd></div>
         <div>
           <dt>Current payable</dt>
           <dd>

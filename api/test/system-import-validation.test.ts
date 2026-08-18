@@ -130,6 +130,22 @@ test("opening balance validation protects ledger setup rules", async () => {
   assert.match(service, /Party type must be CUSTOMER or SUPPLIER/);
 });
 
+test("supplier import contract excludes removed Tax ID while customer import keeps it", async () => {
+  const service = await readSystemSource("system.service.ts");
+  const templatesStart = service.indexOf("const importTemplateColumns");
+  const templatesEnd = service.indexOf("/** Builds a header-only CSV template", templatesStart);
+  const templates = service.slice(templatesStart, templatesEnd);
+
+  const customerStart = templates.indexOf("customers: [");
+  const supplierStart = templates.indexOf("suppliers: [");
+  const openingStockStart = templates.indexOf('"opening-stock": [');
+  const customerTemplate = templates.slice(customerStart, supplierStart);
+  const supplierTemplate = templates.slice(supplierStart, openingStockStart);
+
+  assert.match(customerTemplate, /"taxId"/);
+  assert.doesNotMatch(supplierTemplate, /"taxId"/);
+});
+
 test("validation persists row-level errors and uses VALIDATED or FAILED status", async () => {
   const service = await readSystemSource("system.service.ts");
 

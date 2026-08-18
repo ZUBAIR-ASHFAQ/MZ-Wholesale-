@@ -760,7 +760,6 @@ const importTemplateColumns: Record<SystemImportType, readonly string[]> = {
     "phone",
     "email",
     "address",
-    "taxId",
   ],
   "opening-stock": [
     "productSku",
@@ -1722,7 +1721,6 @@ function validatePartyImportRow(
   const phone = row.phone ?? "";
   const email = row.email ?? "";
   const address = row.address ?? "";
-  const taxId = row.taxId ?? "";
 
   if (code.length === 0) {
     addPartyImportError(errors, rowNumber, "code", "REQUIRED_FIELD", `${partyLabel} code is required.`, row);
@@ -1764,11 +1762,12 @@ function validatePartyImportRow(
     addPartyImportError(errors, rowNumber, "address", "VALUE_TOO_LONG", "Address must be 500 characters or fewer.", row);
   }
 
-  if (taxId.length > 80) {
-    addPartyImportError(errors, rowNumber, "taxId", "VALUE_TOO_LONG", "Tax ID must be 80 characters or fewer.", row);
-  }
-
   if (type === "customers") {
+    const taxId = row.taxId ?? "";
+    if (taxId.length > 80) {
+      addPartyImportError(errors, rowNumber, "taxId", "VALUE_TOO_LONG", "Tax ID must be 80 characters or fewer.", row);
+    }
+
     const creditLimit = row.creditLimit ?? "";
     if (creditLimit.length > 0 && !isMoneyWithinDatabaseRange(creditLimit)) {
       addPartyImportError(
@@ -2088,7 +2087,6 @@ export async function confirmPartyImport(
         phone: row.phone?.trim() || null,
         email: row.email?.trim() || null,
         address: row.address?.trim() || null,
-        taxId: row.taxId?.trim() || null,
         isActive: true,
       });
 

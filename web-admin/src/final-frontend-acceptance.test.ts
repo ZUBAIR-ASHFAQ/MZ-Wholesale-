@@ -542,7 +542,7 @@ describe("final frontend acceptance", () => {
         "features/suppliers/api/suppliers.api.ts",
         "features/suppliers/components/supplier-form.tsx",
       ],
-      ["name", "phone", "email", "address", "taxId", "openingBalance", "isActive"],
+      ["name", "phone", "email", "address", "openingBalance", "isActive"],
     );
 
     await expectContractFields(
@@ -757,6 +757,9 @@ describe("final frontend acceptance", () => {
     const supplierRecentPurchases = await readSource(
       new URL("./features/suppliers/components/supplier-recent-purchases.tsx", import.meta.url),
     );
+    const supplierOpenPurchases = await readSource(
+      new URL("./features/suppliers/components/supplier-open-purchases.tsx", import.meta.url),
+    );
     const productDetail = await readSource(
       new URL("./features/products/pages/product-detail-page.tsx", import.meta.url),
     );
@@ -774,6 +777,8 @@ describe("final frontend acceptance", () => {
     expect(supplierRecentPurchases).toContain("Recent purchase history is temporarily unavailable.");
     expect(supplierRecentPurchases).toContain("No recent purchases found.");
     expect(supplierRecentPurchases).toContain('to="/purchases/$purchaseId"');
+    expect(supplierRecentPurchases).toContain('purchase.productNames || "—"');
+    expect(supplierOpenPurchases).toContain('purchase.productNames || "—"');
     expect(settingsPage).toContain("data.settings.currency");
     expect(settingsPage).toContain("data.settings.timezone");
   });

@@ -131,10 +131,6 @@ function readSupplierChanges(input: UpdateSupplierInput): SupplierChanges {
     changes.address = normalizeOptionalText(input.address);
   }
 
-  if (input.taxId !== undefined) {
-    changes.taxId = normalizeOptionalText(input.taxId);
-  }
-
   if (input.isActive !== undefined) {
     changes.isActive = input.isActive;
   }
@@ -167,7 +163,6 @@ export async function createSupplier(
     phone: normalizeOptionalText(input.phone),
     email: normalizeOptionalText(input.email),
     address: normalizeOptionalText(input.address),
-    taxId: normalizeOptionalText(input.taxId),
     isActive: true,
   };
 

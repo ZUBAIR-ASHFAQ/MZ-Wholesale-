@@ -5,6 +5,7 @@ import {
   desc,
   eq,
   ilike,
+  inArray,
   ne,
   or,
   sql,
@@ -14,6 +15,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import {
   cashBankMovements,
+  purchaseItems,
   purchases,
   purchaseReturns,
   stockMovements,
@@ -40,7 +42,6 @@ export interface SupplierChanges {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
-  taxId?: string | null;
   isActive?: boolean;
 }
 
@@ -197,6 +198,7 @@ export interface SupplierOpenPurchaseRecord {
   id: string;
   purchaseNumber: string;
   purchaseDate: string;
+  productNames: string;
   dueAmount: string;
 }
 
@@ -205,7 +207,39 @@ export interface SupplierRecentPurchaseRecord {
   id: string;
   purchaseNumber: string;
   purchaseDate: string;
+  productNames: string;
   totalAmount: string;
+}
+
+/** Loads purchase item name snapshots for a small batch of purchase IDs. */
+async function listPurchaseProductNames(
+  database: SuppliersDatabase,
+  purchaseIds: string[],
+): Promise<Map<string, string[]>> {
+  const namesByPurchase = new Map<string, string[]>();
+
+  if (purchaseIds.length === 0) {
+    return namesByPurchase;
+  }
+
+  const rows = await database
+    .select({
+      purchaseId: purchaseItems.purchaseId,
+      productName: purchaseItems.productNameSnapshot,
+    })
+    .from(purchaseItems)
+    .where(inArray(purchaseItems.purchaseId, purchaseIds))
+    .orderBy(asc(purchaseItems.createdAt), asc(purchaseItems.id));
+
+  for (const row of rows) {
+    const names = namesByPurchase.get(row.purchaseId) ?? [];
+    if (!names.includes(row.productName)) {
+      names.push(row.productName);
+    }
+    namesByPurchase.set(row.purchaseId, names);
+  }
+
+  return namesByPurchase;
 }
 
 /** Lists the latest confirmed purchases for one supplier. */
@@ -235,9 +269,15 @@ export async function listRecentSupplierPurchases(
     )
     .limit(limit);
 
+  const productNames = await listPurchaseProductNames(
+    database,
+    rows.map((row) => row.id),
+  );
+
   return rows.map((row) => ({
     ...row,
     purchaseNumber: row.purchaseNumber as string,
+    productNames: (productNames.get(row.id) ?? []).join(", "),
   }));
 }
 
@@ -292,5 +332,17 @@ export async function listSupplierOpenPurchases(
         .as("open_supplier_purchases"),
     );
 
-  return { items: items.map((item) => ({ ...item, purchaseNumber: item.purchaseNumber as string })), total: countRows[0]?.total ?? 0 };
+  const productNames = await listPurchaseProductNames(
+    database,
+    items.map((item) => item.id),
+  );
+
+  return {
+    items: items.map((item) => ({
+      ...item,
+      purchaseNumber: item.purchaseNumber as string,
+      productNames: (productNames.get(item.id) ?? []).join(", "),
+    })),
+    total: countRows[0]?.total ?? 0,
+  };
 }

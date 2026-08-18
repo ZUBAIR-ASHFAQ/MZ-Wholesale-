@@ -37,7 +37,6 @@ function makeSupplier(
     phone: null,
     email: null,
     address: null,
-    taxId: null,
     isActive: true,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -127,6 +126,23 @@ test("supplier create validation rejects system-managed fields", () => {
   assert.equal(result.success, false);
 });
 
+/** Verifies that the removed Tax ID field is no longer part of the supplier API contract. */
+test("supplier validation rejects removed taxId field", () => {
+  assert.equal(
+    createSupplierSchema.safeParse({
+      name: "ABC Supplies",
+      taxId: "NTN-123",
+    }).success,
+    false,
+  );
+  assert.equal(
+    updateSupplierSchema.safeParse({
+      taxId: "NTN-123",
+    }).success,
+    false,
+  );
+});
+
 /** Verifies required name, email and update validation rules. */
 test("supplier validation enforces required fields", () => {
   assert.equal(createSupplierSchema.safeParse({ name: "" }).success, false);
@@ -179,7 +195,6 @@ test("supplier service creates a supplier with a generated code", async () => {
     phone: " 03001234567 ",
     email: null,
     address: null,
-    taxId: null,
     openingBalance: "0.00",
   });
 
@@ -211,7 +226,6 @@ test("supplier creation retries generated-code conflicts", async () => {
     phone: null,
     email: null,
     address: null,
-    taxId: null,
     openingBalance: "0.00",
   });
 
@@ -231,7 +245,6 @@ test("supplier creation preserves unrelated database errors", async () => {
       phone: null,
       email: null,
       address: null,
-      taxId: null,
       openingBalance: "0.00",
     }),
     (error: unknown) => error === databaseError,
@@ -265,6 +278,9 @@ test("supplier profile includes recent confirmed purchases", async () => {
   assert.match(service, /recentPurchasesAvailable: true/);
   assert.match(repository, /eq\(purchases\.status, "CONFIRMED"\)/);
   assert.match(repository, /desc\(purchases\.purchaseDate\)/);
+  assert.match(repository, /purchaseItems\.productNameSnapshot/);
+  assert.match(repository, /listPurchaseProductNames/);
+  assert.match(repository, /productNames/);
 });
 
 /** Verifies the supplier service now reads real confirmed outstanding purchases. */
@@ -275,6 +291,9 @@ test("supplier open purchases use the Purchase-backed repository query", async (
   assert.match(service, /listSupplierOpenPurchases/);
   assert.match(repository, /eq\(purchases\.status, "CONFIRMED"\)/);
   assert.match(repository, /dueAmount/);
+  assert.match(repository, /purchaseItems\.productNameSnapshot/);
+  assert.match(repository, /listPurchaseProductNames/);
+  assert.match(repository, /productNames/);
   assert.doesNotMatch(service, /PURCHASE_MODULE_NOT_READY/);
 });
 
@@ -325,7 +344,7 @@ test("supplier creation stops after repeated generated-code conflicts", async ()
       phone: null,
       email: null,
       address: null,
-      taxId: null,
+      openingBalance: "0.00",
     }),
     (error: unknown) =>
       error instanceof AppError &&

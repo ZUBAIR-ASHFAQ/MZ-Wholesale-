@@ -38,12 +38,6 @@ const moneySchema = z
   .regex(/^\d+(\.\d{1,2})?$/, "Opening balance must be a non-negative money amount with up to two decimal places.")
   .refine(isMoneyWithinDatabaseRange, "Opening balance is too large for the database money field.");
 
-const taxIdSchema = z
-  .string()
-  .trim()
-  .min(1, "Tax ID cannot be blank.")
-  .max(80, "Tax ID must be 80 characters or fewer.");
-
 /** Converts the active query-string value into a boolean. */
 function parseBooleanQueryValue(value: "true" | "false"): boolean {
   return value === "true";
@@ -110,10 +104,6 @@ export const createSupplierSchema = z
       emptyStringToNull,
       addressSchema.nullable().optional(),
     ),
-    taxId: z.preprocess(
-      emptyStringToNull,
-      taxIdSchema.nullable().optional(),
-    ),
     openingBalance: moneySchema.default("0.00"),
   })
   .strict();
@@ -133,10 +123,6 @@ export const updateSupplierSchema = z
     address: z.preprocess(
       emptyStringToNull,
       addressSchema.nullable().optional(),
-    ),
-    taxId: z.preprocess(
-      emptyStringToNull,
-      taxIdSchema.nullable().optional(),
     ),
     isActive: z.boolean().optional(),
   })

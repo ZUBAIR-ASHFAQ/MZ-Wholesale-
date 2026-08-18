@@ -26,6 +26,7 @@ export function SupplierRecentPurchases({
             <thead>
               <tr>
                 <th>Purchase</th>
+                <th>Products</th>
                 <th>Date</th>
                 <th>Due</th>
               </tr>
@@ -42,6 +43,7 @@ export function SupplierRecentPurchases({
                       {purchase.purchaseNumber}
                     </Link>
                   </td>
+                  <td>{purchase.productNames || "—"}</td>
                   <td>{purchase.purchaseDate}</td>
                   <td>{purchase.dueAmount}</td>
                 </tr>

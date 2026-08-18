@@ -44,6 +44,7 @@ export function SupplierOpenPurchases({
             <thead>
               <tr>
                 <th>Purchase</th>
+                <th>Products</th>
                 <th>Date</th>
                 <th>Due</th>
               </tr>
@@ -52,6 +53,7 @@ export function SupplierOpenPurchases({
               {purchases.map((purchase) => (
                 <tr key={purchase.id}>
                   <td>{purchase.purchaseNumber}</td>
+                  <td>{purchase.productNames || "—"}</td>
                   <td>{purchase.purchaseDate}</td>
                   <td>{purchase.dueAmount}</td>
                 </tr>

@@ -141,6 +141,13 @@
       "when": 1786221000000,
       "tag": "0019_module_15_failed_login_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787071200000,
+      "tag": "0020_remove_supplier_tax_id",
+      "breakpoints": true
     }
   ]
 }

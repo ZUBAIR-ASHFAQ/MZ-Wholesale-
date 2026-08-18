@@ -9,7 +9,6 @@ export interface Supplier {
   phone: string | null;
   email: string | null;
   address: string | null;
-  taxId: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -20,6 +19,7 @@ export interface SupplierPurchaseSummary {
   id: string;
   purchaseNumber: string;
   purchaseDate: string;
+  productNames: string;
   dueAmount: string;
 }
 
@@ -66,7 +66,6 @@ export interface CreateSupplierInput {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
-  taxId?: string | null;
   openingBalance?: string;
 }
 
@@ -76,7 +75,6 @@ export interface UpdateSupplierInput {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
-  taxId?: string | null;
   isActive?: boolean;
 }
 
