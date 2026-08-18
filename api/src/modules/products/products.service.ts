@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { AppError } from "../../shared/errors/app-error.js";
@@ -143,8 +145,15 @@ async function requireCreatedProduct(
   database: ProductsDatabase,
   input: CreateProductInput,
 ): Promise<ProductDetailRecord> {
+  const productId = randomUUID();
+  const sku = input.sku?.trim() ||
+    `PRD-${productId.replaceAll("-", "").toUpperCase()}`;
+
+  await ensureSkuAvailable(database, sku);
+
   const product = await insertProduct(database, {
-    sku: input.sku.trim(),
+    id: productId,
+    sku,
     barcode: normalizeOptionalText(input.barcode),
     name: input.name.trim(),
     categoryId: input.categoryId,
@@ -327,7 +336,6 @@ export async function createProduct(
   input: CreateProductInput,
 ): Promise<ProductDetailRecord> {
   return database.transaction(async (transaction) => {
-    await ensureSkuAvailable(transaction, input.sku);
     await ensureBarcodeAvailable(transaction, input.barcode);
     await requireActiveCategory(transaction, input.categoryId);
     await requireActiveBrand(transaction, input.brandId);

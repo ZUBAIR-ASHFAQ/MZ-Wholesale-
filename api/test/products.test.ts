@@ -122,3 +122,18 @@ test("product unit input validates active status and repeated IDs", async () => 
   assert.match(validation, /validateUniqueUnitIds/);
   assert.match(validation, /Product unit appears more than once/);
 });
+
+/** Verifies product creation can omit SKU and the service generates a unique UUID-backed SKU. */
+test("product creation generates SKU when the client omits it", async () => {
+  const validation = await readProductValidation();
+  const service = await readProductService();
+
+  assert.match(validation, /sku:\s*skuSchema\.optional\(\)/);
+  assert.match(service, /const productId = randomUUID\(\)/);
+  assert.match(
+    service,
+    /`PRD-\$\{productId\.replaceAll\("-", ""\)\.toUpperCase\(\)\}`/,
+  );
+  assert.match(service, /await ensureSkuAvailable\(database, sku\)/);
+  assert.match(service, /requireCreatedProduct\(transaction, input\)/);
+});

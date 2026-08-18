@@ -33,6 +33,44 @@ interface FormErrors {
 const quantityPattern = /^\d+(\.\d{1,3})?$/;
 const moneyPattern = /^\d+(\.\d{1,2})?$/;
 
+const baseUnitGroups = [
+  {
+    label: "Count and packaging",
+    units: [
+      "Piece",
+      "Pair",
+      "Set",
+      "Dozen",
+      "Pack",
+      "Box",
+      "Carton",
+      "Bundle",
+      "Tray",
+      "Bag",
+      "Sack",
+      "Bottle",
+      "Can",
+      "Roll",
+    ],
+  },
+  {
+    label: "Weight",
+    units: ["Gram", "Kilogram"],
+  },
+  {
+    label: "Volume",
+    units: ["Milliliter", "Liter"],
+  },
+  {
+    label: "Length",
+    units: ["Centimeter", "Meter"],
+  },
+] as const;
+
+const knownBaseUnitNames = new Set<string>(
+  baseUnitGroups.flatMap((group) => group.units),
+);
+
 /** Creates the initial additional-unit rows for create or edit mode. */
 function createInitialUnits(product?: ProductDetail): UnitRow[] {
   if (!product) {
@@ -74,14 +112,6 @@ function apiErrors(error: unknown): FormErrors {
     errors[fieldError.field] = fieldError.message;
   }
 
-  if (error.code === "DUPLICATE_SKU") {
-    errors.sku = error.message;
-  }
-
-  if (error.code === "DUPLICATE_BARCODE") {
-    errors.barcode = error.message;
-  }
-
   if (error.code === "CATEGORY_INACTIVE") {
     errors.categoryId = error.message;
   }
@@ -109,8 +139,6 @@ export function ProductForm({
   const updateMutation = useUpdateProduct();
   const isEditing = Boolean(product);
 
-  const [sku, setSku] = useState(product?.sku ?? "");
-  const [barcode, setBarcode] = useState(product?.barcode ?? "");
   const [name, setName] = useState(product?.name ?? "");
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? "");
   const [brandId, setBrandId] = useState(product?.brandId ?? "");
@@ -118,7 +146,7 @@ export function ProductForm({
     product?.baseUnitName ?? "",
   );
   const [reorderLevel, setReorderLevel] = useState(
-    product?.reorderLevel ?? "0.000",
+    product?.reorderLevel ?? "",
   );
   const [referencePurchasePrice, setReferencePurchasePrice] = useState(
     product?.referencePurchasePrice ?? "",
@@ -170,14 +198,16 @@ export function ProductForm({
   function validate(): FormErrors {
     const nextErrors: FormErrors = {};
 
-    if (!sku.trim()) nextErrors.sku = "SKU is required.";
     if (!name.trim()) nextErrors.name = "Product name is required.";
     if (!categoryId) nextErrors.categoryId = "Category is required.";
     if (!baseUnitName.trim()) {
       nextErrors.baseUnitName = "Base unit is required.";
     }
 
-    if (!quantityPattern.test(reorderLevel.trim())) {
+    if (
+      reorderLevel.trim() &&
+      !quantityPattern.test(reorderLevel.trim())
+    ) {
       nextErrors.reorderLevel =
         "Reorder level must be a non-negative number with up to 3 decimals.";
     }
@@ -228,13 +258,11 @@ export function ProductForm({
   /** Converts form state to the API product input. */
   function buildInput(): CreateProductInput {
     return {
-      sku: sku.trim(),
-      barcode: optionalText(barcode),
       name: name.trim(),
       categoryId,
       brandId: brandId || null,
       baseUnitName: baseUnitName.trim(),
-      reorderLevel: reorderLevel.trim(),
+      ...(reorderLevel.trim() ? { reorderLevel: reorderLevel.trim() } : {}),
       referencePurchasePrice: optionalText(referencePurchasePrice),
       referenceSalePrice: optionalText(referenceSalePrice),
       units: units.map((unit) => ({
@@ -298,29 +326,7 @@ export function ProductForm({
         ) : null}
 
         <div className="product-form-grid">
-          <label className="ui-field" htmlFor="product-sku">
-            <span>SKU</span>
-            <input
-              id="product-sku"
-              onChange={(event) => setSku(event.target.value)}
-              value={sku}
-            />
-            {errors.sku ? <small className="error-message">{errors.sku}</small> : null}
-          </label>
-
-          <label className="ui-field" htmlFor="product-barcode">
-            <span>Barcode (optional)</span>
-            <input
-              id="product-barcode"
-              onChange={(event) => setBarcode(event.target.value)}
-              value={barcode}
-            />
-            {errors.barcode ? (
-              <small className="error-message">{errors.barcode}</small>
-            ) : null}
-          </label>
-
-          <label className="ui-field product-form-wide" htmlFor="product-name">
+          <label className="ui-field" htmlFor="product-name">
             <span>Product name</span>
             <input
               id="product-name"
@@ -374,12 +380,25 @@ export function ProductForm({
 
           <label className="ui-field" htmlFor="product-base-unit">
             <span>Base stock unit</span>
-            <input
+            <select
               id="product-base-unit"
               onChange={(event) => setBaseUnitName(event.target.value)}
               value={baseUnitName}
-            />
-            <small>Its conversion is always 1.000.</small>
+            >
+              <option value="">Select measuring unit</option>
+              {baseUnitName && !knownBaseUnitNames.has(baseUnitName) ? (
+                <option value={baseUnitName}>{baseUnitName}</option>
+              ) : null}
+              {baseUnitGroups.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.units.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
             {errors.baseUnitName ? (
               <small className="error-message">{errors.baseUnitName}</small>
             ) : null}
@@ -391,6 +410,7 @@ export function ProductForm({
               id="product-reorder-level"
               inputMode="decimal"
               onChange={(event) => setReorderLevel(event.target.value)}
+              placeholder="Enter reorder level"
               value={reorderLevel}
             />
             {errors.reorderLevel ? (
@@ -421,7 +441,6 @@ export function ProductForm({
               onChange={(event) => setReferenceSalePrice(event.target.value)}
               value={referenceSalePrice}
             />
-            <small>Informational only. Sale price remains manually editable.</small>
             {errors.referenceSalePrice ? (
               <small className="error-message">{errors.referenceSalePrice}</small>
             ) : null}

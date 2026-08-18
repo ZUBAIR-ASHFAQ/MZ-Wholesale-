@@ -17,7 +17,6 @@ const pageSize = 20;
 
 const emptyFilters: ProductFilterValues = {
   search: "",
-  barcode: "",
   categoryId: "",
   active: "all",
 };
@@ -29,7 +28,6 @@ function apiFilters(
 ): ProductListFilters {
   return {
     search: values.search || undefined,
-    barcode: values.barcode || undefined,
     categoryId: values.categoryId || undefined,
     active:
       values.active === "all" ? undefined : values.active === "active",

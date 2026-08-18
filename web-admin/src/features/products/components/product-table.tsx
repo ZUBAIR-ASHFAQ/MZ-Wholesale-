@@ -24,8 +24,6 @@ export function ProductTable({ products }: ProductTableProps): React.JSX.Element
       <table className="ui-table product-table">
         <thead>
           <tr>
-            <th>SKU</th>
-            <th>Barcode</th>
             <th>Name</th>
             <th>Category</th>
             <th>Brand</th>
@@ -39,8 +37,6 @@ export function ProductTable({ products }: ProductTableProps): React.JSX.Element
         <tbody>
           {products.map((product) => (
             <tr key={product.id}>
-              <td>{product.sku}</td>
-              <td>{displayValue(product.barcode)}</td>
               <td>{product.name}</td>
               <td>{product.categoryName}</td>
               <td>{displayValue(product.brandName)}</td>

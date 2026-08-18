@@ -175,7 +175,7 @@ function validateUniqueUnitIds(
 /** Validates all fields accepted when creating a product. */
 export const createProductSchema = z
   .object({
-    sku: skuSchema,
+    sku: skuSchema.optional(),
     barcode: barcodeSchema.nullable().optional(),
     name: productNameSchema,
     categoryId: uuidSchema,

@@ -4,7 +4,6 @@ import type { ProductCategory } from "../api/products.api.ts";
 
 export interface ProductFilterValues {
   search: string;
-  barcode: string;
   categoryId: string;
   active: "all" | "active" | "inactive";
 }
@@ -45,16 +44,9 @@ export function ProductFilters({
     <form className="product-filters" onSubmit={handleSubmit}>
       <Input
         id="product-search"
-        label="Search name or SKU"
+        label="Search product name"
         onChange={(value) => changeField("search", value)}
         value={values.search}
-      />
-
-      <Input
-        id="product-barcode"
-        label="Exact barcode"
-        onChange={(value) => changeField("barcode", value)}
-        value={values.barcode}
       />
 
       <label className="ui-field" htmlFor="product-category-filter">

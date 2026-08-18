@@ -81,7 +81,7 @@ export interface ProductUnitInput {
 
 /** Fields required to create a product. */
 export interface CreateProductInput {
-  sku: string;
+  sku?: string;
   barcode?: string | null;
   name: string;
   categoryId: string;
@@ -183,13 +183,20 @@ export async function loadProduct(
   return requestApi<ApiSuccess<ProductDetail>>(`/products/${productId}`);
 }
 
+/** Creates a hidden internal SKU without exposing an editable SKU field. */
+function createInternalProductSku(): string {
+  return `PRD-${globalThis.crypto.randomUUID().replaceAll("-", "").toUpperCase()}`;
+}
+
 /** Creates one product and its base and additional units. */
 export async function createProduct(
   input: CreateProductInput,
 ): Promise<ApiSuccess<ProductDetail>> {
+  const sku = input.sku?.trim() || createInternalProductSku();
+
   return requestApi<ApiSuccess<ProductDetail>>("/products", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, sku }),
   });
 }
 

@@ -78,6 +78,7 @@ import { SupplierPayableReportPage } from "../features/reports/pages/supplier-pa
 import { AuditLogsPage } from "../features/system/pages/audit-logs-page.tsx";
 import { ExportsPage } from "../features/system/pages/exports-page.tsx";
 import { ImportsPage } from "../features/system/pages/imports-page.tsx";
+import { WireframePage } from "../features/system/pages/wireframe-page.tsx";
 import { AppLayout } from "./layouts/app-layout.tsx";
 import { AuthLayout } from "./layouts/auth-layout.tsx";
 
@@ -263,6 +264,12 @@ const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/dashboard",
   component: DashboardPage,
+});
+
+const wireframeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/system/wireframe",
+  component: WireframePage,
 });
 
 const expensesRoute = createRoute({
@@ -760,6 +767,7 @@ const routeTree = rootRoute.addChildren([
   sessionsRoute,
   settingsRoute,
   dashboardRoute,
+  wireframeRoute,
   expensesRoute,
   newExpenseRoute,
   expenseCategoriesRoute,

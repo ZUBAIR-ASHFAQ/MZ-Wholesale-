@@ -59,8 +59,6 @@ export function ProductDetailPage({
         <section className="management-card">
           <h2>Product details</h2>
           <dl className="detail-list">
-            <div><dt>SKU</dt><dd>{product.sku}</dd></div>
-            <div><dt>Barcode</dt><dd>{product.barcode ?? "—"}</dd></div>
             <div><dt>Category</dt><dd>{product.categoryName}</dd></div>
             <div><dt>Brand</dt><dd>{product.brandName ?? "—"}</dd></div>
             <div><dt>Base unit</dt><dd>{product.baseUnitName}</dd></div>
