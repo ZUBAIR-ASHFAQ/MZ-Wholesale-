@@ -56,11 +56,10 @@ export function AppLayout({
   const dashboardActive = currentPath === "/dashboard";
   const productsActive = currentPath.startsWith("/products") || currentPath === "/product-settings";
   const customersActive = currentPath.startsWith("/customers");
-  const supplierPaymentsActive = currentPath.startsWith("/payments/supplier-payments");
-  const suppliersActive = currentPath.startsWith("/suppliers") || supplierPaymentsActive;
+  const suppliersActive = currentPath.startsWith("/suppliers");
   const inventoryActive = currentPath.startsWith("/inventory");
   const ledgersActive = currentPath.startsWith("/ledgers");
-  const paymentsActive = currentPath.startsWith("/payments") && !supplierPaymentsActive;
+  const paymentsActive = currentPath.startsWith("/payments");
   const purchasesActive = currentPath.startsWith("/purchases");
   const salesActive = currentPath.startsWith("/sales");
   const returnsActive = currentPath.startsWith("/returns");
@@ -193,12 +192,6 @@ export function AppLayout({
                 <Link className={linkClass(currentPath === "/suppliers/new")} to="/suppliers/new">
                   New supplier
                 </Link>
-                <Link className={linkClass(currentPath === "/payments/supplier-payments")} to="/payments/supplier-payments">
-                  Supplier payments
-                </Link>
-                <Link className={linkClass(currentPath === "/payments/supplier-payments/new")} to="/payments/supplier-payments/new">
-                  New supplier payment
-                </Link>
               </div>
             </details>
           </div>
@@ -232,6 +225,12 @@ export function AppLayout({
                 </Link>
                 <Link className={linkClass(currentPath === "/payments/customer-receipts/new")} to="/payments/customer-receipts/new">
                   New customer receipt
+                </Link>
+                <Link className={linkClass(currentPath === "/payments/supplier-payments")} to="/payments/supplier-payments">
+                  Supplier payments
+                </Link>
+                <Link className={linkClass(currentPath === "/payments/supplier-payments/new")} to="/payments/supplier-payments/new">
+                  New supplier payment
                 </Link>
                 <Link className={linkClass(currentPath === "/payments/transfers")} to="/payments/transfers">
                   Transfers
