@@ -246,16 +246,19 @@ export async function listCashAccounts(
       openingBalance: cashAccounts.openingBalance,
       isActive: cashAccounts.isActive,
       createdAt: cashAccounts.createdAt,
-      balance: sql<string>`coalesce((
-        select sum(
-          case
-            when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
-            else -${cashBankMovements.amount}
-          end
-        )
-        from ${cashBankMovements}
-        where ${cashBankMovements.cashAccountId} = ${cashAccounts.id}
-      ), 0)::text`,
+      balance: sql<string>`(
+        ${cashAccounts.openingBalance} + coalesce((
+          select sum(
+            case
+              when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
+              else -${cashBankMovements.amount}
+            end
+          )
+          from ${cashBankMovements}
+          where ${cashBankMovements.cashAccountId} = ${cashAccounts.id}
+            and ${cashBankMovements.sourceType} <> 'OPENING_BALANCE'
+        ), 0)
+      )::text`,
     })
     .from(cashAccounts)
     .orderBy(asc(cashAccounts.name), asc(cashAccounts.id));
@@ -274,16 +277,19 @@ export async function listBankAccounts(
       openingBalance: bankAccounts.openingBalance,
       isActive: bankAccounts.isActive,
       createdAt: bankAccounts.createdAt,
-      balance: sql<string>`coalesce((
-        select sum(
-          case
-            when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
-            else -${cashBankMovements.amount}
-          end
-        )
-        from ${cashBankMovements}
-        where ${cashBankMovements.bankAccountId} = ${bankAccounts.id}
-      ), 0)::text`,
+      balance: sql<string>`(
+        ${bankAccounts.openingBalance} + coalesce((
+          select sum(
+            case
+              when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
+              else -${cashBankMovements.amount}
+            end
+          )
+          from ${cashBankMovements}
+          where ${cashBankMovements.bankAccountId} = ${bankAccounts.id}
+            and ${cashBankMovements.sourceType} <> 'OPENING_BALANCE'
+        ), 0)
+      )::text`,
     })
     .from(bankAccounts)
     .orderBy(
@@ -434,15 +440,23 @@ export async function readCashAccountBalance(
 ): Promise<string> {
   const rows = await database
     .select({
-      balance: sql<string>`coalesce(sum(
-        case
-          when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
-          else -${cashBankMovements.amount}
-        end
-      ), 0)::text`,
+      balance: sql<string>`(
+        ${cashAccounts.openingBalance} + coalesce((
+          select sum(
+            case
+              when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
+              else -${cashBankMovements.amount}
+            end
+          )
+          from ${cashBankMovements}
+          where ${cashBankMovements.cashAccountId} = ${cashAccounts.id}
+            and ${cashBankMovements.sourceType} <> 'OPENING_BALANCE'
+        ), 0)
+      )::text`,
     })
-    .from(cashBankMovements)
-    .where(eq(cashBankMovements.cashAccountId, accountId));
+    .from(cashAccounts)
+    .where(eq(cashAccounts.id, accountId))
+    .limit(1);
 
   return rows[0]?.balance ?? "0.00";
 }
@@ -547,15 +561,23 @@ export async function readBankAccountBalance(
 ): Promise<string> {
   const rows = await database
     .select({
-      balance: sql<string>`coalesce(sum(
-        case
-          when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
-          else -${cashBankMovements.amount}
-        end
-      ), 0)::text`,
+      balance: sql<string>`(
+        ${bankAccounts.openingBalance} + coalesce((
+          select sum(
+            case
+              when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
+              else -${cashBankMovements.amount}
+            end
+          )
+          from ${cashBankMovements}
+          where ${cashBankMovements.bankAccountId} = ${bankAccounts.id}
+            and ${cashBankMovements.sourceType} <> 'OPENING_BALANCE'
+        ), 0)
+      )::text`,
     })
-    .from(cashBankMovements)
-    .where(eq(cashBankMovements.bankAccountId, accountId));
+    .from(bankAccounts)
+    .where(eq(bankAccounts.id, accountId))
+    .limit(1);
 
   return rows[0]?.balance ?? "0.00";
 }

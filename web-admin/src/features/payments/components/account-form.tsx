@@ -52,10 +52,11 @@ export function CashAccountForm({
     resolver: zodResolver(cashAccountSchema),
     defaultValues: { name: "", openingBalance: "0.00" },
   });
+  const { reset } = form;
 
   useEffect(() => {
-    form.reset({ name: account?.name ?? "", openingBalance: "0.00" });
-  }, [account, form]);
+    reset({ name: account?.name ?? "", openingBalance: "0.00" });
+  }, [account, reset]);
 
   /** Saves the validated cash account values. */
   async function handleSubmit(values: CashAccountValues): Promise<void> {
@@ -114,15 +115,16 @@ export function BankAccountForm({
     resolver: zodResolver(bankAccountSchema),
     defaultValues: { bankName: "", accountName: "", accountNumber: "", openingBalance: "0.00" },
   });
+  const { reset } = form;
 
   useEffect(() => {
-    form.reset({
+    reset({
       bankName: account?.bankName ?? "",
       accountName: account?.accountName ?? "",
       accountNumber: account?.accountNumber ?? "",
       openingBalance: "0.00",
     });
-  }, [account, form]);
+  }, [account, reset]);
 
   /** Saves the validated bank account values. */
   async function handleSubmit(values: BankAccountValues): Promise<void> {

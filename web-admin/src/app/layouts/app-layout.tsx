@@ -55,12 +55,13 @@ export function AppLayout({
   const logout = useLogoutAdmin();
   const dashboardActive = currentPath === "/dashboard";
   const productsActive = currentPath.startsWith("/products") || currentPath === "/product-settings";
-  const customersActive = currentPath.startsWith("/customers");
+  const customerReceiptsActive = currentPath.startsWith("/payments/customer-receipts");
+  const customersActive = currentPath.startsWith("/customers") || customerReceiptsActive;
   const supplierPaymentsActive = currentPath.startsWith("/payments/supplier-payments");
   const suppliersActive = currentPath.startsWith("/suppliers") || supplierPaymentsActive;
   const inventoryActive = currentPath.startsWith("/inventory");
   const ledgersActive = currentPath.startsWith("/ledgers");
-  const paymentsActive = currentPath.startsWith("/payments") && !supplierPaymentsActive;
+  const paymentsActive = currentPath.startsWith("/payments") && !supplierPaymentsActive && !customerReceiptsActive;
   const purchasesActive = currentPath.startsWith("/purchases");
   const salesActive = currentPath.startsWith("/sales");
   const returnsActive = currentPath.startsWith("/returns");
@@ -179,6 +180,12 @@ export function AppLayout({
                 <Link className={linkClass(currentPath === "/customers/new")} to="/customers/new">
                   New customer
                 </Link>
+                <Link className={linkClass(currentPath === "/payments/customer-receipts")} to="/payments/customer-receipts">
+                  Customer receipts
+                </Link>
+                <Link className={linkClass(currentPath === "/payments/customer-receipts/new")} to="/payments/customer-receipts/new">
+                  New customer receipt
+                </Link>
               </div>
             </details>
 
@@ -226,12 +233,6 @@ export function AppLayout({
               <div className="sidebar-subnav">
                 <Link className={linkClass(currentPath === "/payments/accounts")} to="/payments/accounts">
                   Accounts
-                </Link>
-                <Link className={linkClass(currentPath === "/payments/customer-receipts")} to="/payments/customer-receipts">
-                  Customer receipts
-                </Link>
-                <Link className={linkClass(currentPath === "/payments/customer-receipts/new")} to="/payments/customer-receipts/new">
-                  New customer receipt
                 </Link>
                 <Link className={linkClass(currentPath === "/payments/transfers")} to="/payments/transfers">
                   Transfers

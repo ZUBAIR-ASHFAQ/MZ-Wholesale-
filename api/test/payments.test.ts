@@ -355,7 +355,11 @@ test("Module 8 repository calculates account balances from movements", async () 
     "../src/modules/payments/payments.repository.ts",
   );
 
+  assert.match(repository, /cashAccounts\.openingBalance/);
+  assert.match(repository, /bankAccounts\.openingBalance/);
   assert.match(repository, /cashBankMovements\.direction/);
+  assert.match(repository, /cashBankMovements\.sourceType/);
+  assert.match(repository, /<> 'OPENING_BALANCE'/);
   assert.match(repository, /'INFLOW'/);
   assert.match(repository, /else -\$\{cashBankMovements\.amount\}/);
   assert.doesNotMatch(repository, /currentBalance|current_balance/);
