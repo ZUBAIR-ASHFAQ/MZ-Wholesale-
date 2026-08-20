@@ -1,8 +1,16 @@
 import { AppError } from "../../shared/errors/app-error.js";
 import { reserveBusinessDocumentNumberInTransaction } from "../business-settings/index.js";
 import { getCustomerCurrentDue, getSupplierCurrentPayable, writeCustomerCredit, writeCustomerDebit, writeSupplierCredit, writeSupplierDebit } from "../ledgers/ledgers.service.js";
-import { findCustomerById } from "../customers/customers.repository.js";
-import { findSupplierById } from "../suppliers/suppliers.repository.js";
+import {
+  findCustomerById,
+  findCustomerByIdForUpdate,
+  getCustomerOpenInvoiceDueTotal,
+} from "../customers/customers.repository.js";
+import {
+  findSupplierById,
+  findSupplierByIdForUpdate,
+  getSupplierOpenPurchaseDueTotal,
+} from "../suppliers/suppliers.repository.js";
 import {
   createBankAccount as insertBankAccount,
   createCashAccount as insertCashAccount,
@@ -152,6 +160,7 @@ export interface CustomerReceiptDetail extends CustomerPaymentRecord {
   customerName: string;
   splits: Awaited<ReturnType<typeof listCustomerPaymentSplits>>;
   allocations: Array<{ documentId: string; amount: string }>;
+  customerDueAmount: string;
   customerBalance: string;
 }
 
@@ -168,6 +177,7 @@ export interface SupplierPaymentDetail extends SupplierPaymentRecord {
   supplierName: string;
   splits: Awaited<ReturnType<typeof listSupplierPaymentSplits>>;
   allocations: Array<{ documentId: string; amount: string }>;
+  supplierPayableAmount: string;
   supplierBalance: string;
 }
 
@@ -477,6 +487,120 @@ async function validatePaymentRequest(
   await validateAccountsAreActive(database, splits);
   validateAllocationParty(partyId, documents);
   validateOutstandingAmounts(allocations, documents);
+}
+
+/** Validates a customer receipt that can settle invoices and/or non-invoice customer due. */
+async function validateCustomerReceiptRequest(
+  database: PaymentsDatabase,
+  customerId: string,
+  splits: readonly PaymentSplitForValidation[],
+  allocations: readonly PaymentAllocationForValidation[],
+  documents: readonly ResolvedAllocationDocument[],
+  customerDueAmount: string,
+  availableCustomerDueAmount: string,
+): Promise<void> {
+  validateSplits(splits);
+
+  if (allocations.length > 0) {
+    validateAllocations(allocations);
+  }
+
+  if (allocations.length === 0 && moneyToCents(customerDueAmount) <= 0n) {
+    throw paymentError(
+      "PAYMENT_AMOUNT_INVALID",
+      "Allocate the receipt to an invoice or existing customer due.",
+      400,
+      "allocations",
+    );
+  }
+
+  await validateAccountsAreActive(database, splits);
+  validateAllocationParty(customerId, documents);
+  validateOutstandingAmounts(allocations, documents);
+
+  if (moneyToCents(customerDueAmount) > moneyToCents(availableCustomerDueAmount)) {
+    throw paymentError(
+      "CUSTOMER_DUE_EXCEEDED",
+      "Customer due payment cannot exceed the available non-invoice due.",
+      409,
+      "customerDueAmount",
+    );
+  }
+
+  const splitTotal = splits.reduce(
+    (total, split) => total + moneyToCents(split.amount),
+    0n,
+  );
+  const receiptTotal = allocations.reduce(
+    (total, allocation) => total + moneyToCents(allocation.amount),
+    moneyToCents(customerDueAmount),
+  );
+
+  if (splitTotal !== receiptTotal) {
+    throw paymentError(
+      "PAYMENT_TOTAL_MISMATCH",
+      "Payment split total must equal invoice allocations plus customer due payment.",
+      400,
+      "allocations",
+    );
+  }
+}
+
+/** Validates a supplier payment that can settle purchases and/or non-purchase supplier payable. */
+async function validateSupplierPaymentRequest(
+  database: PaymentsDatabase,
+  supplierId: string,
+  splits: readonly PaymentSplitForValidation[],
+  allocations: readonly PaymentAllocationForValidation[],
+  documents: readonly ResolvedAllocationDocument[],
+  supplierPayableAmount: string,
+  availableSupplierPayableAmount: string,
+): Promise<void> {
+  validateSplits(splits);
+
+  if (allocations.length > 0) {
+    validateAllocations(allocations);
+  }
+
+  if (allocations.length === 0 && moneyToCents(supplierPayableAmount) <= 0n) {
+    throw paymentError(
+      "PAYMENT_AMOUNT_INVALID",
+      "Allocate the payment to a purchase or existing supplier payable.",
+      400,
+      "allocations",
+    );
+  }
+
+  await validateAccountsAreActive(database, splits);
+  validateAllocationParty(supplierId, documents);
+  validateOutstandingAmounts(allocations, documents);
+
+  if (moneyToCents(supplierPayableAmount) > moneyToCents(availableSupplierPayableAmount)) {
+    throw paymentError(
+      "SUPPLIER_PAYABLE_EXCEEDED",
+      "Supplier payable payment cannot exceed the available non-purchase payable.",
+      409,
+      "supplierPayableAmount",
+    );
+  }
+
+  const splitTotal = splits.reduce(
+    (total, split) => total + moneyToCents(split.amount),
+    0n,
+  );
+  const paymentTotal = allocations.reduce(
+    (total, allocation) => total + moneyToCents(allocation.amount),
+    moneyToCents(supplierPayableAmount),
+  );
+
+  if (splitTotal !== paymentTotal) {
+    throw paymentError(
+      "PAYMENT_TOTAL_MISMATCH",
+      "Payment split total must equal purchase allocations plus supplier payable payment.",
+      400,
+      "allocations",
+    );
+  }
 }
 
 /** Runs related account writes in one PostgreSQL transaction. */
@@ -1456,6 +1580,11 @@ async function buildCustomerReceiptDetail(
     throw paymentError("CUSTOMER_NOT_FOUND", "Customer was not found.", 404);
   }
 
+  const allocatedAmount = allocations.reduce(
+    (total, allocation) => total + moneyToCents(allocation.amount),
+    0n,
+  );
+
   return {
     ...payment,
     customerName: customer.name,
@@ -1464,6 +1593,9 @@ async function buildCustomerReceiptDetail(
       documentId: allocation.salesInvoiceId,
       amount: allocation.amount,
     })),
+    customerDueAmount: centsToMoney(
+      moneyToCents(payment.totalAmount) - allocatedAmount,
+    ),
     customerBalance,
   };
 }
@@ -1481,12 +1613,12 @@ export async function listCustomerReceipts(
   return { items, page: query.page, pageSize: query.pageSize, total };
 }
 
-/** Creates one immutable customer receipt against confirmed outstanding sales invoices. */
+/** Creates one immutable customer receipt against invoice-linked and/or existing customer due. */
 export async function createCustomerReceipt(
   database: PaymentsDatabase,
   input: CreateCustomerReceiptInput,
 ): Promise<CustomerReceiptDetail> {
-  const customer = await findCustomerById(database, input.customerId);
+  const customer = await findCustomerByIdForUpdate(database, input.customerId);
   if (!customer) {
     throw paymentError("CUSTOMER_NOT_FOUND", "Customer was not found.", 404);
   }
@@ -1505,12 +1637,23 @@ export async function createCustomerReceipt(
     ),
   }));
 
-  await validatePaymentRequest(
+  const [currentDue, invoiceDue] = await Promise.all([
+    getCustomerCurrentDue(database, input.customerId),
+    getCustomerOpenInvoiceDueTotal(database, input.customerId),
+  ]);
+  const unallocatedDueCents = moneyToCents(currentDue) - moneyToCents(invoiceDue);
+  const availableCustomerDueAmount = centsToMoney(
+    unallocatedDueCents > 0n ? unallocatedDueCents : 0n,
+  );
+
+  await validateCustomerReceiptRequest(
     database,
     input.customerId,
     input.splits,
     input.allocations,
     documents,
+    input.customerDueAmount,
+    availableCustomerDueAmount,
   );
 
   const totalAmount = centsToMoney(
@@ -1990,6 +2133,11 @@ async function buildSupplierPaymentDetail(
     throw paymentError("SUPPLIER_NOT_FOUND", "Supplier was not found.", 404);
   }
 
+  const allocatedAmount = allocations.reduce(
+    (total, allocation) => total + moneyToCents(allocation.amount),
+    0n,
+  );
+
   return {
     ...payment,
     supplierName: supplier.name,
@@ -1998,6 +2146,9 @@ async function buildSupplierPaymentDetail(
       documentId: allocation.purchaseId,
       amount: allocation.amount,
     })),
+    supplierPayableAmount: centsToMoney(
+      moneyToCents(payment.totalAmount) - allocatedAmount,
+    ),
     supplierBalance,
   };
 }
@@ -2029,6 +2180,11 @@ export async function createSupplierPayment(
     database,
     input.allocations.map((allocation) => allocation.documentId),
   );
+  const lockedSupplier = await findSupplierByIdForUpdate(database, input.supplierId);
+  if (!lockedSupplier) {
+    throw paymentError("SUPPLIER_NOT_FOUND", "Supplier was not found.", 404);
+  }
+
   const documents: ResolvedAllocationDocument[] = purchaseRows.map((purchase) => ({
     documentId: purchase.id,
     partyId: purchase.supplierId,
@@ -2039,12 +2195,23 @@ export async function createSupplierPayment(
     ),
   }));
 
-  await validatePaymentRequest(
+  const [currentPayable, purchaseDue] = await Promise.all([
+    getSupplierCurrentPayable(database, input.supplierId),
+    getSupplierOpenPurchaseDueTotal(database, input.supplierId),
+  ]);
+  const unallocatedPayableCents = moneyToCents(currentPayable) - moneyToCents(purchaseDue);
+  const availableSupplierPayableAmount = centsToMoney(
+    unallocatedPayableCents > 0n ? unallocatedPayableCents : 0n,
+  );
+
+  await validateSupplierPaymentRequest(
     database,
     input.supplierId,
     input.splits,
     input.allocations,
     documents,
+    input.supplierPayableAmount,
+    availableSupplierPayableAmount,
   );
 
   const totalAmount = centsToMoney(

@@ -148,6 +148,13 @@
       "when": 1787071200000,
       "tag": "0020_remove_supplier_tax_id",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1787131800000,
+      "tag": "0021_remove_customer_tax_id",
+      "breakpoints": true
     }
   ]
 }

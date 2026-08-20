@@ -125,6 +125,7 @@ export async function registerPaymentRoutes(
     _request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
+    reply.header("cache-control", "no-store");
     reply.send(createDataResponse(await listAccounts(app.db)));
   }
 

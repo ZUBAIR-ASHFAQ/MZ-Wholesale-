@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import {
@@ -247,20 +247,30 @@ export async function listCashAccounts(
       isActive: cashAccounts.isActive,
       createdAt: cashAccounts.createdAt,
       balance: sql<string>`(
-        ${cashAccounts.openingBalance} + coalesce((
-          select sum(
-            case
-              when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
-              else -${cashBankMovements.amount}
-            end
-          )
-          from ${cashBankMovements}
-          where ${cashBankMovements.cashAccountId} = ${cashAccounts.id}
-            and ${cashBankMovements.sourceType} <> 'OPENING_BALANCE'
+        ${cashAccounts.openingBalance} + coalesce(sum(
+          case
+            when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
+            when ${cashBankMovements.direction} = 'OUTFLOW' then -${cashBankMovements.amount}
+            else 0
+          end
         ), 0)
       )::text`,
     })
     .from(cashAccounts)
+    .leftJoin(
+      cashBankMovements,
+      and(
+        eq(cashBankMovements.cashAccountId, cashAccounts.id),
+        ne(cashBankMovements.sourceType, "OPENING_BALANCE"),
+      ),
+    )
+    .groupBy(
+      cashAccounts.id,
+      cashAccounts.name,
+      cashAccounts.openingBalance,
+      cashAccounts.isActive,
+      cashAccounts.createdAt,
+    )
     .orderBy(asc(cashAccounts.name), asc(cashAccounts.id));
 }
 
@@ -278,20 +288,32 @@ export async function listBankAccounts(
       isActive: bankAccounts.isActive,
       createdAt: bankAccounts.createdAt,
       balance: sql<string>`(
-        ${bankAccounts.openingBalance} + coalesce((
-          select sum(
-            case
-              when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
-              else -${cashBankMovements.amount}
-            end
-          )
-          from ${cashBankMovements}
-          where ${cashBankMovements.bankAccountId} = ${bankAccounts.id}
-            and ${cashBankMovements.sourceType} <> 'OPENING_BALANCE'
+        ${bankAccounts.openingBalance} + coalesce(sum(
+          case
+            when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
+            when ${cashBankMovements.direction} = 'OUTFLOW' then -${cashBankMovements.amount}
+            else 0
+          end
         ), 0)
       )::text`,
     })
     .from(bankAccounts)
+    .leftJoin(
+      cashBankMovements,
+      and(
+        eq(cashBankMovements.bankAccountId, bankAccounts.id),
+        ne(cashBankMovements.sourceType, "OPENING_BALANCE"),
+      ),
+    )
+    .groupBy(
+      bankAccounts.id,
+      bankAccounts.bankName,
+      bankAccounts.accountName,
+      bankAccounts.accountNumber,
+      bankAccounts.openingBalance,
+      bankAccounts.isActive,
+      bankAccounts.createdAt,
+    )
     .orderBy(
       asc(bankAccounts.bankName),
       asc(bankAccounts.accountName),
@@ -441,21 +463,25 @@ export async function readCashAccountBalance(
   const rows = await database
     .select({
       balance: sql<string>`(
-        ${cashAccounts.openingBalance} + coalesce((
-          select sum(
-            case
-              when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
-              else -${cashBankMovements.amount}
-            end
-          )
-          from ${cashBankMovements}
-          where ${cashBankMovements.cashAccountId} = ${cashAccounts.id}
-            and ${cashBankMovements.sourceType} <> 'OPENING_BALANCE'
+        ${cashAccounts.openingBalance} + coalesce(sum(
+          case
+            when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
+            when ${cashBankMovements.direction} = 'OUTFLOW' then -${cashBankMovements.amount}
+            else 0
+          end
         ), 0)
       )::text`,
     })
     .from(cashAccounts)
+    .leftJoin(
+      cashBankMovements,
+      and(
+        eq(cashBankMovements.cashAccountId, cashAccounts.id),
+        ne(cashBankMovements.sourceType, "OPENING_BALANCE"),
+      ),
+    )
     .where(eq(cashAccounts.id, accountId))
+    .groupBy(cashAccounts.id, cashAccounts.openingBalance)
     .limit(1);
 
   return rows[0]?.balance ?? "0.00";
@@ -562,21 +588,25 @@ export async function readBankAccountBalance(
   const rows = await database
     .select({
       balance: sql<string>`(
-        ${bankAccounts.openingBalance} + coalesce((
-          select sum(
-            case
-              when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
-              else -${cashBankMovements.amount}
-            end
-          )
-          from ${cashBankMovements}
-          where ${cashBankMovements.bankAccountId} = ${bankAccounts.id}
-            and ${cashBankMovements.sourceType} <> 'OPENING_BALANCE'
+        ${bankAccounts.openingBalance} + coalesce(sum(
+          case
+            when ${cashBankMovements.direction} = 'INFLOW' then ${cashBankMovements.amount}
+            when ${cashBankMovements.direction} = 'OUTFLOW' then -${cashBankMovements.amount}
+            else 0
+          end
         ), 0)
       )::text`,
     })
     .from(bankAccounts)
+    .leftJoin(
+      cashBankMovements,
+      and(
+        eq(cashBankMovements.bankAccountId, bankAccounts.id),
+        ne(cashBankMovements.sourceType, "OPENING_BALANCE"),
+      ),
+    )
     .where(eq(bankAccounts.id, accountId))
+    .groupBy(bankAccounts.id, bankAccounts.openingBalance)
     .limit(1);
 
   return rows[0]?.balance ?? "0.00";

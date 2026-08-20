@@ -27,6 +27,7 @@ interface ReceiptFormErrors {
   customerId?: string;
   paymentDate?: string;
   allocations?: string;
+  customerDueAmount?: string;
   splits?: string;
   notes?: string;
   root?: string;
@@ -97,6 +98,8 @@ function validateReceipt(
   paymentDate: string,
   invoices: CustomerInvoiceSummary[],
   allocationAmounts: Record<string, string>,
+  customerDueAmount: string,
+  availableCustomerDueAmount: string,
   splits: PaymentSplitInput[],
   notes: string,
 ): ReceiptFormErrors {
@@ -126,8 +129,19 @@ function validateReceipt(
     }
   }
 
-  if (allocations.length === 0) {
-    errors.allocations = "Allocate a positive amount to at least one invoice.";
+  const enteredCustomerDueAmount = customerDueAmount.trim();
+  const customerDueCents = moneyToCents(enteredCustomerDueAmount);
+
+  if (enteredCustomerDueAmount) {
+    if (!/^\d+(\.\d{1,2})?$/.test(enteredCustomerDueAmount) || customerDueCents <= 0n) {
+      errors.customerDueAmount = "Enter a positive amount with up to two decimals.";
+    } else if (customerDueCents > moneyToCents(availableCustomerDueAmount)) {
+      errors.customerDueAmount = "Customer due payment cannot exceed the available due.";
+    }
+  }
+
+  if (allocations.length === 0 && customerDueCents <= 0n) {
+    errors.allocations = "Enter a payment against an invoice or the customer's existing due.";
   }
 
   if (splits.length === 0) {
@@ -148,11 +162,11 @@ function validateReceipt(
     }
   });
 
-  const allocationTotal = amountTotal(allocations);
+  const receiptTotal = amountTotal(allocations) + customerDueCents;
   const splitTotal = amountTotal(splits);
 
-  if (allocationTotal > 0n && splitTotal > 0n && allocationTotal !== splitTotal) {
-    errors.splits = "Payment split total must equal the allocation total.";
+  if (receiptTotal > 0n && splitTotal > 0n && receiptTotal !== splitTotal) {
+    errors.splits = "Payment split total must equal invoice allocations plus customer due payment.";
   }
 
   return errors;
@@ -164,6 +178,7 @@ function hasErrors(errors: ReceiptFormErrors): boolean {
     errors.customerId ||
       errors.paymentDate ||
       errors.allocations ||
+      errors.customerDueAmount ||
       errors.splits ||
       errors.notes ||
       errors.root ||
@@ -187,21 +202,27 @@ export function CustomerReceiptForm({
     { method: "CASH", amount: "", cashAccountId: "" },
   ]);
   const [allocationAmounts, setAllocationAmounts] = useState<Record<string, string>>({});
+  const [customerDueAmount, setCustomerDueAmount] = useState("");
   const [errors, setErrors] = useState<ReceiptFormErrors>(emptyErrors);
   const openInvoicesQuery = useCustomerOpenInvoices(customerId, { page: 1, pageSize: 100 });
   const customers = customersQuery.data?.data.items ?? [];
   const invoices = openInvoicesQuery.data?.data.items ?? [];
+  const availableCustomerDueAmount = openInvoicesQuery.data?.data.unallocatedDueAmount ?? "0.00";
   const allocations = useMemo(
     () => selectedAllocations(invoices, allocationAmounts),
     [allocationAmounts, invoices],
   );
-  const allocationTotal = centsToMoney(amountTotal(allocations));
+  const allocationTotalCents = amountTotal(allocations);
+  const customerDueCents = moneyToCents(customerDueAmount);
+  const allocationTotal = centsToMoney(allocationTotalCents);
+  const receiptTotal = centsToMoney(allocationTotalCents + customerDueCents);
   const splitTotal = centsToMoney(amountTotal(splits));
 
   /** Clears invoice allocations whenever the selected customer changes. */
   function changeCustomer(value: string): void {
     setCustomerId(value);
     setAllocationAmounts({});
+    setCustomerDueAmount("");
     setErrors(emptyErrors);
   }
 
@@ -219,6 +240,8 @@ export function CustomerReceiptForm({
       paymentDate,
       invoices,
       allocationAmounts,
+      customerDueAmount,
+      availableCustomerDueAmount,
       splits,
       notes,
     );
@@ -234,6 +257,7 @@ export function CustomerReceiptForm({
           customerId,
           paymentDate,
           allocations,
+          customerDueAmount: customerDueAmount.trim() || "0.00",
           splits,
           notes: notes.trim() || null,
         },
@@ -296,7 +320,9 @@ export function CustomerReceiptForm({
           </p>
         ) : null}
         {customerId && !openInvoicesQuery.isPending && !openInvoicesQuery.isError && invoices.length === 0 ? (
-          <p>This customer has no outstanding invoices.</p>
+          moneyToCents(availableCustomerDueAmount) > 0n
+            ? <p>This customer has no outstanding invoices, but has an existing customer due that can be paid below.</p>
+            : <p>This customer has no outstanding balance.</p>
         ) : null}
 
         {invoices.length > 0 ? (
@@ -338,7 +364,49 @@ export function CustomerReceiptForm({
           </div>
         ) : null}
 
-        <p className="payment-split-total"><strong>Allocation total:</strong> PKR {allocationTotal}</p>
+        {customerId && !openInvoicesQuery.isPending && moneyToCents(availableCustomerDueAmount) > 0n ? (
+          <>
+            <div>
+              <h3>Existing customer due</h3>
+              <p>Allocate payment to opening or previous customer due that is not linked to an invoice.</p>
+            </div>
+            <div className="table-scroll">
+              <table className="ui-table">
+                <thead>
+                  <tr>
+                    <th>Due type</th>
+                    <th>Due</th>
+                    <th>Allocate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Existing customer due</td>
+                    <td>PKR {availableCustomerDueAmount}</td>
+                    <td>
+                      <label className="ui-field compact-money-field">
+                        <span className="sr-only">Allocation for existing customer due</span>
+                        <input
+                          disabled={createReceipt.isPending}
+                          inputMode="decimal"
+                          onChange={(event) => setCustomerDueAmount(event.target.value)}
+                          placeholder="0.00"
+                          value={customerDueAmount}
+                        />
+                        {errors.customerDueAmount ? (
+                          <small className="error-message">{errors.customerDueAmount}</small>
+                        ) : null}
+                      </label>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null}
+
+        <p className="payment-split-total"><strong>Invoice allocation total:</strong> PKR {allocationTotal}</p>
+        <p className="payment-split-total"><strong>Total receipt:</strong> PKR {receiptTotal}</p>
         {errors.allocations ? <p className="error-message">{errors.allocations}</p> : null}
       </section>
 
@@ -351,7 +419,7 @@ export function CustomerReceiptForm({
           value={splits}
         />
         <p className="receipt-total-check">
-          Allocation total: <strong>PKR {allocationTotal}</strong> · Split total: <strong>PKR {splitTotal}</strong>
+          Receipt total: <strong>PKR {receiptTotal}</strong> · Split total: <strong>PKR {splitTotal}</strong>
         </p>
       </section>
 
@@ -378,7 +446,7 @@ export function CustomerReceiptForm({
             createReceipt.isPending ||
             customersQuery.isPending ||
             openInvoicesQuery.isFetching ||
-            invoices.length === 0
+            (invoices.length === 0 && moneyToCents(availableCustomerDueAmount) <= 0n)
           }
           label={createReceipt.isPending ? "Saving receipt..." : "Confirm receipt"}
           type="submit"

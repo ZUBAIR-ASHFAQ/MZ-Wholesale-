@@ -192,8 +192,11 @@ export function CustomerReceiptDetailPage({
             </table>
           </div>
         ) : (
-          <p>No invoice allocations are available.</p>
+          <p>No invoice allocations are attached to this receipt.</p>
         )}
+        {receipt.customerDueAmount && receipt.customerDueAmount !== "0.00" ? (
+          <p><strong>Existing customer due payment:</strong> PKR {receipt.customerDueAmount}</p>
+        ) : null}
       </section>
 
       {canReverse ? (

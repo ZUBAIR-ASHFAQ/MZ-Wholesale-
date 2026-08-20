@@ -22,7 +22,7 @@ export function CategoryTable({
 
   return (
     <div className="table-scroll">
-      <table className="ui-table">
+      <table className="ui-table product-settings-table">
         <thead>
           <tr>
             <th>Name</th>

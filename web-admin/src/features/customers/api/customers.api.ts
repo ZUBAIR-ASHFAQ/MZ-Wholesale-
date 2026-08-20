@@ -9,12 +9,16 @@ export interface Customer {
   phone: string | null;
   email: string | null;
   address: string | null;
-  taxId: string | null;
   creditLimit: string;
   isWalkIn: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+/** One customer row returned specifically by GET /customers. */
+export interface CustomerListItem extends Customer {
+  currentDue: string;
 }
 
 /** One recent sales invoice summary shown on a customer profile. */
@@ -31,11 +35,12 @@ export interface CustomerOpenInvoicesPage {
   page: number;
   pageSize: number;
   total: number;
+  unallocatedDueAmount: string;
 }
 
 /** One page returned by GET /customers. */
 export interface PaginatedCustomers {
-  items: Customer[];
+  items: CustomerListItem[];
   total: number;
 }
 
@@ -68,7 +73,6 @@ export interface CreateCustomerInput {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
-  taxId?: string | null;
   creditLimit?: string;
   openingBalance?: string;
 }
@@ -79,7 +83,6 @@ export interface UpdateCustomerInput {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
-  taxId?: string | null;
   creditLimit?: string;
   isActive?: boolean;
 }

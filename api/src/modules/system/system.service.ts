@@ -751,7 +751,6 @@ const importTemplateColumns: Record<SystemImportType, readonly string[]> = {
     "phone",
     "email",
     "address",
-    "taxId",
     "creditLimit",
   ],
   suppliers: [
@@ -1763,11 +1762,6 @@ function validatePartyImportRow(
   }
 
   if (type === "customers") {
-    const taxId = row.taxId ?? "";
-    if (taxId.length > 80) {
-      addPartyImportError(errors, rowNumber, "taxId", "VALUE_TOO_LONG", "Tax ID must be 80 characters or fewer.", row);
-    }
-
     const creditLimit = row.creditLimit ?? "";
     if (creditLimit.length > 0 && !isMoneyWithinDatabaseRange(creditLimit)) {
       addPartyImportError(
@@ -2067,7 +2061,6 @@ export async function confirmPartyImport(
         phone: row.phone?.trim() || null,
         email: row.email?.trim() || null,
         address: row.address?.trim() || null,
-        taxId: row.taxId?.trim() || null,
         creditLimit: row.creditLimit?.trim() || "0.00",
         isWalkIn: false,
         isActive: true,

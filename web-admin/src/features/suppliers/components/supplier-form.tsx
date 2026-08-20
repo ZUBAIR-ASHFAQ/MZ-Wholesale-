@@ -154,7 +154,7 @@ export function SupplierForm({
           <label className="ui-field">
             <span>Opening payable</span>
             <input inputMode="decimal" {...register("openingBalance")} />
-            <small className="field-help">Setup only. Enter an existing amount owed to this supplier, or leave 0.00 for a new supplier.</small>
+            <small className="field-help">Enter an existing amount owed to this supplier, or leave 0.00 for a new supplier.</small>
             {errors.openingBalance ? (
               <small className="error-message">{errors.openingBalance.message}</small>
             ) : null}

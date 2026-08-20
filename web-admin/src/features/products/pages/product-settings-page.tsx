@@ -13,8 +13,16 @@ import {
   useUpdateProductCategory,
 } from "../hooks/use-products.ts";
 
+type ProductSettingsSection = "all" | "categories" | "brands";
+
+interface ProductSettingsPageProps {
+  section?: ProductSettingsSection;
+}
+
 /** Lets the admin manage the categories and brands used by products. */
-export function ProductSettingsPage(): React.JSX.Element {
+export function ProductSettingsPage({
+  section = "all",
+}: ProductSettingsPageProps): React.JSX.Element {
   const categoriesQuery = useProductCategories();
   const brandsQuery = useBrands();
   const updateCategory = useUpdateProductCategory();
@@ -76,15 +84,24 @@ export function ProductSettingsPage(): React.JSX.Element {
     }
   }
 
+  const showCategories = section !== "brands";
+  const showBrands = section !== "categories";
+  const isSingleSection = section !== "all";
+
   return (
-    <section>
-      <p className="eyebrow">Product Management</p>
-      <h1>Categories and brands</h1>
-      <p>Create, rename, activate, or deactivate the values used by products.</p>
+    <section className={`product-settings-page${isSingleSection ? " product-settings-page-single" : ""}`}>
+      {section === "all" ? (
+        <>
+          <p className="eyebrow">Product Management</p>
+          <h1>Categories and brands</h1>
+          <p>Create, rename, activate, or deactivate the values used by products.</p>
+        </>
+      ) : null}
 
       {pageError ? <p className="error-message">{pageError}</p> : null}
 
       <div className="management-grid">
+        {showCategories ? (
         <section className="management-card">
           <CategoryForm
             category={editingCategory}
@@ -104,7 +121,9 @@ export function ProductSettingsPage(): React.JSX.Element {
             />
           ) : null}
         </section>
+        ) : null}
 
+        {showBrands ? (
         <section className="management-card">
           <BrandForm
             brand={editingBrand}
@@ -124,6 +143,7 @@ export function ProductSettingsPage(): React.JSX.Element {
             />
           ) : null}
         </section>
+        ) : null}
       </div>
     </section>
   );

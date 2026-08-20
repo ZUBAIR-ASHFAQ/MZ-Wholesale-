@@ -35,7 +35,6 @@ export function CustomerSummary({
         <div><dt>Phone</dt><dd>{displayValue(customer.phone)}</dd></div>
         <div><dt>Email</dt><dd>{displayValue(customer.email)}</dd></div>
         <div><dt>Address</dt><dd>{displayValue(customer.address)}</dd></div>
-        <div><dt>Tax ID</dt><dd>{displayValue(customer.taxId)}</dd></div>
         <div><dt>Credit limit</dt><dd>{formatMoney(customer.creditLimit)}</dd></div>
         <div>
           <dt>Current due</dt>

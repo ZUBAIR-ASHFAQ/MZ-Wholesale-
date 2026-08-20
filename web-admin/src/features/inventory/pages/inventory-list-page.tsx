@@ -2,12 +2,14 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
+import { Dialog } from "../../../components/ui/dialog.tsx";
 import type { InventoryStockFilters } from "../api/inventory.api.ts";
 import {
   InventoryFilters,
   type InventoryFilterValues,
 } from "../components/inventory-filters.tsx";
 import { InventoryTable } from "../components/inventory-table.tsx";
+import { OpeningStockForm } from "../components/opening-stock-form.tsx";
 import { useInventoryStock } from "../hooks/use-inventory.ts";
 
 const pageSize = 20;
@@ -33,6 +35,7 @@ export function InventoryListPage(): React.JSX.Element {
   const [appliedFilters, setAppliedFilters] =
     useState<InventoryFilterValues>(emptyFilters);
   const [page, setPage] = useState(1);
+  const [openingStockOpen, setOpeningStockOpen] = useState(false);
   const inventoryQuery = useInventoryStock(apiFilters(appliedFilters, page));
   const result = inventoryQuery.data?.data;
   const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / pageSize));
@@ -62,9 +65,7 @@ export function InventoryListPage(): React.JSX.Element {
           <Link className="secondary-link" to="/inventory/counts">
             Stock counts
           </Link>
-          <Link className="secondary-link" to="/inventory/opening-stock">
-            Opening stock
-          </Link>
+          <Button label="Opening stock" onClick={() => setOpeningStockOpen(true)} />
           <Link className="primary-link" to="/inventory/adjustments">
             New adjustment
           </Link>
@@ -107,6 +108,18 @@ export function InventoryListPage(): React.JSX.Element {
           </div>
         ) : null}
       </section>
+
+      <Dialog
+        isOpen={openingStockOpen}
+        onClose={() => setOpeningStockOpen(false)}
+        title="Opening stock"
+        wide
+      >
+        <OpeningStockForm
+          onCancel={() => setOpeningStockOpen(false)}
+          onSaved={() => setOpeningStockOpen(false)}
+        />
+      </Dialog>
     </section>
   );
 }

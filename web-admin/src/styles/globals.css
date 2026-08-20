@@ -174,16 +174,103 @@ input {
   position: fixed;
   display: grid;
   inset: 0;
-  padding: 24px;
+  padding: 12px;
   background: rgb(23 32 51 / 45%);
   place-items: center;
 }
 
 .ui-dialog {
-  width: min(560px, 100%);
-  padding: 24px;
+  width: min(920px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  min-width: 0;
+  padding: 28px;
   border-radius: 12px;
   background: #ffffff;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.ui-dialog-wide {
+  width: min(1680px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  height: auto;
+  min-width: 0;
+  padding: 32px;
+}
+
+.ui-dialog form,
+.ui-dialog section,
+.ui-dialog .management-card,
+.ui-dialog .management-grid,
+.ui-dialog .ui-field,
+.ui-dialog .table-scroll {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ui-dialog input,
+.ui-dialog select,
+.ui-dialog textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ui-dialog .table-scroll {
+  overflow-x: hidden;
+}
+
+.ui-dialog .ui-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.ui-dialog .ui-table th,
+.ui-dialog .ui-table td {
+  overflow-wrap: anywhere;
+}
+
+.ui-dialog-wide .inventory-entry-form,
+.ui-dialog-wide .inventory-entry-items,
+.ui-dialog-wide .inventory-entry-row,
+.ui-dialog-wide .ui-field {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ui-dialog-wide .inventory-entry-row {
+  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ui-dialog-wide .inventory-entry-row > .ui-button {
+  grid-column: 2;
+  justify-self: end;
+}
+
+.ui-dialog-wide .inventory-entry-row select,
+.ui-dialog-wide .inventory-entry-row input,
+.ui-dialog-wide .inventory-entry-form textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 760px) {
+  .ui-dialog-wide {
+    width: 100%;
+    padding: 20px;
+  }
+
+  .ui-dialog-wide .inventory-entry-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ui-dialog-wide .inventory-entry-row > .ui-button {
+    grid-column: 1;
+    justify-self: stretch;
+  }
 }
 
 .ui-dialog header {
@@ -257,6 +344,65 @@ input {
   display: grid;
   max-width: 1000px;
   gap: 24px;
+}
+
+.ui-dialog-wide .product-modal-content,
+.ui-dialog-wide .product-modal-content .product-form {
+  width: 100%;
+  min-width: 0;
+}
+
+.ui-dialog-wide .product-modal-content .product-form {
+  max-width: none;
+}
+
+.ui-dialog-wide .product-settings-page {
+  width: 100%;
+  min-width: 0;
+}
+
+.ui-dialog-wide .product-settings-page .management-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.ui-dialog-wide .product-settings-page-single {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.ui-dialog-wide .product-settings-page-single .management-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ui-dialog-wide .product-settings-page .management-card {
+  overflow: hidden;
+}
+
+.ui-dialog-wide .product-settings-page .management-form .ui-field {
+  width: 100%;
+}
+
+.ui-dialog-wide .product-settings-table th:nth-child(1) {
+  width: 34%;
+}
+
+.ui-dialog-wide .product-settings-table th:nth-child(2) {
+  width: 20%;
+}
+
+.ui-dialog-wide .product-settings-table th:nth-child(3) {
+  width: 46%;
+}
+
+.ui-dialog-wide .product-settings-table .table-actions {
+  align-items: stretch;
+}
+
+@media (max-width: 1050px) {
+  .ui-dialog-wide .product-settings-page .management-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .product-form-grid {
@@ -1017,6 +1163,70 @@ input {
 
 .compact-money-field {
   min-width: 150px;
+}
+
+/* Keeps the supplier-payment dialog spacious while limiting form rows to two fields. */
+.ui-dialog-wide .supplier-payment-form {
+  width: 100%;
+  min-width: 0;
+}
+
+.ui-dialog-wide .supplier-payment-form .payment-filter-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ui-dialog-wide .supplier-payment-form .payment-split-row {
+  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ui-dialog-wide .supplier-payment-form .payment-split-remove {
+  display: flex;
+  grid-column: 2;
+  justify-content: flex-end;
+  padding-bottom: 0;
+}
+
+.ui-dialog-wide .supplier-payment-form .compact-money-field {
+  width: 100%;
+  min-width: 0;
+}
+
+.ui-dialog-wide .supplier-payment-form .supplier-payment-purchase-table th:nth-child(1) {
+  width: 28%;
+}
+
+.ui-dialog-wide .supplier-payment-form .supplier-payment-purchase-table th:nth-child(2) {
+  width: 20%;
+}
+
+.ui-dialog-wide .supplier-payment-form .supplier-payment-purchase-table th:nth-child(3) {
+  width: 20%;
+}
+
+.ui-dialog-wide .supplier-payment-form .supplier-payment-purchase-table th:nth-child(4) {
+  width: 32%;
+}
+
+.ui-dialog-wide .supplier-payment-form .supplier-payment-payable-table th:nth-child(1) {
+  width: 40%;
+}
+
+.ui-dialog-wide .supplier-payment-form .supplier-payment-payable-table th:nth-child(2),
+.ui-dialog-wide .supplier-payment-form .supplier-payment-payable-table th:nth-child(3) {
+  width: 30%;
+}
+
+@media (max-width: 800px) {
+  .ui-dialog-wide .supplier-payment-form .payment-filter-grid,
+  .ui-dialog-wide .supplier-payment-form .payment-split-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ui-dialog-wide .supplier-payment-form .payment-split-remove {
+    grid-column: 1;
+    justify-content: flex-start;
+  }
 }
 
 .receipt-total-check {

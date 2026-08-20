@@ -8,7 +8,7 @@ import {
   createWalkInCustomerIfMissing,
   findCustomerById,
   findWalkInCustomer,
-  hasNormalBusinessActivity,
+  getCustomerOpenInvoiceDueTotal,
   listCustomerOpenInvoices,
   listRecentCustomerInvoices,
   listCustomers as readCustomers,
@@ -144,10 +144,6 @@ function readCustomerChanges(input: UpdateCustomerInput): CustomerChanges {
     changes.address = normalizeOptionalText(input.address);
   }
 
-  if (input.taxId !== undefined) {
-    changes.taxId = normalizeOptionalText(input.taxId);
-  }
-
   if (input.creditLimit !== undefined) {
     changes.creditLimit = input.creditLimit;
   }
@@ -184,7 +180,6 @@ export async function createCustomer(
     phone: normalizeOptionalText(input.phone),
     email: normalizeOptionalText(input.email),
     address: normalizeOptionalText(input.address),
-    taxId: normalizeOptionalText(input.taxId),
     creditLimit: input.creditLimit,
     isWalkIn: false,
     isActive: true,
@@ -193,17 +188,6 @@ export async function createCustomer(
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       const createWithDatabase = async (tx: CustomersDatabase): Promise<CustomerRecord | null> => {
-        if (
-          isDecimalGreaterThanZero(input.openingBalance) &&
-          await hasNormalBusinessActivity(tx)
-        ) {
-          throw customerError(
-            "OPENING_BALANCE_LOCKED",
-            "Opening customer balance can only be entered before normal transactions begin.",
-            409,
-          );
-        }
-
         const customer = await insertCustomer(tx, {
           ...customerInput,
           code: createCustomerCode(),
@@ -293,6 +277,21 @@ export async function updateCustomer(
   return updatedCustomer;
 }
 
+/** Converts one database money value into exact integer cents. */
+function moneyToCents(value: string): bigint {
+  const negative = value.startsWith("-");
+  const [whole = "0", fraction = ""] = value.replace("-", "").split(".");
+  const cents = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"));
+  return negative ? -cents : cents;
+}
+
+/** Formats exact integer cents as the API money representation. */
+function centsToMoney(value: bigint): string {
+  const sign = value < 0n ? "-" : "";
+  const absolute = value < 0n ? -value : value;
+  return `${sign}${absolute / 100n}.${(absolute % 100n).toString().padStart(2, "0")}`;
+}
+
 /** Lists confirmed customer invoices that still accept receipt allocation. */
 export async function getCustomerOpenInvoices(
   database: CustomersDatabase,
@@ -300,12 +299,18 @@ export async function getCustomerOpenInvoices(
   query: CustomerOpenInvoicesQuery,
 ) {
   await requireCustomer(database, customerId);
-  const page = await listCustomerOpenInvoices(database, customerId, query);
+  const [page, currentDue, invoiceDue] = await Promise.all([
+    listCustomerOpenInvoices(database, customerId, query),
+    getCustomerCurrentDue(database, customerId),
+    getCustomerOpenInvoiceDueTotal(database, customerId),
+  ]);
+  const unallocatedDueCents = moneyToCents(currentDue) - moneyToCents(invoiceDue);
 
   return {
     ...page,
     page: query.page,
     pageSize: query.pageSize,
+    unallocatedDueAmount: centsToMoney(unallocatedDueCents > 0n ? unallocatedDueCents : 0n),
   };
 }
 

@@ -299,30 +299,78 @@ export const supplierPaymentListQuerySchema = z
   .strict()
   .superRefine(validateDateRange);
 
-/** Validates one customer receipt with exact splits and invoice allocations. */
+/** Validates one customer receipt against invoice allocations and/or non-invoice customer due. */
 export const createCustomerReceiptSchema = z
   .object({
     customerId: uuidSchema,
-    ...paymentRequestFields,
+    paymentDate: paymentRequestFields.paymentDate,
+    splits: paymentRequestFields.splits,
+    allocations: z
+      .array(paymentAllocationSchema)
+      .max(200, "A payment cannot contain more than 200 allocations.")
+      .default([]),
+    customerDueAmount: moneySchema.default("0.00"),
+    notes: paymentRequestFields.notes,
   })
   .strict()
   .superRefine((input, context) => {
     validateUniqueSplits(input.splits, context);
     validateUniqueAllocations(input.allocations, context);
-    validatePaymentTotals(input, context);
+
+    if (input.allocations.length === 0 && !isPositiveMoney(input.customerDueAmount)) {
+      context.addIssue({
+        code: "custom",
+        path: ["allocations"],
+        message: "Allocate the receipt to an invoice or existing customer due.",
+      });
+    }
+
+    validatePaymentTotals({
+      splits: input.splits,
+      allocations: [
+        ...input.allocations,
+        ...(isPositiveMoney(input.customerDueAmount)
+          ? [{ amount: input.customerDueAmount }]
+          : []),
+      ],
+    }, context);
   });
 
-/** Validates one supplier payment with exact splits and purchase allocations. */
+/** Validates one supplier payment against purchase allocations and/or existing supplier payable. */
 export const createSupplierPaymentSchema = z
   .object({
     supplierId: uuidSchema,
-    ...paymentRequestFields,
+    paymentDate: paymentRequestFields.paymentDate,
+    splits: paymentRequestFields.splits,
+    allocations: z
+      .array(paymentAllocationSchema)
+      .max(200, "A payment cannot contain more than 200 allocations.")
+      .default([]),
+    supplierPayableAmount: moneySchema.default("0.00"),
+    notes: paymentRequestFields.notes,
   })
   .strict()
   .superRefine((input, context) => {
     validateUniqueSplits(input.splits, context);
     validateUniqueAllocations(input.allocations, context);
-    validatePaymentTotals(input, context);
+
+    if (input.allocations.length === 0 && !isPositiveMoney(input.supplierPayableAmount)) {
+      context.addIssue({
+        code: "custom",
+        path: ["allocations"],
+        message: "Allocate the payment to a purchase or existing supplier payable.",
+      });
+    }
+
+    validatePaymentTotals({
+      splits: input.splits,
+      allocations: [
+        ...input.allocations,
+        ...(isPositiveMoney(input.supplierPayableAmount)
+          ? [{ amount: input.supplierPayableAmount }]
+          : []),
+      ],
+    }, context);
   });
 
 /** Validates the required reason for a payment reversal. */

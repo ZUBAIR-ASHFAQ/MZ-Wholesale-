@@ -192,8 +192,11 @@ export function SupplierPaymentDetailPage({
             </table>
           </div>
         ) : (
-          <p>No purchase allocations are available.</p>
+          <p>No purchase allocations are attached to this payment.</p>
         )}
+        {payment.supplierPayableAmount && payment.supplierPayableAmount !== "0.00" ? (
+          <p><strong>Existing supplier payable payment:</strong> PKR {payment.supplierPayableAmount}</p>
+        ) : null}
       </section>
 
       {canReverse ? (

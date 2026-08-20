@@ -32,12 +32,6 @@ const addressSchema = z
   .min(1, "Address cannot be blank.")
   .max(500, "Address must be 500 characters or fewer.");
 
-const taxIdSchema = z
-  .string()
-  .trim()
-  .min(1, "Tax ID cannot be blank.")
-  .max(80, "Tax ID must be 80 characters or fewer.");
-
 const moneySchema = z
   .string()
   .trim()
@@ -52,6 +46,34 @@ const creditLimitSchema = z
     "Credit limit must be a non-negative money amount with up to two decimal places.",
   )
   .refine(isMoneyWithinDatabaseRange, "Credit limit is too large for the database money field.");
+
+/** Converts a valid non-negative money string into integer cents for exact comparisons. */
+function moneyToCents(value: string): bigint | null {
+  const match = value.trim().match(/^(\d+)(?:\.(\d{1,2}))?$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
+}
+
+/** Ensures a new customer's existing due does not exceed the approved credit limit. */
+function validateOpeningBalanceWithinCreditLimit(
+  input: { openingBalance: string; creditLimit: string },
+  context: z.RefinementCtx,
+): void {
+  const openingBalance = moneyToCents(input.openingBalance);
+  const creditLimit = moneyToCents(input.creditLimit);
+
+  if (openingBalance !== null && creditLimit !== null && openingBalance > creditLimit) {
+    context.addIssue({
+      code: "custom",
+      path: ["openingBalance"],
+      message: "Opening balance cannot exceed the credit limit.",
+    });
+  }
+}
 
 /** Converts the active query-string value into a boolean. */
 function parseBooleanQueryValue(value: "true" | "false"): boolean {
@@ -105,11 +127,11 @@ export const createCustomerSchema = z
     phone: phoneSchema.nullable().optional(),
     email: emailSchema.nullable().optional(),
     address: addressSchema.nullable().optional(),
-    taxId: taxIdSchema.nullable().optional(),
     creditLimit: creditLimitSchema.default("0.00"),
     openingBalance: moneySchema.default("0.00"),
   })
-  .strict();
+  .strict()
+  .superRefine(validateOpeningBalanceWithinCreditLimit);
 
 /** Validates fields accepted when updating an existing customer. */
 export const updateCustomerSchema = z
@@ -118,7 +140,6 @@ export const updateCustomerSchema = z
     phone: phoneSchema.nullable().optional(),
     email: emailSchema.nullable().optional(),
     address: addressSchema.nullable().optional(),
-    taxId: taxIdSchema.nullable().optional(),
     creditLimit: creditLimitSchema.optional(),
     isActive: z.boolean().optional(),
   })

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { loadPaymentAccounts } from "../../payments/api/payments.api.ts";
 import { paymentQueryKeys } from "../../payments/hooks/use-payments.ts";
 import {
   createExpense,
@@ -98,6 +99,22 @@ interface CreateExpenseVariables {
   idempotencyKey: string;
 }
 
+/** Refreshes expense data and eagerly reloads account balances after an account movement. */
+async function refreshExpenseAffectedData(
+  queryClient: ReturnType<typeof useQueryClient>,
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: expenseQueryKeys.all }),
+    queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all }),
+  ]);
+
+  await queryClient.fetchQuery({
+    queryKey: paymentQueryKeys.accounts,
+    queryFn: loadPaymentAccounts,
+    staleTime: 0,
+  });
+}
+
 /** Creates one confirmed expense and refreshes expense and payment movement data. */
 export function useCreateExpense() {
   const queryClient = useQueryClient();
@@ -106,10 +123,7 @@ export function useCreateExpense() {
     mutationFn: ({ input, idempotencyKey }: CreateExpenseVariables) =>
       createExpense(input, idempotencyKey),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: expenseQueryKeys.all }),
-        queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all }),
-      ]);
+      await refreshExpenseAffectedData(queryClient);
     },
   });
 }
@@ -132,10 +146,7 @@ export function useReverseExpense() {
     }: ReverseExpenseVariables) =>
       reverseExpense(expenseId, input, idempotencyKey),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: expenseQueryKeys.all }),
-        queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all }),
-      ]);
+      await refreshExpenseAffectedData(queryClient);
     },
   });
 }

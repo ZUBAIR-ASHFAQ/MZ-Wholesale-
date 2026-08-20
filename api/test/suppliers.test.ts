@@ -156,6 +156,16 @@ test("supplier validation enforces required fields", () => {
   assert.equal(updateSupplierSchema.safeParse({}).success, false);
 });
 
+/** Verifies that a new supplier opening payable is not blocked after normal business activity starts. */
+test("supplier creation keeps opening payable available for new suppliers", async () => {
+  const service = await readProjectFile("../src/modules/suppliers/suppliers.service.ts");
+
+  assert.doesNotMatch(service, /OPENING_BALANCE_LOCKED/);
+  assert.doesNotMatch(service, /await hasNormalBusinessActivity/);
+  assert.match(service, /writeSupplierCredit/);
+  assert.match(service, /referenceType: "OPENING_BALANCE"/);
+});
+
 /** Verifies that supplier opening balance is accepted and defaults to zero. */
 test("supplier create validation handles opening balance", () => {
   const defaultResult = createSupplierSchema.safeParse({
@@ -294,6 +304,9 @@ test("supplier open purchases use the Purchase-backed repository query", async (
   assert.match(repository, /purchaseItems\.productNameSnapshot/);
   assert.match(repository, /listPurchaseProductNames/);
   assert.match(repository, /productNames/);
+  assert.match(repository, /getSupplierOpenPurchaseDueTotal/);
+  assert.match(service, /getSupplierCurrentPayable/);
+  assert.match(service, /unallocatedPayableAmount/);
   assert.doesNotMatch(service, /PURCHASE_MODULE_NOT_READY/);
 });
 

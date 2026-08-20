@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { Dialog } from "../../../components/ui/dialog.tsx";
@@ -18,6 +18,17 @@ export function AccountsPage(): React.JSX.Element {
   const [cashAccount, setCashAccount] = useState<CashAccount | null>(null);
   const [bankAccount, setBankAccount] = useState<BankAccount | null>(null);
   const accounts = accountsQuery.data?.data;
+
+  /** Reloads volatile account balances whenever the Accounts screen is opened or refocused. */
+  useEffect(() => {
+    const refreshAccounts = (): void => {
+      void accountsQuery.refetch();
+    };
+
+    refreshAccounts();
+    window.addEventListener("focus", refreshAccounts);
+    return () => window.removeEventListener("focus", refreshAccounts);
+  }, [accountsQuery.refetch]);
 
   /** Opens the cash-account form for creation. */
   function openNewCashAccount(): void {

@@ -5,6 +5,7 @@ import {
   desc,
   eq,
   ilike,
+  inArray,
   ne,
   or,
   sql,
@@ -14,6 +15,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import {
   cashBankMovements,
+  customerLedgerEntries,
   customerPaymentAllocations,
   customerPayments,
   customers,
@@ -44,14 +46,18 @@ export interface CustomerChanges {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
-  taxId?: string | null;
   creditLimit?: string;
   isActive?: boolean;
 }
 
+/** Represents one customer row in the list with its ledger-derived current due. */
+export interface CustomerListRecord extends CustomerRecord {
+  currentDue: string;
+}
+
 /** Contains one page of customer records and the matching total count. */
 export interface PaginatedCustomerRecords {
-  items: CustomerRecord[];
+  items: CustomerListRecord[];
   total: number;
 }
 
@@ -88,13 +94,31 @@ export async function listCustomers(
   const where = filters.length > 0 ? and(...filters) : undefined;
   const offset = (query.page - 1) * query.pageSize;
 
-  const items = await database
+  const customerRows = await database
     .select()
     .from(customers)
     .where(where)
     .orderBy(asc(customers.name), asc(customers.id))
     .limit(query.pageSize)
     .offset(offset);
+
+  const dueRows = customerRows.length > 0
+    ? await database
+      .select({
+        customerId: customerLedgerEntries.customerId,
+        currentDue: sql<string>`coalesce(sum(${customerLedgerEntries.debit} - ${customerLedgerEntries.credit}), 0)::numeric(14,2)::text`,
+      })
+      .from(customerLedgerEntries)
+      .where(inArray(customerLedgerEntries.customerId, customerRows.map((customer) => customer.id)))
+      .groupBy(customerLedgerEntries.customerId)
+    : [];
+  const dueByCustomerId = new Map(
+    dueRows.map((row) => [row.customerId, row.currentDue]),
+  );
+  const items = customerRows.map((customer) => ({
+    ...customer,
+    currentDue: dueByCustomerId.get(customer.id) ?? "0.00",
+  }));
 
   const totalRows = await database
     .select({ total: count() })
@@ -248,6 +272,47 @@ export interface CustomerOpenInvoiceRecord {
   dueAmount: string;
 }
 
+/** Calculates the total invoice-linked due for one customer across every confirmed sale. */
+export async function getCustomerOpenInvoiceDueTotal(
+  database: CustomersDatabase,
+  customerId: string,
+): Promise<string> {
+  const paidAmount = sql<string>`coalesce((
+    select sum(${customerPaymentAllocations.amount})
+    from ${customerPaymentAllocations}
+    inner join ${customerPayments}
+      on ${customerPayments.id} = ${customerPaymentAllocations.customerPaymentId}
+    where ${customerPaymentAllocations.salesInvoiceId} = ${salesInvoices.id}
+      and ${customerPayments.status} = 'CONFIRMED'
+      and ${customerPayments.reversalOfPaymentId} is null
+  ), 0)`;
+  const returnedAmount = sql<string>`coalesce((
+    select sum(${salesReturns.totalAmount})
+    from ${salesReturns}
+    where ${salesReturns.originalSaleId} = ${salesInvoices.id}
+      and ${salesReturns.status} = 'CONFIRMED'
+  ), 0)`;
+  const dueAmount = sql<string>`greatest(${salesInvoices.totalAmount} - ${returnedAmount} - ${paidAmount}, 0)`;
+  const openInvoiceDues = database
+    .select({ dueAmount: sql<string>`${dueAmount}::numeric`.as("due_amount") })
+    .from(salesInvoices)
+    .where(
+      and(
+        eq(salesInvoices.customerId, customerId),
+        eq(salesInvoices.status, "CONFIRMED"),
+        sql`${dueAmount} > 0`,
+      ),
+    )
+    .as("customer_open_invoice_due_totals");
+  const rows = await database
+    .select({
+      total: sql<string>`coalesce(sum(${openInvoiceDues.dueAmount}), 0)::numeric(14,2)::text`,
+    })
+    .from(openInvoiceDues);
+
+  return rows[0]?.total ?? "0.00";
+}
+
 /** Lists confirmed invoices with a positive outstanding amount for one customer. */
 export async function listCustomerOpenInvoices(
   database: CustomersDatabase,
@@ -329,7 +394,6 @@ export async function createWalkInCustomerIfMissing(
       phone: null,
       email: null,
       address: null,
-      taxId: null,
       creditLimit: "0.00",
       isWalkIn: true,
       isActive: true,

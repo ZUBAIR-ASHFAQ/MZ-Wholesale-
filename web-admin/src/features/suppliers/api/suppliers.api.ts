@@ -14,6 +14,11 @@ export interface Supplier {
   updatedAt: string;
 }
 
+/** One supplier row returned specifically by GET /suppliers. */
+export interface SupplierListItem extends Supplier {
+  currentPayable: string;
+}
+
 /** One confirmed purchase summary shown on a supplier profile. */
 export interface SupplierPurchaseSummary {
   id: string;
@@ -29,11 +34,12 @@ export interface SupplierOpenPurchasesPage {
   page: number;
   pageSize: number;
   total: number;
+  unallocatedPayableAmount: string;
 }
 
 /** One page returned by GET /suppliers. */
 export interface PaginatedSuppliers {
-  items: Supplier[];
+  items: SupplierListItem[];
   total: number;
 }
 

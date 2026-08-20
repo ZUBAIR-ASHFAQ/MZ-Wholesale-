@@ -153,7 +153,9 @@ function buildMovementQuery(filters: MovementFilters): string {
 
 /** Loads all cash and bank accounts with calculated balances. */
 export function loadPaymentAccounts(): Promise<ApiSuccess<PaymentAccounts>> {
-  return requestApi<ApiSuccess<PaymentAccounts>>("/payments/accounts");
+  return requestApi<ApiSuccess<PaymentAccounts>>("/payments/accounts", {
+    cache: "no-store",
+  });
 }
 
 /** Creates one cash account and protects its opening movement from duplicate retries. */
@@ -254,6 +256,7 @@ export interface CreateCustomerReceiptInput {
   paymentDate: string;
   splits: PaymentSplitInput[];
   allocations: PaymentAllocationInput[];
+  customerDueAmount?: string;
   notes?: string | null;
 }
 
@@ -271,6 +274,7 @@ export interface CustomerReceipt {
   createdAt: string;
   splits?: PaymentSplit[];
   allocations?: PaymentAllocation[];
+  customerDueAmount?: string;
   customerBalance?: string;
 }
 
@@ -294,6 +298,7 @@ export interface CreateSupplierPaymentInput {
   paymentDate: string;
   splits: PaymentSplitInput[];
   allocations: PaymentAllocationInput[];
+  supplierPayableAmount?: string;
   notes?: string | null;
 }
 
@@ -311,6 +316,7 @@ export interface SupplierPayment {
   createdAt: string;
   splits?: PaymentSplit[];
   allocations?: PaymentAllocation[];
+  supplierPayableAmount?: string;
   supplierBalance?: string;
 }
 

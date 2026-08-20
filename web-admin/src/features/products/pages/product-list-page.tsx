@@ -1,17 +1,19 @@
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
+import { Dialog } from "../../../components/ui/dialog.tsx";
 import type { ProductListFilters } from "../api/products.api.ts";
 import {
   ProductFilters,
   type ProductFilterValues,
 } from "../components/product-filters.tsx";
+import { ProductForm } from "../components/product-form.tsx";
 import { ProductTable } from "../components/product-table.tsx";
 import {
   useProductCategories,
   useProducts,
 } from "../hooks/use-products.ts";
+import { ProductSettingsPage } from "./product-settings-page.tsx";
 
 const pageSize = 20;
 
@@ -43,6 +45,8 @@ export function ProductListPage(): React.JSX.Element {
   const [appliedFilters, setAppliedFilters] =
     useState<ProductFilterValues>(emptyFilters);
   const [page, setPage] = useState(1);
+  const [activeModal, setActiveModal] =
+    useState<"product" | "categories" | "brands" | null>(null);
 
   const productsQuery = useProducts(apiFilters(appliedFilters, page));
   const categoriesQuery = useProductCategories();
@@ -72,14 +76,52 @@ export function ProductListPage(): React.JSX.Element {
           <p>Search, review, and maintain the wholesale product catalogue.</p>
         </div>
         <div className="form-actions">
-          <Link className="primary-link" to="/products/new">
-            Add product
-          </Link>
-          <Link className="secondary-link" to="/product-settings">
-            Categories and brands
-          </Link>
+          <Button
+            label="Add product"
+            onClick={() => setActiveModal("product")}
+          />
+          <Button
+            label="Categories"
+            onClick={() => setActiveModal("categories")}
+          />
+          <Button
+            label="Brands"
+            onClick={() => setActiveModal("brands")}
+          />
         </div>
       </div>
+
+      <Dialog
+        isOpen={activeModal === "product"}
+        onClose={() => setActiveModal(null)}
+        title="Add product"
+        wide
+      >
+        <div className="product-modal-content">
+          <ProductForm
+            onCancel={() => setActiveModal(null)}
+            onSaved={() => setActiveModal(null)}
+          />
+        </div>
+      </Dialog>
+
+      <Dialog
+        isOpen={activeModal === "categories"}
+        onClose={() => setActiveModal(null)}
+        title="Categories"
+        wide
+      >
+        <ProductSettingsPage section="categories" />
+      </Dialog>
+
+      <Dialog
+        isOpen={activeModal === "brands"}
+        onClose={() => setActiveModal(null)}
+        title="Brands"
+        wide
+      >
+        <ProductSettingsPage section="brands" />
+      </Dialog>
 
       <section className="management-card product-list-card">
         <ProductFilters

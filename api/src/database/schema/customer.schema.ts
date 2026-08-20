@@ -24,7 +24,6 @@ export const customers = pgTable(
     phone: varchar("phone", { length: 32 }),
     email: varchar("email", { length: 254 }),
     address: varchar("address", { length: 500 }),
-    taxId: varchar("tax_id", { length: 80 }),
     creditLimit: numeric("credit_limit", {
       precision: 14,
       scale: 2,

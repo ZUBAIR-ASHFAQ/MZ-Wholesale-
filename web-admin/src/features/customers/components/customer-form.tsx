@@ -19,12 +19,22 @@ const optionalEmailSchema = z
     "Enter a valid email address.",
   );
 
+/** Converts a valid non-negative money string into integer cents for exact comparisons. */
+function moneyToCents(value: string): bigint | null {
+  const match = value.trim().match(/^(\d+)(?:\.(\d{1,2}))?$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
+}
+
 const customerFormSchema = z.object({
   name: z.string().trim().min(1, "Customer name is required."),
   phone: z.string().trim().max(30, "Phone is too long."),
   email: optionalEmailSchema,
   address: z.string().trim().max(500, "Address is too long."),
-  taxId: z.string().trim().max(100, "Tax ID is too long."),
   creditLimit: z
     .string()
     .trim()
@@ -34,6 +44,17 @@ const customerFormSchema = z.object({
     .trim()
     .regex(/^\d+(\.\d{1,2})?$/, "Use a non-negative amount with up to 2 decimals."),
   isActive: z.boolean(),
+}).superRefine((values, context) => {
+  const openingBalance = moneyToCents(values.openingBalance);
+  const creditLimit = moneyToCents(values.creditLimit);
+
+  if (openingBalance !== null && creditLimit !== null && openingBalance > creditLimit) {
+    context.addIssue({
+      code: "custom",
+      path: ["openingBalance"],
+      message: "Opening balance cannot exceed the credit limit.",
+    });
+  }
 });
 
 type CustomerFormValues = z.infer<typeof customerFormSchema>;
@@ -57,7 +78,6 @@ function createDefaultValues(customer?: Customer): CustomerFormValues {
     phone: customer?.phone ?? "",
     email: customer?.email ?? "",
     address: customer?.address ?? "",
-    taxId: customer?.taxId ?? "",
     creditLimit: customer?.creditLimit ?? "0.00",
     openingBalance: "0.00",
     isActive: customer?.isActive ?? true,
@@ -115,7 +135,6 @@ export function CustomerForm({
       phone: optionalText(values.phone),
       email: optionalText(values.email),
       address: optionalText(values.address),
-      taxId: optionalText(values.taxId),
       creditLimit: values.creditLimit.trim(),
     };
 
@@ -160,12 +179,6 @@ export function CustomerForm({
         </label>
 
         <label className="ui-field">
-          <span>Tax ID</span>
-          <input {...register("taxId")} />
-          {errors.taxId ? <small className="error-message">{errors.taxId.message}</small> : null}
-        </label>
-
-        <label className="ui-field">
           <span>Credit limit</span>
           <input inputMode="decimal" {...register("creditLimit")} />
           {errors.creditLimit ? <small className="error-message">{errors.creditLimit.message}</small> : null}
@@ -175,7 +188,7 @@ export function CustomerForm({
           <label className="ui-field">
             <span>Opening balance</span>
             <input inputMode="decimal" {...register("openingBalance")} />
-            <small className="field-help">Setup only. Enter an existing customer due, or leave 0.00 for a new customer.</small>
+            <small className="field-help">Enter the customer's existing due, up to the credit limit, or leave 0.00 for a new customer.</small>
             {errors.openingBalance ? (
               <small className="error-message">{errors.openingBalance.message}</small>
             ) : null}

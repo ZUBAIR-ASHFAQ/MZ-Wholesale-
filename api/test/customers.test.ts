@@ -31,7 +31,6 @@ function makeCustomer(
     phone: null,
     email: null,
     address: null,
-    taxId: null,
     creditLimit: "0.00",
     isWalkIn: false,
     isActive: true,
@@ -129,6 +128,23 @@ test("customer create validation rejects system-managed fields", () => {
   assert.equal(result.success, false);
 });
 
+/** Verifies that the removed Tax ID field is no longer part of the customer API contract. */
+test("customer validation rejects removed taxId field", () => {
+  assert.equal(
+    createCustomerSchema.safeParse({
+      name: "Ali Traders",
+      taxId: "NTN-123",
+    }).success,
+    false,
+  );
+  assert.equal(
+    updateCustomerSchema.safeParse({
+      taxId: "NTN-123",
+    }).success,
+    false,
+  );
+});
+
 /** Verifies that customer credit limits cannot be negative. */
 test("customer validation rejects a negative credit limit", () => {
   const result = createCustomerSchema.safeParse({
@@ -137,6 +153,32 @@ test("customer validation rejects a negative credit limit", () => {
   });
 
   assert.equal(result.success, false);
+});
+
+/** Verifies that opening due cannot exceed the customer's approved credit limit. */
+test("customer validation rejects opening balance above credit limit", () => {
+  const result = createCustomerSchema.safeParse({
+    name: "Ali Traders",
+    creditLimit: "5000.00",
+    openingBalance: "5000.01",
+  });
+
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.equal(result.error.issues[0]?.path[0], "openingBalance");
+  }
+});
+
+/** Verifies that an opening due equal to the credit limit remains valid. */
+test("customer validation accepts opening balance within credit limit", () => {
+  assert.equal(
+    createCustomerSchema.safeParse({
+      name: "Ali Traders",
+      creditLimit: "5000.00",
+      openingBalance: "5000.00",
+    }).success,
+    true,
+  );
 });
 
 /** Verifies that an empty customer update is not accepted. */
@@ -160,7 +202,6 @@ test("customer service creates a regular customer", async () => {
     phone: " 03001234567 ",
     email: null,
     address: null,
-    taxId: null,
     creditLimit: "5000.00",
     openingBalance: "0.00",
   });
@@ -195,7 +236,6 @@ test("customer creation retries a generated-code conflict", async () => {
     phone: null,
     email: null,
     address: null,
-    taxId: null,
     creditLimit: "0.00",
       openingBalance: "0.00",
   });
@@ -216,7 +256,6 @@ test("customer creation preserves unrelated database errors", async () => {
       phone: null,
       email: null,
       address: null,
-      taxId: null,
       creditLimit: "0.00",
     }),
     (error: unknown) => error === databaseError,
@@ -239,7 +278,6 @@ test("customer creation stops after repeated generated-code conflicts", async ()
       phone: null,
       email: null,
       address: null,
-      taxId: null,
       creditLimit: "0.00",
     }),
     (error: unknown) =>

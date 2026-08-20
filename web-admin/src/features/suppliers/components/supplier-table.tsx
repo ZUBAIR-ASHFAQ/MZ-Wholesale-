@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
 
 import { StatusBadge } from "../../../components/ui/status-badge.tsx";
-import type { Supplier } from "../api/suppliers.api.ts";
+import { formatMoney } from "../../../lib/utils.ts";
+import type { SupplierListItem } from "../api/suppliers.api.ts";
 
 interface SupplierTableProps {
-  suppliers: Supplier[];
+  suppliers: SupplierListItem[];
 }
 
 /** Displays a nullable supplier value without exposing a technical null. */
@@ -29,6 +30,7 @@ export function SupplierTable({
             <th>Name</th>
             <th>Phone</th>
             <th>Email</th>
+            <th>Current payable</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
@@ -40,6 +42,7 @@ export function SupplierTable({
               <td>{supplier.name}</td>
               <td>{displayValue(supplier.phone)}</td>
               <td>{displayValue(supplier.email)}</td>
+              <td>{formatMoney(supplier.currentPayable)}</td>
               <td><StatusBadge status={supplier.isActive ? "ACTIVE" : "INACTIVE"} /></td>
               <td>
                 <div className="table-actions">

@@ -80,6 +80,8 @@ export function usePaymentAccounts() {
   return useQuery({
     queryKey: paymentQueryKeys.accounts,
     queryFn: loadPaymentAccounts,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 }
 
@@ -265,6 +267,7 @@ export function useCreateCustomerReceipt() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: ledgerQueryKeys.all }),
+        queryClient.invalidateQueries({ queryKey: customerQueryKeys.lists() }),
         queryClient.invalidateQueries({
           queryKey: customerQueryKeys.detail(response.data.customerId),
         }),
@@ -297,6 +300,7 @@ export function useReverseCustomerReceipt() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: ledgerQueryKeys.all }),
+        queryClient.invalidateQueries({ queryKey: customerQueryKeys.lists() }),
         queryClient.invalidateQueries({
           queryKey: customerQueryKeys.detail(response.data.customerId),
         }),
@@ -346,6 +350,7 @@ export function useCreateSupplierPayment() {
         queryClient.invalidateQueries({
           queryKey: supplierQueryKeys.detail(response.data.supplierId),
         }),
+        queryClient.invalidateQueries({ queryKey: supplierQueryKeys.lists() }),
         queryClient.invalidateQueries({
           queryKey: supplierQueryKeys.openPurchasesRoot(response.data.supplierId),
         }),
@@ -378,6 +383,7 @@ export function useReverseSupplierPayment() {
         queryClient.invalidateQueries({
           queryKey: supplierQueryKeys.detail(response.data.supplierId),
         }),
+        queryClient.invalidateQueries({ queryKey: supplierQueryKeys.lists() }),
         queryClient.invalidateQueries({
           queryKey: supplierQueryKeys.openPurchasesRoot(response.data.supplierId),
         }),

@@ -2,10 +2,10 @@ import { Link } from "@tanstack/react-router";
 
 import { StatusBadge } from "../../../components/ui/status-badge.tsx";
 import { formatMoney } from "../../../lib/utils.ts";
-import type { Customer } from "../api/customers.api.ts";
+import type { CustomerListItem } from "../api/customers.api.ts";
 
 interface CustomerTableProps {
-  customers: Customer[];
+  customers: CustomerListItem[];
 }
 
 /** Displays a nullable customer value without exposing a technical null. */
@@ -31,6 +31,7 @@ export function CustomerTable({
             <th>Phone</th>
             <th>Email</th>
             <th>Credit limit</th>
+            <th>Current due</th>
             <th>Type</th>
             <th>Status</th>
             <th>Actions</th>
@@ -44,6 +45,7 @@ export function CustomerTable({
               <td>{displayValue(customer.phone)}</td>
               <td>{displayValue(customer.email)}</td>
               <td>{formatMoney(customer.creditLimit)}</td>
+              <td>{formatMoney(customer.currentDue)}</td>
               <td>{customer.isWalkIn ? "Walk-in" : "Regular"}</td>
               <td><StatusBadge status={customer.isActive ? "ACTIVE" : "INACTIVE"} /></td>
               <td>

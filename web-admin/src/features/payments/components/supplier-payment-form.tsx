@@ -25,6 +25,7 @@ interface SupplierPaymentFormErrors {
   supplierId?: string;
   paymentDate?: string;
   allocations?: string;
+  supplierPayableAmount?: string;
   splits?: string;
   notes?: string;
   root?: string;
@@ -95,6 +96,8 @@ function validatePayment(
   paymentDate: string,
   purchases: SupplierPurchaseSummary[],
   allocationAmounts: Record<string, string>,
+  supplierPayableAmount: string,
+  availableSupplierPayableAmount: string,
   splits: PaymentSplitInput[],
   notes: string,
 ): SupplierPaymentFormErrors {
@@ -124,8 +127,19 @@ function validatePayment(
     }
   }
 
-  if (allocations.length === 0) {
-    errors.allocations = "Allocate a positive amount to at least one purchase.";
+  const enteredSupplierPayableAmount = supplierPayableAmount.trim();
+  const supplierPayableCents = moneyToCents(enteredSupplierPayableAmount);
+
+  if (enteredSupplierPayableAmount) {
+    if (!/^\d+(\.\d{1,2})?$/.test(enteredSupplierPayableAmount) || supplierPayableCents <= 0n) {
+      errors.supplierPayableAmount = "Enter a positive amount with up to two decimals.";
+    } else if (supplierPayableCents > moneyToCents(availableSupplierPayableAmount)) {
+      errors.supplierPayableAmount = "Supplier payable payment cannot exceed the available payable.";
+    }
+  }
+
+  if (allocations.length === 0 && supplierPayableCents <= 0n) {
+    errors.allocations = "Enter a payment against a purchase or the supplier's existing payable.";
   }
 
   if (splits.length === 0) {
@@ -146,11 +160,11 @@ function validatePayment(
     }
   });
 
-  const allocationTotal = amountTotal(allocations);
+  const paymentTotal = amountTotal(allocations) + supplierPayableCents;
   const splitTotal = amountTotal(splits);
 
-  if (allocationTotal > 0n && splitTotal > 0n && allocationTotal !== splitTotal) {
-    errors.splits = "Payment split total must equal the allocation total.";
+  if (paymentTotal > 0n && splitTotal > 0n && paymentTotal !== splitTotal) {
+    errors.splits = "Payment split total must equal purchase allocations plus supplier payable payment.";
   }
 
   return errors;
@@ -162,6 +176,7 @@ function hasErrors(errors: SupplierPaymentFormErrors): boolean {
     errors.supplierId ||
       errors.paymentDate ||
       errors.allocations ||
+      errors.supplierPayableAmount ||
       errors.splits ||
       errors.notes ||
       errors.root ||
@@ -185,21 +200,27 @@ export function SupplierPaymentForm({
     { method: "CASH", amount: "", cashAccountId: "" },
   ]);
   const [allocationAmounts, setAllocationAmounts] = useState<Record<string, string>>({});
+  const [supplierPayableAmount, setSupplierPayableAmount] = useState("");
   const [errors, setErrors] = useState<SupplierPaymentFormErrors>(emptyErrors);
   const openPurchasesQuery = useSupplierOpenPurchases(supplierId, { page: 1, pageSize: 100 });
   const suppliers = suppliersQuery.data?.data.items ?? [];
   const purchases = openPurchasesQuery.data?.data.items ?? [];
+  const availableSupplierPayableAmount = openPurchasesQuery.data?.data.unallocatedPayableAmount ?? "0.00";
   const allocations = useMemo(
     () => selectedAllocations(purchases, allocationAmounts),
     [allocationAmounts, purchases],
   );
-  const allocationTotal = centsToMoney(amountTotal(allocations));
+  const allocationTotalCents = amountTotal(allocations);
+  const supplierPayableCents = moneyToCents(supplierPayableAmount);
+  const allocationTotal = centsToMoney(allocationTotalCents);
+  const paymentTotal = centsToMoney(allocationTotalCents + supplierPayableCents);
   const splitTotal = centsToMoney(amountTotal(splits));
 
   /** Clears purchase allocations whenever the selected supplier changes. */
   function changeSupplier(value: string): void {
     setSupplierId(value);
     setAllocationAmounts({});
+    setSupplierPayableAmount("");
     setErrors(emptyErrors);
   }
 
@@ -217,6 +238,8 @@ export function SupplierPaymentForm({
       paymentDate,
       purchases,
       allocationAmounts,
+      supplierPayableAmount,
+      availableSupplierPayableAmount,
       splits,
       notes,
     );
@@ -232,6 +255,7 @@ export function SupplierPaymentForm({
           supplierId,
           paymentDate,
           allocations,
+          supplierPayableAmount: supplierPayableAmount.trim() || "0.00",
           splits,
           notes: notes.trim() || null,
         },
@@ -244,7 +268,7 @@ export function SupplierPaymentForm({
   }
 
   return (
-    <form className="management-form" onSubmit={handleSubmit}>
+    <form className="management-form supplier-payment-form" onSubmit={handleSubmit}>
       <section className="management-card receipt-form-section">
         <h2>Payment details</h2>
         <div className="payment-filter-grid">
@@ -292,12 +316,14 @@ export function SupplierPaymentForm({
           </p>
         ) : null}
         {supplierId && !openPurchasesQuery.isPending && !openPurchasesQuery.isError && purchases.length === 0 ? (
-          <p>This supplier has no outstanding purchases.</p>
+          moneyToCents(availableSupplierPayableAmount) > 0n
+            ? <p>This supplier has no outstanding purchases, but has an existing supplier payable that can be paid below.</p>
+            : <p>This supplier has no outstanding balance.</p>
         ) : null}
 
         {purchases.length > 0 ? (
           <div className="table-scroll">
-            <table className="ui-table">
+            <table className="ui-table supplier-payment-purchase-table">
               <thead>
                 <tr>
                   <th>Purchase</th>
@@ -333,8 +359,50 @@ export function SupplierPaymentForm({
           </div>
         ) : null}
 
+        {supplierId && !openPurchasesQuery.isPending && moneyToCents(availableSupplierPayableAmount) > 0n ? (
+          <>
+            <div>
+              <h3>Existing supplier payable</h3>
+              <p>Allocate payment to opening or previous supplier payable that is not linked to an open purchase.</p>
+            </div>
+            <div className="table-scroll">
+              <table className="ui-table supplier-payment-payable-table">
+                <thead>
+                  <tr>
+                    <th>Payable type</th>
+                    <th>Payable</th>
+                    <th>Allocate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Existing supplier payable</td>
+                    <td>PKR {availableSupplierPayableAmount}</td>
+                    <td>
+                      <label className="ui-field compact-money-field">
+                        <span className="sr-only">Allocation for existing supplier payable</span>
+                        <input
+                          disabled={createPayment.isPending}
+                          inputMode="decimal"
+                          onChange={(event) => setSupplierPayableAmount(event.target.value)}
+                          placeholder="0.00"
+                          value={supplierPayableAmount}
+                        />
+                        {errors.supplierPayableAmount ? (
+                          <small className="error-message">{errors.supplierPayableAmount}</small>
+                        ) : null}
+                      </label>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null}
+
         {errors.allocations ? <p className="error-message">{errors.allocations}</p> : null}
-        <p className="form-summary">Allocation total: PKR {allocationTotal}</p>
+        <p className="form-summary">Purchase allocation total: PKR {allocationTotal}</p>
+        <p className="form-summary">Total payment: PKR {paymentTotal}</p>
       </section>
 
       <section className="management-card receipt-form-section">
@@ -346,7 +414,7 @@ export function SupplierPaymentForm({
           value={splits}
         />
         {errors.splits ? <p className="error-message">{errors.splits}</p> : null}
-        <p className="form-summary">Split total: PKR {splitTotal}</p>
+        <p className="form-summary">Payment total: PKR {paymentTotal} · Split total: PKR {splitTotal}</p>
       </section>
 
       <section className="management-card receipt-form-section">

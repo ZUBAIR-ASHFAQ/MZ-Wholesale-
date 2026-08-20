@@ -19,6 +19,7 @@ import {
   purchases,
   purchaseReturns,
   stockMovements,
+  supplierLedgerEntries,
   supplierPaymentAllocations,
   supplierPayments,
   suppliers,
@@ -45,9 +46,14 @@ export interface SupplierChanges {
   isActive?: boolean;
 }
 
+/** Represents one supplier row in the list with its ledger-derived current payable. */
+export interface SupplierListRecord extends SupplierRecord {
+  currentPayable: string;
+}
+
 /** Contains one page of supplier records and the matching total count. */
 export interface PaginatedSupplierRecords {
-  items: SupplierRecord[];
+  items: SupplierListRecord[];
   total: number;
 }
 
@@ -84,7 +90,7 @@ export async function listSuppliers(
   const where = filters.length > 0 ? and(...filters) : undefined;
   const offset = (query.page - 1) * query.pageSize;
 
-  const items = await database
+  const supplierRows = await database
     .select()
     .from(suppliers)
     .where(where)
@@ -95,6 +101,24 @@ export async function listSuppliers(
     )
     .limit(query.pageSize)
     .offset(offset);
+
+  const payableRows = supplierRows.length > 0
+    ? await database
+      .select({
+        supplierId: supplierLedgerEntries.supplierId,
+        currentPayable: sql<string>`coalesce(sum(${supplierLedgerEntries.credit} - ${supplierLedgerEntries.debit}), 0)::numeric(14,2)::text`,
+      })
+      .from(supplierLedgerEntries)
+      .where(inArray(supplierLedgerEntries.supplierId, supplierRows.map((supplier) => supplier.id)))
+      .groupBy(supplierLedgerEntries.supplierId)
+    : [];
+  const payableBySupplierId = new Map(
+    payableRows.map((row) => [row.supplierId, row.currentPayable]),
+  );
+  const items = supplierRows.map((supplier) => ({
+    ...supplier,
+    currentPayable: payableBySupplierId.get(supplier.id) ?? "0.00",
+  }));
 
   const totalRows = await database
     .select({ total: count() })
@@ -279,6 +303,47 @@ export async function listRecentSupplierPurchases(
     purchaseNumber: row.purchaseNumber as string,
     productNames: (productNames.get(row.id) ?? []).join(", "),
   }));
+}
+
+/** Calculates the total purchase-linked payable for one supplier across confirmed purchases. */
+export async function getSupplierOpenPurchaseDueTotal(
+  database: SuppliersDatabase,
+  supplierId: string,
+): Promise<string> {
+  const paidAmount = sql<string>`coalesce((
+    select sum(${supplierPaymentAllocations.amount})
+    from ${supplierPaymentAllocations}
+    inner join ${supplierPayments}
+      on ${supplierPayments.id} = ${supplierPaymentAllocations.supplierPaymentId}
+    where ${supplierPaymentAllocations.purchaseId} = ${purchases.id}
+      and ${supplierPayments.status} = 'CONFIRMED'
+      and ${supplierPayments.reversalOfPaymentId} is null
+  ), 0)`;
+  const returnedAmount = sql<string>`coalesce((
+    select sum(${purchaseReturns.totalAmount})
+    from ${purchaseReturns}
+    where ${purchaseReturns.originalPurchaseId} = ${purchases.id}
+      and ${purchaseReturns.status} = 'CONFIRMED'
+  ), 0)`;
+  const dueAmount = sql<string>`greatest(${purchases.totalAmount} - ${returnedAmount} - ${paidAmount}, 0)`;
+  const openPurchaseDues = database
+    .select({ dueAmount: sql<string>`${dueAmount}::numeric`.as("due_amount") })
+    .from(purchases)
+    .where(
+      and(
+        eq(purchases.supplierId, supplierId),
+        eq(purchases.status, "CONFIRMED"),
+        sql`${dueAmount} > 0`,
+      ),
+    )
+    .as("supplier_open_purchase_due_totals");
+  const rows = await database
+    .select({
+      total: sql<string>`coalesce(sum(${openPurchaseDues.dueAmount}), 0)::numeric(14,2)::text`,
+    })
+    .from(openPurchaseDues);
+
+  return rows[0]?.total ?? "0.00";
 }
 
 /** Lists confirmed purchases with a positive outstanding amount for one supplier. */

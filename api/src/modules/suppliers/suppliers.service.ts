@@ -6,7 +6,7 @@ import { getSupplierCurrentPayable, writeSupplierCredit } from "../ledgers/index
 import {
   createSupplier as insertSupplier,
   findSupplierById,
-  hasNormalBusinessActivity,
+  getSupplierOpenPurchaseDueTotal,
   listRecentSupplierPurchases,
   listSupplierOpenPurchases,
   listSuppliers as readSuppliers,
@@ -169,17 +169,6 @@ export async function createSupplier(
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       const createWithDatabase = async (tx: SuppliersDatabase): Promise<SupplierRecord | null> => {
-        if (
-          isDecimalGreaterThanZero(input.openingBalance) &&
-          await hasNormalBusinessActivity(tx)
-        ) {
-          throw supplierError(
-            "OPENING_BALANCE_LOCKED",
-            "Opening supplier payable can only be entered before normal transactions begin.",
-            409,
-          );
-        }
-
         const supplier = await insertSupplier(tx, {
           ...supplierInput,
           code: createSupplierCode(),
@@ -268,6 +257,21 @@ export async function updateSupplier(
   return updatedSupplier;
 }
 
+/** Converts one database money value into exact signed integer cents. */
+function moneyToCents(value: string): bigint {
+  const negative = value.startsWith("-");
+  const [whole = "0", fraction = ""] = value.replace("-", "").split(".");
+  const cents = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"));
+  return negative ? -cents : cents;
+}
+
+/** Formats exact integer cents as the API money representation. */
+function centsToMoney(value: bigint): string {
+  const sign = value < 0n ? "-" : "";
+  const absolute = value < 0n ? -value : value;
+  return `${sign}${absolute / 100n}.${(absolute % 100n).toString().padStart(2, "0")}`;
+}
+
 /** Lists confirmed purchases that still accept payment allocation for one supplier. */
 export async function getSupplierOpenPurchases(
   database: SuppliersDatabase,
@@ -275,11 +279,19 @@ export async function getSupplierOpenPurchases(
   query: SupplierOpenPurchasesQuery,
 ) {
   await requireSupplier(database, supplierId);
-  const page = await listSupplierOpenPurchases(database, supplierId, query);
+  const [page, currentPayable, purchaseDue] = await Promise.all([
+    listSupplierOpenPurchases(database, supplierId, query),
+    getSupplierCurrentPayable(database, supplierId),
+    getSupplierOpenPurchaseDueTotal(database, supplierId),
+  ]);
+  const unallocatedPayableCents = moneyToCents(currentPayable) - moneyToCents(purchaseDue);
 
   return {
     ...page,
     page: query.page,
     pageSize: query.pageSize,
+    unallocatedPayableAmount: centsToMoney(
+      unallocatedPayableCents > 0n ? unallocatedPayableCents : 0n,
+    ),
   };
 }

@@ -1835,6 +1835,7 @@ function validCustomerReceiptInput(): CreateCustomerReceiptInput {
       },
     ],
     allocations: [{ documentId: DOCUMENT_ID, amount: "100.00" }],
+    customerDueAmount: "0.00",
   };
 }
 
@@ -1851,6 +1852,7 @@ function validSupplierPaymentInput(): CreateSupplierPaymentInput {
       },
     ],
     allocations: [{ documentId: DOCUMENT_ID, amount: "100.00" }],
+    supplierPayableAmount: "0.00",
   };
 }
 
@@ -1868,6 +1870,70 @@ test("Module 8 runtime receipt validation rejects mismatched totals", () => {
 
   assertSchemaRejects(
     createCustomerReceiptSchema.safeParse(input),
+    /Payment split total must equal allocation total/,
+  );
+});
+
+/** Verifies a receipt can settle existing customer due without an invoice allocation. */
+test("Module 8 runtime receipt validation accepts customer due only payment", () => {
+  const input = validCustomerReceiptInput();
+  input.allocations = [];
+  input.customerDueAmount = "100.00";
+
+  assert.equal(createCustomerReceiptSchema.safeParse(input).success, true);
+});
+
+/** Verifies a receipt still needs either an invoice allocation or existing customer due. */
+test("Module 8 runtime receipt validation rejects empty customer receipt allocation", () => {
+  const input = validCustomerReceiptInput();
+  input.allocations = [];
+  input.customerDueAmount = "0.00";
+
+  assertSchemaRejects(
+    createCustomerReceiptSchema.safeParse(input),
+    /invoice or existing customer due/i,
+  );
+});
+
+/** Verifies split totals include both invoice allocations and existing customer due payment. */
+test("Module 8 runtime receipt validation includes customer due in total", () => {
+  const input = validCustomerReceiptInput();
+  input.customerDueAmount = "25.00";
+
+  assertSchemaRejects(
+    createCustomerReceiptSchema.safeParse(input),
+    /Payment split total must equal allocation total/,
+  );
+});
+
+/** Verifies a supplier payment can settle existing payable without a purchase allocation. */
+test("Module 8 runtime supplier validation accepts existing payable only payment", () => {
+  const input = validSupplierPaymentInput();
+  input.allocations = [];
+  input.supplierPayableAmount = "100.00";
+
+  assert.equal(createSupplierPaymentSchema.safeParse(input).success, true);
+});
+
+/** Verifies a supplier payment still needs either a purchase allocation or existing payable. */
+test("Module 8 runtime supplier validation rejects empty supplier payment allocation", () => {
+  const input = validSupplierPaymentInput();
+  input.allocations = [];
+  input.supplierPayableAmount = "0.00";
+
+  assertSchemaRejects(
+    createSupplierPaymentSchema.safeParse(input),
+    /purchase or existing supplier payable/i,
+  );
+});
+
+/** Verifies split totals include both purchase allocations and existing supplier payable payment. */
+test("Module 8 runtime supplier validation includes existing payable in total", () => {
+  const input = validSupplierPaymentInput();
+  input.supplierPayableAmount = "25.00";
+
+  assertSchemaRejects(
+    createSupplierPaymentSchema.safeParse(input),
     /Payment split total must equal allocation total/,
   );
 });

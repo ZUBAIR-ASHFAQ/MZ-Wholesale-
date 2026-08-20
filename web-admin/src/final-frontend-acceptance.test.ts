@@ -529,7 +529,6 @@ describe("final frontend acceptance", () => {
         "phone",
         "email",
         "address",
-        "taxId",
         "creditLimit",
         "openingBalance",
         "isActive",

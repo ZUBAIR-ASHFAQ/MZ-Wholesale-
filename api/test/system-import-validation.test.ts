@@ -130,7 +130,7 @@ test("opening balance validation protects ledger setup rules", async () => {
   assert.match(service, /Party type must be CUSTOMER or SUPPLIER/);
 });
 
-test("supplier import contract excludes removed Tax ID while customer import keeps it", async () => {
+test("customer and supplier import contracts exclude removed Tax ID", async () => {
   const service = await readSystemSource("system.service.ts");
   const templatesStart = service.indexOf("const importTemplateColumns");
   const templatesEnd = service.indexOf("/** Builds a header-only CSV template", templatesStart);
@@ -142,7 +142,7 @@ test("supplier import contract excludes removed Tax ID while customer import kee
   const customerTemplate = templates.slice(customerStart, supplierStart);
   const supplierTemplate = templates.slice(supplierStart, openingStockStart);
 
-  assert.match(customerTemplate, /"taxId"/);
+  assert.doesNotMatch(customerTemplate, /"taxId"/);
   assert.doesNotMatch(supplierTemplate, /"taxId"/);
 });
 

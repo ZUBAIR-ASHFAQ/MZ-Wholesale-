@@ -1,10 +1,10 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
+import { useCustomers } from "../../customers/hooks/use-customers.ts";
 import type { PaymentAccounts } from "../../payments/api/payments.api.ts";
 import { useSale, useSales } from "../../sales/hooks/use-sales.ts";
 import type { SalesReturnRefundMode } from "../api/returns.api.ts";
@@ -78,6 +78,23 @@ function today(): string {
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
+
+/** Converts one valid quantity string to thousandths for exact comparisons. */
+function quantityToUnits(value: string): bigint | null {
+  const trimmed = value.trim();
+  if (!/^\d+(\.\d{1,3})?$/.test(trimmed)) return null;
+
+  const [wholePart, fractionPart = ""] = trimmed.split(".");
+  return BigInt(wholePart) * 1000n + BigInt(fractionPart.padEnd(3, "0"));
+}
+
+/** Returns whether a requested return quantity exceeds the original sold quantity. */
+function exceedsSoldQuantity(returnQuantity: string, soldQuantity: string): boolean {
+  const returnUnits = quantityToUnits(returnQuantity);
+  const soldUnits = quantityToUnits(soldQuantity);
+  return returnUnits !== null && soldUnits !== null && returnUnits > soldUnits;
+}
+
 /** Reads one user-friendly error message from the shared API error type. */
 function readReturnError(error: unknown): string {
   return error instanceof ApiError
@@ -92,20 +109,28 @@ export function SalesReturnForm({
   onSaved,
   onCancel,
 }: SalesReturnFormProps): React.JSX.Element {
-  const confirmedSalesQuery = useSales({ status: "CONFIRMED", page: 1, pageSize: 100 });
   const createReturn = useCreateSalesReturn();
+  const customersQuery = useCustomers({ page: 1, pageSize: 100 });
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const confirmedSalesQuery = useSales({
+    customerId: selectedCustomerId || undefined,
+    status: "CONFIRMED",
+    page: 1,
+    pageSize: 100,
+  });
   const [formError, setFormError] = useState("");
+  const [returnItems, setReturnItems] = useState<SalesReturnFormValues["items"]>([]);
+  const [quantityErrors, setQuantityErrors] = useState<Record<number, string>>({});
 
   const {
-    control,
     register,
     handleSubmit,
     watch,
-    resetField,
+    clearErrors,
+    setValue,
     setError,
     formState: { errors },
   } = useForm<SalesReturnFormValues>({
-    resolver: zodResolver(salesReturnFormSchema),
     defaultValues: {
       originalSaleId: initialOriginalSaleId,
       returnDate: today(),
@@ -117,34 +142,46 @@ export function SalesReturnForm({
     },
   });
 
-  const { fields, replace } = useFieldArray({ control, name: "items" });
-  const originalSaleId = watch("originalSaleId");
-  const refundMode = watch("refundMode");
+  const originalSaleId = watch("originalSaleId", initialOriginalSaleId) ?? "";
+  const refundMode = watch("refundMode", "DUE_REDUCTION") ?? "DUE_REDUCTION";
   const selectedSaleQuery = useSale(originalSaleId);
   const selectedSale = selectedSaleQuery.data?.data;
-  const confirmedSales = confirmedSalesQuery.data?.data.items ?? [];
+  const customers = customersQuery.data?.data.items ?? [];
+  const confirmedSales = selectedCustomerId
+    ? (confirmedSalesQuery.data?.data.items ?? []).filter(
+        (sale) => sale.customerId === selectedCustomerId,
+      )
+    : [];
   const activeCashAccounts = accounts.cashAccounts.filter((account) => account.isActive);
   const activeBankAccounts = accounts.bankAccounts.filter((account) => account.isActive);
 
   useEffect(() => {
-    if (!selectedSale) {
-      replace([]);
-      return;
+    if (selectedSale?.sale.customerId) {
+      setSelectedCustomerId(selectedSale.sale.customerId);
     }
 
-    replace(
-      selectedSale.items.map((item) => ({
+    setReturnItems(
+      (selectedSale?.items ?? []).map((item) => ({
         originalSaleItemId: item.id,
         quantity: "",
         stockCondition: "GOOD" as const,
       })),
     );
-  }, [replace, selectedSale]);
+    setQuantityErrors({});
+    clearErrors("items");
+  }, [clearErrors, selectedSale]);
 
   useEffect(() => {
-    if (refundMode !== "CASH") resetField("cashAccountId");
-    if (refundMode !== "BANK_TRANSFER") resetField("bankAccountId");
-  }, [refundMode, resetField]);
+    if (refundMode !== "CASH") {
+      setValue("cashAccountId", "");
+      clearErrors("cashAccountId");
+    }
+
+    if (refundMode !== "BANK_TRANSFER") {
+      setValue("bankAccountId", "");
+      clearErrors("bankAccountId");
+    }
+  }, [clearErrors, refundMode, setValue]);
 
   /** Copies API field errors into React Hook Form when the server provides them. */
   function applyApiErrors(error: unknown): void {
@@ -164,8 +201,61 @@ export function SalesReturnForm({
   /** Creates one confirmed Sales Return using only lines with a positive quantity. */
   async function saveSalesReturn(values: SalesReturnFormValues): Promise<void> {
     setFormError("");
+    clearErrors();
+    setQuantityErrors({});
 
-    const items = values.items
+    if (!selectedCustomerId) {
+      setFormError("Select a customer before selecting a sale.");
+      return;
+    }
+
+    if (
+      !selectedSale
+      || selectedSale.sale.id !== values.originalSaleId
+      || selectedSale.sale.customerId !== selectedCustomerId
+    ) {
+      setFormError("Select a confirmed sale and wait for its items to load.");
+      return;
+    }
+
+    const parsed = salesReturnFormSchema.safeParse({
+      ...values,
+      items: returnItems,
+    });
+
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const fieldName = issue.path.join(".");
+
+        if (!fieldName) {
+          setFormError(issue.message);
+          continue;
+        }
+
+        setError(fieldName as Parameters<typeof setError>[0], {
+          type: "manual",
+          message: issue.message,
+        });
+      }
+      return;
+    }
+
+    const validatedValues = parsed.data;
+    const soldQuantityErrors: Record<number, string> = {};
+
+    validatedValues.items.forEach((item, index) => {
+      const saleItem = selectedSale.items[index];
+      if (saleItem && exceedsSoldQuantity(item.quantity, saleItem.quantity)) {
+        soldQuantityErrors[index] = `Return quantity cannot exceed sold quantity (${saleItem.quantity}).`;
+      }
+    });
+
+    if (Object.keys(soldQuantityErrors).length > 0) {
+      setQuantityErrors(soldQuantityErrors);
+      return;
+    }
+
+    const items = validatedValues.items
       .filter((item) => Number(item.quantity) > 0)
       .map((item) => ({
         originalSaleItemId: item.originalSaleItemId,
@@ -176,12 +266,12 @@ export function SalesReturnForm({
     try {
       await createReturn.mutateAsync({
         input: {
-          originalSaleId: values.originalSaleId,
-          returnDate: values.returnDate,
-          reason: values.reason.trim(),
-          refundMode: values.refundMode as SalesReturnRefundMode,
-          cashAccountId: values.refundMode === "CASH" ? values.cashAccountId : undefined,
-          bankAccountId: values.refundMode === "BANK_TRANSFER" ? values.bankAccountId : undefined,
+          originalSaleId: validatedValues.originalSaleId,
+          returnDate: validatedValues.returnDate,
+          reason: validatedValues.reason.trim(),
+          refundMode: validatedValues.refundMode as SalesReturnRefundMode,
+          cashAccountId: validatedValues.refundMode === "CASH" ? validatedValues.cashAccountId : undefined,
+          bankAccountId: validatedValues.refundMode === "BANK_TRANSFER" ? validatedValues.bankAccountId : undefined,
           items,
         },
         idempotencyKey: crypto.randomUUID(),
@@ -198,12 +288,36 @@ export function SalesReturnForm({
         <h2>Original sale</h2>
         <div className="payment-filter-grid">
           <label className="ui-field">
-            <span>Confirmed invoice</span>
+            <span>Customer</span>
             <select
-              disabled={createReturn.isPending || confirmedSalesQuery.isPending}
+              disabled={createReturn.isPending || customersQuery.isPending}
+              onChange={(event) => {
+                const customerId = event.target.value;
+                setSelectedCustomerId(customerId);
+                setValue("originalSaleId", "");
+                setReturnItems([]);
+                setQuantityErrors({});
+                clearErrors("originalSaleId");
+                setFormError("");
+              }}
+              value={selectedCustomerId}
+            >
+              <option value="">Select customer</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.code} · {customer.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="ui-field">
+            <span>Confirmed sale</span>
+            <select
+              disabled={!selectedCustomerId || createReturn.isPending || confirmedSalesQuery.isPending}
               {...register("originalSaleId")}
             >
-              <option value="">Select confirmed invoice</option>
+              <option value="">{selectedCustomerId ? "Select confirmed sale" : "Select customer first"}</option>
               {confirmedSales.map((sale) => (
                 <option key={sale.id} value={sale.id}>
                   {sale.invoiceNumber ?? "Confirmed sale"} · {sale.invoiceDate} · PKR {sale.totalAmount}
@@ -220,7 +334,11 @@ export function SalesReturnForm({
           </label>
         </div>
 
-        {confirmedSalesQuery.isError ? <p className="error-message">Confirmed sales could not be loaded.</p> : null}
+        {customersQuery.isError ? <p className="error-message">Customers could not be loaded.</p> : null}
+        {selectedCustomerId && confirmedSalesQuery.isError ? <p className="error-message">Confirmed sales could not be loaded.</p> : null}
+        {selectedCustomerId && !confirmedSalesQuery.isPending && !confirmedSalesQuery.isError && confirmedSales.length === 0 ? (
+          <p>No confirmed sales were found for this customer.</p>
+        ) : null}
         {selectedSaleQuery.isPending && originalSaleId ? <p>Loading invoice items...</p> : null}
         {selectedSaleQuery.isError ? <p className="error-message">The selected invoice could not be loaded.</p> : null}
       </section>
@@ -242,13 +360,13 @@ export function SalesReturnForm({
                 </tr>
               </thead>
               <tbody>
-                {fields.map((field, index) => {
+                {returnItems.map((returnItem, index) => {
                   const saleItem = selectedSale.items[index];
 
                   if (!saleItem) return null;
 
                   return (
-                    <tr key={field.id}>
+                    <tr key={saleItem.id}>
                       <td>{saleItem.productSkuSnapshot} - {saleItem.productNameSnapshot} ({saleItem.unitNameSnapshot})</td>
                       <td>{saleItem.quantity}</td>
                       <td>PKR {saleItem.manualUnitPrice}</td>
@@ -258,16 +376,48 @@ export function SalesReturnForm({
                           <input
                             disabled={createReturn.isPending}
                             inputMode="decimal"
+                            onChange={(event) => {
+                              const quantity = event.target.value;
+                              setReturnItems((currentItems) =>
+                                currentItems.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, quantity } : item,
+                                ),
+                              );
+                              setQuantityErrors((currentErrors) => {
+                                const nextErrors = { ...currentErrors };
+                                if (exceedsSoldQuantity(quantity, saleItem.quantity)) {
+                                  nextErrors[index] = `Return quantity cannot exceed sold quantity (${saleItem.quantity}).`;
+                                } else {
+                                  delete nextErrors[index];
+                                }
+                                return nextErrors;
+                              });
+                              clearErrors("items");
+                            }}
                             placeholder="0.000"
-                            {...register(`items.${index}.quantity`)}
+                            value={returnItem.quantity}
                           />
-                          {errors.items?.[index]?.quantity ? (
+                          {quantityErrors[index] ? (
+                            <small className="error-message">{quantityErrors[index]}</small>
+                          ) : errors.items?.[index]?.quantity ? (
                             <small className="error-message">{errors.items[index]?.quantity?.message}</small>
                           ) : null}
                         </label>
                       </td>
                       <td>
-                        <select disabled={createReturn.isPending} {...register(`items.${index}.stockCondition`)}>
+                        <select
+                          disabled={createReturn.isPending}
+                          onChange={(event) => {
+                            const stockCondition = event.target.value as SalesReturnFormValues["items"][number]["stockCondition"];
+                            setReturnItems((currentItems) =>
+                              currentItems.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, stockCondition } : item,
+                              ),
+                            );
+                            clearErrors("items");
+                          }}
+                          value={returnItem.stockCondition}
+                        >
                           <option value="GOOD">Good</option>
                           <option value="DAMAGED">Damaged</option>
                           <option value="EXPIRED">Expired</option>
@@ -289,9 +439,9 @@ export function SalesReturnForm({
           <label className="ui-field">
             <span>Refund mode</span>
             <select disabled={createReturn.isPending} {...register("refundMode")}>
-              <option value="DUE_REDUCTION">Reduce customer due</option>
+              <option value="DUE_REDUCTION">Customer due</option>
               <option value="CASH">Cash refund</option>
-              <option value="BANK_TRANSFER">Bank transfer refund</option>
+              <option value="BANK_TRANSFER">Bank refund</option>
             </select>
           </label>
 

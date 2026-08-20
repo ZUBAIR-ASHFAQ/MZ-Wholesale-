@@ -1,12 +1,13 @@
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
+import { Dialog } from "../../../components/ui/dialog.tsx";
 import type { SupplierListFilters } from "../api/suppliers.api.ts";
 import {
   SupplierFilters,
   type SupplierFilterValues,
 } from "../components/supplier-filters.tsx";
+import { SupplierForm } from "../components/supplier-form.tsx";
 import { SupplierTable } from "../components/supplier-table.tsx";
 import { useSuppliers } from "../hooks/use-suppliers.ts";
 
@@ -38,6 +39,7 @@ export function SupplierListPage(): React.JSX.Element {
   const [appliedFilters, setAppliedFilters] =
     useState<SupplierFilterValues>(emptyFilters);
   const [page, setPage] = useState(1);
+  const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
 
   const suppliersQuery = useSuppliers(createApiFilters(appliedFilters, page));
   const result = suppliersQuery.data?.data;
@@ -74,9 +76,7 @@ export function SupplierListPage(): React.JSX.Element {
           <h1>Suppliers</h1>
           <p>Search suppliers used for purchases and future payable tracking.</p>
         </div>
-        <Link className="primary-link" to="/suppliers/new">
-          Add supplier
-        </Link>
+        <Button label="Add supplier" onClick={() => setIsAddSupplierOpen(true)} />
       </div>
 
       <section className="management-card supplier-list-card">
@@ -115,6 +115,18 @@ export function SupplierListPage(): React.JSX.Element {
           </div>
         ) : null}
       </section>
+
+      <Dialog
+        isOpen={isAddSupplierOpen}
+        onClose={() => setIsAddSupplierOpen(false)}
+        title="Add supplier"
+        wide
+      >
+        <SupplierForm
+          onCancel={() => setIsAddSupplierOpen(false)}
+          onSaved={() => setIsAddSupplierOpen(false)}
+        />
+      </Dialog>
     </section>
   );
 }
