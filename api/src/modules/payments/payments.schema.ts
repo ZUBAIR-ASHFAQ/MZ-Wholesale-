@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isBusinessDateNotFuture } from "../../shared/utils/business-date.js";
 import { isMoneyWithinDatabaseRange } from "../../shared/utils/decimal-validation.js";
 
 const uuidSchema = z.string().uuid("ID must be a valid UUID.");
@@ -27,6 +28,11 @@ const dateSchema = z
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD format.")
   .refine(isValidDate, "Date must be a valid calendar date.");
+
+const mutationDateSchema = dateSchema.refine(
+  isBusinessDateNotFuture,
+  "Date cannot be in the future.",
+);
 
 const nameSchema = z
   .string()
@@ -218,7 +224,7 @@ const paymentAllocationSchema = z
   .strict();
 
 const paymentRequestFields = {
-  paymentDate: dateSchema,
+  paymentDate: mutationDateSchema,
   splits: z
     .array(paymentSplitSchema)
     .min(1, "At least one payment split is required.")
@@ -411,7 +417,7 @@ export const createTransferSchema = z
     destinationAccountType: accountTypeSchema,
     destinationAccountId: uuidSchema,
     amount: positiveMoneySchema,
-    transferDate: dateSchema,
+    transferDate: mutationDateSchema,
     notes: z.preprocess(emptyStringToNull, notesSchema.nullable().optional()),
   })
   .strict()
@@ -440,7 +446,7 @@ export const transferListQuerySchema = z
 export const createCashReconciliationSchema = z
   .object({
     cashAccountId: uuidSchema,
-    reconciliationDate: dateSchema,
+    reconciliationDate: mutationDateSchema,
     countedAmount: moneySchema,
     notes: z.preprocess(emptyStringToNull, notesSchema.nullable().optional()),
   })

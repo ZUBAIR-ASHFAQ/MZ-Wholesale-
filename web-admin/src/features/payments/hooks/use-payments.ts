@@ -85,12 +85,18 @@ export function usePaymentAccounts() {
   });
 }
 
+interface CreateCashAccountVariables {
+  input: CreateCashAccountInput;
+  idempotencyKey: string;
+}
+
 /** Creates one cash account and refreshes account data. */
 export function useCreateCashAccount() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: CreateCashAccountInput) => createCashAccount(input),
+    mutationFn: ({ input, idempotencyKey }: CreateCashAccountVariables) =>
+      createCashAccount(input, idempotencyKey),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
     },
@@ -115,12 +121,18 @@ export function useUpdateCashAccount() {
   });
 }
 
+interface CreateBankAccountVariables {
+  input: CreateBankAccountInput;
+  idempotencyKey: string;
+}
+
 /** Creates one bank account and refreshes account data. */
 export function useCreateBankAccount() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: CreateBankAccountInput) => createBankAccount(input),
+    mutationFn: ({ input, idempotencyKey }: CreateBankAccountVariables) =>
+      createBankAccount(input, idempotencyKey),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
     },
@@ -170,12 +182,18 @@ export function useTransfer(transferId: string) {
   });
 }
 
+interface CreateTransferVariables {
+  input: CreateTransferInput;
+  idempotencyKey: string;
+}
+
 /** Creates one transfer and refreshes all payment account data. */
 export function useCreateTransfer() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: CreateTransferInput) => createTransfer(input),
+    mutationFn: ({ input, idempotencyKey }: CreateTransferVariables) =>
+      createTransfer(input, idempotencyKey),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
     },
@@ -220,12 +238,18 @@ export function useUpdateCashReconciliation() {
   });
 }
 
+interface ConfirmCashReconciliationVariables {
+  reconciliationId: string;
+  idempotencyKey: string;
+}
+
 /** Confirms one draft reconciliation and refreshes balances and movements. */
 export function useConfirmCashReconciliation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (reconciliationId: string) => confirmCashReconciliation(reconciliationId),
+    mutationFn: ({ reconciliationId, idempotencyKey }: ConfirmCashReconciliationVariables) =>
+      confirmCashReconciliation(reconciliationId, idempotencyKey),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
     },

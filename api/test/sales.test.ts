@@ -629,6 +629,24 @@ test("Counter Sales frontend supports draft, hold, edit, confirm, and cancel act
   assert.match(formSource, /cancelSale\.mutateAsync/);
 });
 
+test("Counter Sales confirmation reuses one idempotency key across ambiguous retries", async () => {
+  const formSource = await readFile(
+    new URL("../../web-admin/src/features/sales/components/sale-form.tsx", import.meta.url),
+    "utf8",
+  );
+  const apiSource = await readFile(
+    new URL("../../web-admin/src/features/sales/api/sales.api.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(formSource, /const confirmationKey = useRef\(crypto\.randomUUID\(\)\)/);
+  assert.match(formSource, /idempotencyKey: confirmationKey\.current/);
+  assert.match(formSource, /if \(!confirmationRequestStarted\.current\)/);
+  assert.match(formSource, /confirmationRequestStarted\.current = true/);
+  assert.doesNotMatch(formSource, /idempotencyKey: crypto\.randomUUID\(\)/);
+  assert.doesNotMatch(apiSource, /idempotencyKey \?\? crypto\.randomUUID/);
+});
+
 test("Counter Sales frontend validates payment totals and Walk-in full payment", async () => {
   const formSource = await readFile(
     new URL("../../web-admin/src/features/sales/components/sale-form.tsx", import.meta.url),
@@ -918,6 +936,8 @@ test("module 11 pass 34 keeps confirmed sale corrections on the Sales Return wor
   assert.match(detailSource, /Create sales return/);
   assert.match(detailSource, /search=\{\{ originalSaleId: saleId \}\}/);
   assert.match(returnFormSource, /initialOriginalSaleId/);
+  assert.match(returnFormSource, /idempotencyKey: idempotencyKey\.current/);
+  assert.doesNotMatch(returnFormSource, /idempotencyKey: crypto\.randomUUID\(\)/);
   assert.match(routerSource, /validateSearch/);
   assert.match(routerSource, /originalSaleId/);
 });

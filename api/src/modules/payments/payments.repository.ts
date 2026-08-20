@@ -74,6 +74,7 @@ export interface CustomerPaymentSaleRecord {
   invoiceDate: string;
   totalAmount: string;
   returnedAmount: string;
+  refundedAmount: string;
   allocatedAmount: string;
 }
 
@@ -1094,6 +1095,7 @@ export async function lockCustomerPaymentSales(
     .select({
       salesInvoiceId: salesReturns.originalSaleId,
       returnedAmount: sql<string>`coalesce(sum(${salesReturns.totalAmount}), 0)::text`,
+      refundedAmount: sql<string>`coalesce(sum(case when ${salesReturns.refundMode} in ('CASH', 'BANK_TRANSFER') then ${salesReturns.totalAmount} else 0 end), 0)::text`,
     })
     .from(salesReturns)
     .where(
@@ -1110,11 +1112,15 @@ export async function lockCustomerPaymentSales(
   const returnedByInvoice = new Map(
     returnRows.map((row) => [row.salesInvoiceId, row.returnedAmount]),
   );
+  const refundedByInvoice = new Map(
+    returnRows.map((row) => [row.salesInvoiceId, row.refundedAmount]),
+  );
 
   return invoiceRows.map((invoice) => ({
     ...invoice,
     invoiceNumber: invoice.invoiceNumber as string,
     returnedAmount: returnedByInvoice.get(invoice.id) ?? "0.00",
+    refundedAmount: refundedByInvoice.get(invoice.id) ?? "0.00",
     allocatedAmount: allocatedByInvoice.get(invoice.id) ?? "0.00",
   }));
 }

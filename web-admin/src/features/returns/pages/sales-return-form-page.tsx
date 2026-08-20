@@ -15,9 +15,12 @@ export function SalesReturnFormPage({
   const accountsQuery = usePaymentAccounts();
   const accounts = accountsQuery.data?.data;
 
-  /** Returns to the Sales Return list after confirmation. */
-  function handleSaved(): void {
-    void navigate({ to: "/returns/sales" });
+  /** Opens the immutable generated Sales Return document after confirmation. */
+  function handleSaved(salesReturnId: string): void {
+    void navigate({
+      to: "/returns/sales/$salesReturnId",
+      params: { salesReturnId },
+    });
   }
 
   /** Leaves the form without creating a Sales Return. */

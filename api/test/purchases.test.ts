@@ -590,6 +590,24 @@ test("Module 11 Pass 26 keeps Purchase Return errors safe and form-friendly", as
 });
 
 
+test("Purchase confirmation reuses one idempotency key across ambiguous retries", async () => {
+  const formSource = await readFile(
+    new URL("../../web-admin/src/features/purchases/components/purchase-form.tsx", import.meta.url),
+    "utf8",
+  );
+  const apiSource = await readFile(
+    new URL("../../web-admin/src/features/purchases/api/purchases.api.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(formSource, /const confirmationKey = useRef\(crypto\.randomUUID\(\)\)/);
+  assert.match(formSource, /idempotencyKey: confirmationKey\.current/);
+  assert.match(formSource, /if \(!confirmationRequestStarted\.current\)/);
+  assert.match(formSource, /confirmationRequestStarted\.current = true/);
+  assert.doesNotMatch(formSource, /idempotencyKey: crypto\.randomUUID\(\)/);
+  assert.doesNotMatch(apiSource, /idempotencyKey \?\? crypto\.randomUUID/);
+});
+
 /** Verifies Pass 35 keeps confirmed purchase corrections on the Purchase Return workflow. */
 test("Module 11 Pass 35 integrates confirmed purchases with Purchase Returns", async () => {
   const detailSource = await readFile(
@@ -608,6 +626,8 @@ test("Module 11 Pass 35 integrates confirmed purchases with Purchase Returns", a
   assert.match(detailSource, /Create purchase return/);
   assert.match(detailSource, /search=\{\{ originalPurchaseId: purchaseId \}\}/);
   assert.match(returnFormSource, /initialOriginalPurchaseId/);
+  assert.match(returnFormSource, /idempotencyKey: idempotencyKey\.current/);
+  assert.doesNotMatch(returnFormSource, /idempotencyKey: crypto\.randomUUID\(\)/);
   assert.match(routerSource, /NewPurchaseReturnSearch/);
   assert.match(routerSource, /originalPurchaseId/);
 });

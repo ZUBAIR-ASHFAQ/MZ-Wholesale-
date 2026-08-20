@@ -1,4 +1,5 @@
 import { AppError } from "../../shared/errors/app-error.js";
+import { isBusinessDateNotFuture } from "../../shared/utils/business-date.js";
 import { reserveBusinessDocumentNumberInTransaction } from "../business-settings/index.js";
 import { recordSaleStockOut } from "../inventory/inventory.service.js";
 import {
@@ -753,6 +754,15 @@ export async function confirmSaleInTransaction(
       "INVALID_SALE_STATUS",
       "Only a draft or held sale can be confirmed.",
       409,
+    );
+  }
+
+  if (!isBusinessDateNotFuture(sale.invoiceDate)) {
+    throw saleError(
+      "FUTURE_BUSINESS_DATE",
+      "Sale date cannot be in the future.",
+      400,
+      "invoiceDate",
     );
   }
 

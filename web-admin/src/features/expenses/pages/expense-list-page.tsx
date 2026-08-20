@@ -1,9 +1,11 @@
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
+import { Dialog } from "../../../components/ui/dialog.tsx";
 import type { ExpenseListFilters } from "../api/expenses.api.ts";
+import { ExpenseForm } from "../components/expense-form.tsx";
 import { ExpenseTable } from "../components/expense-table.tsx";
+import { ExpenseCategoriesPage } from "./expense-categories-page.tsx";
 import {
   useExpenseCategories,
   useExpenses,
@@ -16,6 +18,8 @@ export function ExpenseListPage(): React.JSX.Element {
   const [categoryId, setCategoryId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [newExpenseOpen, setNewExpenseOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<ExpenseListFilters>({
     page: 1,
     pageSize,
@@ -61,12 +65,8 @@ export function ExpenseListPage(): React.JSX.Element {
           <p>View confirmed cash and bank expenses by category and date.</p>
         </div>
         <div className="form-actions">
-          <Link className="primary-link" to="/expenses/categories">
-            Manage categories
-          </Link>
-          <Link className="primary-link" to="/expenses/new">
-            New expense
-          </Link>
+          <Button label="Categories" onClick={() => setCategoriesOpen(true)} />
+          <Button label="New expense" onClick={() => setNewExpenseOpen(true)} />
         </div>
       </div>
 
@@ -120,6 +120,27 @@ export function ExpenseListPage(): React.JSX.Element {
           />
         </div>
       </section>
+
+      <Dialog
+        isOpen={categoriesOpen}
+        onClose={() => setCategoriesOpen(false)}
+        title="Expense categories"
+        wide
+      >
+        <ExpenseCategoriesPage embedded />
+      </Dialog>
+
+      <Dialog
+        isOpen={newExpenseOpen}
+        onClose={() => setNewExpenseOpen(false)}
+        title="New expense"
+        wide
+      >
+        <ExpenseForm
+          onCancel={() => setNewExpenseOpen(false)}
+          onSaved={() => setNewExpenseOpen(false)}
+        />
+      </Dialog>
 
       <section className="management-card">
         {categoriesQuery.isError ? (

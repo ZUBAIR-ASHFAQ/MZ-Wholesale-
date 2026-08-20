@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
+import { currentBusinessDate } from "../../../lib/utils.ts";
 import { useProducts } from "../../products/hooks/use-products.ts";
 import type {
   StockCondition,
@@ -22,7 +23,10 @@ const countedQuantitySchema = z
 
 const stockCountFormSchema = z
   .object({
-    countDate: z.string().min(1, "Count date is required."),
+    countDate: z
+      .string()
+      .min(1, "Count date is required.")
+      .refine((value) => value <= todayDate(), "Count date cannot be in the future."),
     notes: z.string().trim().max(500, "Notes are too long."),
     items: z
       .array(
@@ -70,11 +74,7 @@ const stockConditions: Array<{ value: StockCondition; label: string }> = [
 
 /** Returns today's browser-local date in YYYY-MM-DD format. */
 function todayDate(): string {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return currentBusinessDate();
 }
 
 /** Creates one empty stock-count item row. */
@@ -194,7 +194,7 @@ export function StockCountForm({
     <form className="inventory-entry-form" onSubmit={handleSubmit(saveStockCount)}>
       <label className="ui-field">
         <span>Count date</span>
-        <input disabled={isEdit} type="date" {...register("countDate")} />
+        <input disabled={isEdit} max={todayDate()} type="date" {...register("countDate")} />
         {errors.countDate ? (
           <small className="error-message">{errors.countDate.message}</small>
         ) : null}

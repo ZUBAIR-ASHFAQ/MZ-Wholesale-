@@ -1,4 +1,8 @@
 import { AppError } from "../../shared/errors/app-error.js";
+import {
+  businessDateInKarachi,
+  isBusinessDateNotFuture,
+} from "../../shared/utils/business-date.js";
 import { reserveBusinessDocumentNumberInTransaction } from "../business-settings/index.js";
 import { getCustomerCurrentDue, getSupplierCurrentPayable, writeCustomerCredit, writeCustomerDebit, writeSupplierCredit, writeSupplierDebit } from "../ledgers/ledgers.service.js";
 import {
@@ -217,6 +221,7 @@ interface PaymentAllocationForValidation {
 interface ResolvedAllocationDocument {
   documentId: string;
   partyId: string;
+  businessDate: string;
   outstandingAmount: string;
 }
 
@@ -470,6 +475,26 @@ function validateOutstandingAmounts(
         "allocations",
       );
     }
+  }
+}
+
+/** Prevents a payment from being dated before a document it settles. */
+function validateAllocationBusinessDates(
+  paymentDate: string,
+  documents: readonly ResolvedAllocationDocument[],
+): void {
+  const laterDocument = documents.find(
+    (document) => document.businessDate > paymentDate,
+  );
+
+  if (laterDocument) {
+    const message = `Payment date cannot be before an allocated document date (${laterDocument.businessDate}).`;
+    throw paymentError(
+      "PAYMENT_DATE_BEFORE_DOCUMENT",
+      message,
+      400,
+      "paymentDate",
+    );
   }
 }
 
@@ -1494,6 +1519,19 @@ export async function confirmCashReconciliation(
       );
     }
 
+    if (
+      !isBusinessDateNotFuture(
+        businessDateInKarachi(reconciliation.reconciliationDate),
+      )
+    ) {
+      throw paymentError(
+        "FUTURE_BUSINESS_DATE",
+        "Reconciliation date cannot be in the future.",
+        400,
+        "reconciliationDate",
+      );
+    }
+
     const account = await lockCashAccount(
       transaction,
       reconciliation.cashAccountId,
@@ -1630,10 +1668,12 @@ export async function createCustomerReceipt(
   const documents: ResolvedAllocationDocument[] = invoiceRows.map((invoice) => ({
     documentId: invoice.id,
     partyId: invoice.customerId,
+    businessDate: invoice.invoiceDate,
     outstandingAmount: centsToMoney(
       moneyToCents(invoice.totalAmount)
         - moneyToCents(invoice.returnedAmount)
-        - moneyToCents(invoice.allocatedAmount),
+        - moneyToCents(invoice.allocatedAmount)
+        + moneyToCents(invoice.refundedAmount),
     ),
   }));
 
@@ -1645,6 +1685,8 @@ export async function createCustomerReceipt(
   const availableCustomerDueAmount = centsToMoney(
     unallocatedDueCents > 0n ? unallocatedDueCents : 0n,
   );
+
+  validateAllocationBusinessDates(input.paymentDate, documents);
 
   await validateCustomerReceiptRequest(
     database,
@@ -2188,6 +2230,7 @@ export async function createSupplierPayment(
   const documents: ResolvedAllocationDocument[] = purchaseRows.map((purchase) => ({
     documentId: purchase.id,
     partyId: purchase.supplierId,
+    businessDate: purchase.purchaseDate,
     outstandingAmount: centsToMoney(
       moneyToCents(purchase.totalAmount)
         - moneyToCents(purchase.returnedAmount)
@@ -2203,6 +2246,8 @@ export async function createSupplierPayment(
   const availableSupplierPayableAmount = centsToMoney(
     unallocatedPayableCents > 0n ? unallocatedPayableCents : 0n,
   );
+
+  validateAllocationBusinessDates(input.paymentDate, documents);
 
   await validateSupplierPaymentRequest(
     database,

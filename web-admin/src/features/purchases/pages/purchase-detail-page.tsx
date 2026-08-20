@@ -44,6 +44,12 @@ export function PurchaseDetailPage({
   const purchase = detail?.purchase;
   const supplierQuery = useSupplier(purchase?.supplierId ?? "");
   const supplier = supplierQuery.data?.data.supplier;
+  const returnAvailabilityByItemId = new Map(
+    (detail?.returnAvailability ?? []).map((availability) => [
+      availability.originalPurchaseItemId,
+      availability,
+    ]),
+  );
 
   /** Opens the optional draft-cancellation note form. */
   function openCancel(): void {
@@ -89,6 +95,9 @@ export function PurchaseDetailPage({
 
   const isDraft = purchase.status === "DRAFT";
   const isConfirmed = purchase.status === "CONFIRMED";
+  const hasReturnableQuantity = detail.returnAvailability.some(
+    (availability) => Number(availability.remainingReturnableQuantity) > 0,
+  );
 
   return (
     <section>
@@ -108,7 +117,7 @@ export function PurchaseDetailPage({
               Edit draft
             </Link>
           ) : null}
-          {isConfirmed ? (
+          {isConfirmed && hasReturnableQuantity ? (
             <Link
               className="primary-link"
               search={{ originalPurchaseId: purchaseId }}
@@ -190,6 +199,9 @@ export function PurchaseDetailPage({
                 <th>Product</th>
                 <th>Unit</th>
                 <th>Quantity</th>
+                {isConfirmed ? <th>Returned qty</th> : null}
+                {isConfirmed ? <th>Remaining qty</th> : null}
+                {isConfirmed ? <th>Stock on hand</th> : null}
                 <th>Base quantity</th>
                 <th>Rate</th>
                 <th>Discount</th>
@@ -200,11 +212,17 @@ export function PurchaseDetailPage({
               </tr>
             </thead>
             <tbody>
-              {detail.items.map((item) => (
-                <tr key={item.id}>
+              {detail.items.map((item) => {
+                const availability = returnAvailabilityByItemId.get(item.id);
+
+                return (
+                  <tr key={item.id}>
                   <td>{item.productSkuSnapshot} - {item.productNameSnapshot}</td>
                   <td>{item.unitNameSnapshot} ({item.conversionToBaseSnapshot} base)</td>
                   <td>{item.quantity}</td>
+                  {isConfirmed ? <td>{availability?.returnedQuantity ?? "0.000"}</td> : null}
+                  {isConfirmed ? <td>{availability?.remainingReturnableQuantity ?? item.quantity}</td> : null}
+                  {isConfirmed ? <td>{availability?.currentStockQuantity ?? "0.000"}</td> : null}
                   <td>{item.baseQuantity}</td>
                   <td>PKR {item.unitCost}</td>
                   <td>PKR {item.itemDiscountAmount}</td>
@@ -221,8 +239,9 @@ export function PurchaseDetailPage({
                       </Link>
                     </td>
                   ) : null}
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -17,8 +17,14 @@ function readCategoryError(error: unknown): string {
     : "The expense category could not be updated.";
 }
 
+interface ExpenseCategoriesPageProps {
+  embedded?: boolean;
+}
+
 /** Lets the admin create, rename, activate, and deactivate Expense categories. */
-export function ExpenseCategoriesPage(): React.JSX.Element {
+export function ExpenseCategoriesPage({
+  embedded = false,
+}: ExpenseCategoriesPageProps = {}): React.JSX.Element {
   const categoriesQuery = useExpenseCategories();
   const updateCategory = useUpdateExpenseCategory();
   const [editingCategory, setEditingCategory] = useState<ExpenseCategory | null>(null);
@@ -49,16 +55,18 @@ export function ExpenseCategoriesPage(): React.JSX.Element {
 
   return (
     <section>
-      <div className="page-heading-row">
-        <div>
-          <p className="eyebrow">Expense Management</p>
-          <h1>Expense categories</h1>
-          <p>Create, rename, activate, or deactivate categories used by expenses.</p>
+      {!embedded ? (
+        <div className="page-heading-row">
+          <div>
+            <p className="eyebrow">Expense Management</p>
+            <h1>Expense categories</h1>
+            <p>Create, rename, activate, or deactivate categories used by expenses.</p>
+          </div>
+          <Link className="primary-link" to="/expenses">
+            Back to expenses
+          </Link>
         </div>
-        <Link className="primary-link" to="/expenses">
-          Back to expenses
-        </Link>
-      </div>
+      ) : null}
 
       {pageError ? <p className="error-message">{pageError}</p> : null}
 

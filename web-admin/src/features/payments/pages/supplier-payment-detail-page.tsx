@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
 import type {
@@ -48,6 +48,7 @@ export function SupplierPaymentDetailPage({
   const [showReversal, setShowReversal] = useState(false);
   const [reason, setReason] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const reversalKeyRef = useRef<string | null>(null);
   const payment: SupplierPayment | undefined = paymentQuery.data?.data;
 
   /** Opens the reversal form and clears any previous validation message. */
@@ -62,9 +63,10 @@ export function SupplierPaymentDetailPage({
     setReason("");
     setValidationError(null);
     setShowReversal(false);
+    reversalKeyRef.current = null;
   }
 
-  /** Reverses the supplier payment with a required reason and fresh idempotency key. */
+  /** Reverses the supplier payment while reusing one idempotency key across retries. */
   async function submitReversal(): Promise<void> {
     const trimmedReason = reason.trim();
 
@@ -75,14 +77,19 @@ export function SupplierPaymentDetailPage({
 
     setValidationError(null);
 
+    if (!reversalKeyRef.current) {
+      reversalKeyRef.current = crypto.randomUUID();
+    }
+
     try {
       await reversePayment.mutateAsync({
         paymentId,
         input: { reason: trimmedReason },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: reversalKeyRef.current,
       });
       setReason("");
       setShowReversal(false);
+      reversalKeyRef.current = null;
     } catch {
       // The mutation error is displayed below the reversal form.
     }

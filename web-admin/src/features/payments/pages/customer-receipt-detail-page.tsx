@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
 import type {
@@ -48,6 +48,7 @@ export function CustomerReceiptDetailPage({
   const [showReversal, setShowReversal] = useState(false);
   const [reason, setReason] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const reversalKeyRef = useRef<string | null>(null);
   const receipt = receiptQuery.data?.data;
 
   /** Opens the small reversal form and clears old validation messages. */
@@ -62,9 +63,10 @@ export function CustomerReceiptDetailPage({
     setReason("");
     setValidationError(null);
     setShowReversal(false);
+    reversalKeyRef.current = null;
   }
 
-  /** Reverses the receipt with a required reason and a fresh idempotency key. */
+  /** Reverses the receipt while reusing one idempotency key across retries. */
   async function submitReversal(): Promise<void> {
     const trimmedReason = reason.trim();
 
@@ -75,14 +77,19 @@ export function CustomerReceiptDetailPage({
 
     setValidationError(null);
 
+    if (!reversalKeyRef.current) {
+      reversalKeyRef.current = crypto.randomUUID();
+    }
+
     try {
       await reverseReceipt.mutateAsync({
         receiptId,
         input: { reason: trimmedReason },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: reversalKeyRef.current,
       });
       setReason("");
       setShowReversal(false);
+      reversalKeyRef.current = null;
     } catch {
       // The mutation error is displayed below the reversal form.
     }

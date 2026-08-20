@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
+import { currentBusinessDate } from "../../../lib/utils.ts";
 import { useCustomers } from "../../customers/hooks/use-customers.ts";
 import type { PaymentSplitInput } from "../../payments/api/payments.api.ts";
 import { PaymentSplitsForm } from "../../payments/components/payment-splits-form.tsx";
@@ -45,11 +46,7 @@ const quantityPattern = /^\d+(\.\d{1,3})?$/;
 
 /** Returns today's local calendar date in YYYY-MM-DD format. */
 function today(): string {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return currentBusinessDate();
 }
 
 /** Builds one stable temporary identifier for a new sale item row. */
@@ -282,6 +279,8 @@ export function SaleForm({ initialSale, onSaved, onCancel }: SaleFormProps): Rea
   const confirmSale = useConfirmSale();
   const cancelSale = useCancelSale();
   const accountsQuery = usePaymentAccounts();
+  const confirmationKey = useRef(crypto.randomUUID());
+  const confirmationRequestStarted = useRef(false);
 
   const [customerId, setCustomerId] = useState(initialSale?.sale.customerId ?? "");
   const [invoiceDate, setInvoiceDate] = useState(initialSale?.sale.invoiceDate ?? today());
@@ -351,6 +350,7 @@ export function SaleForm({ initialSale, onSaved, onCancel }: SaleFormProps): Rea
     }
 
     if (!invoiceDate) nextErrors.invoiceDate = "Sale date is required.";
+    else if (invoiceDate > today()) nextErrors.invoiceDate = "Sale date cannot be in the future.";
     if (!isMoney(invoiceDiscountAmount)) {
       nextErrors.invoiceDiscountAmount = "Invoice discount must have up to two decimals.";
     }
@@ -476,15 +476,18 @@ export function SaleForm({ initialSale, onSaved, onCancel }: SaleFormProps): Rea
 
     try {
       if (initialSale) {
-        await updateSale.mutateAsync({
-          saleId: initialSale.sale.id,
-          input: buildEditableInput(initialSale.sale.status === "HELD" ? "HELD" : "DRAFT"),
-        });
+        if (!confirmationRequestStarted.current) {
+          await updateSale.mutateAsync({
+            saleId: initialSale.sale.id,
+            input: buildEditableInput(initialSale.sale.status === "HELD" ? "HELD" : "DRAFT"),
+          });
+        }
 
+        confirmationRequestStarted.current = true;
         await confirmSale.mutateAsync({
           saleId: initialSale.sale.id,
           input: { initialPayment },
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: confirmationKey.current,
         });
       } else {
         const input: CreateSaleInput = {
@@ -493,15 +496,24 @@ export function SaleForm({ initialSale, onSaved, onCancel }: SaleFormProps): Rea
           initialPayment,
         };
 
+        confirmationRequestStarted.current = true;
         await createSale.mutateAsync({
           input,
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: confirmationKey.current,
         });
       }
 
+      confirmationKey.current = crypto.randomUUID();
+      confirmationRequestStarted.current = false;
       setErrors({});
       onSaved();
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        !["IDEMPOTENCY_REQUEST_IN_PROGRESS", "IDEMPOTENCY_KEY_REUSED"].includes(error.code)
+      ) {
+        confirmationRequestStarted.current = false;
+      }
       setErrors(readApiErrors(error));
     }
   }
@@ -556,6 +568,7 @@ export function SaleForm({ initialSale, onSaved, onCancel }: SaleFormProps): Rea
             <span>Sale date</span>
             <input
               disabled={isSaving}
+              max={today()}
               onChange={(event) => setInvoiceDate(event.target.value)}
               type="date"
               value={invoiceDate}

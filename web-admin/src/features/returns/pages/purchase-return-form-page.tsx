@@ -12,9 +12,12 @@ export function PurchaseReturnFormPage({
 }: PurchaseReturnFormPageProps): React.JSX.Element {
   const navigate = useNavigate();
 
-  /** Returns to the Purchase Return list after confirmation. */
-  function handleSaved(): void {
-    void navigate({ to: "/returns/purchases" });
+  /** Opens the immutable generated Purchase Return document after confirmation. */
+  function handleSaved(purchaseReturnId: string): void {
+    void navigate({
+      to: "/returns/purchases/$purchaseReturnId",
+      params: { purchaseReturnId },
+    });
   }
 
   /** Leaves the form without creating a Purchase Return. */

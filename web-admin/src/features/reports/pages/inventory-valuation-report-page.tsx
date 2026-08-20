@@ -236,7 +236,7 @@ export function InventoryValuationReportPage(): React.JSX.Element {
                     <th>Damaged</th>
                     <th>Expired</th>
                     <th>Total qty</th>
-                    <th>Weighted cost</th>
+                    <th>Sellable weighted cost</th>
                     <th>Sellable value</th>
                     <th>Damaged value</th>
                     <th>Expired value</th>

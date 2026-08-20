@@ -209,7 +209,7 @@ export function InventoryReportPage(): React.JSX.Element {
                     <th>Damaged</th>
                     <th>Expired</th>
                     <th>Reorder level</th>
-                    <th>Weighted cost</th>
+                    <th>Sellable weighted cost</th>
                     <th>Status</th>
                   </tr>
                 </thead>

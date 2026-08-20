@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
+import { currentBusinessDate } from "../../../lib/utils.ts";
 import {
   useCustomerOpenInvoices,
   useCustomers,
@@ -42,7 +43,7 @@ const emptyErrors: ReceiptFormErrors = {
 
 /** Returns today's date in the YYYY-MM-DD format expected by the API. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return currentBusinessDate();
 }
 
 /** Converts a valid money string into integer cents for exact comparison. */
@@ -110,9 +111,21 @@ function validateReceipt(
 
   if (!customerId) errors.customerId = "Select a customer.";
   if (!paymentDate) errors.paymentDate = "Payment date is required.";
+  else if (paymentDate > today()) errors.paymentDate = "Payment date cannot be in the future.";
   if (notes.trim().length > 500) errors.notes = "Notes must be 500 characters or fewer.";
 
   const allocations = selectedAllocations(invoices, allocationAmounts);
+  const allocatedInvoiceIds = new Set(allocations.map((allocation) => allocation.documentId));
+  const laterInvoice = paymentDate
+    ? invoices.find(
+        (invoice) =>
+          allocatedInvoiceIds.has(invoice.id) && invoice.invoiceDate > paymentDate,
+      )
+    : undefined;
+
+  if (laterInvoice) {
+    errors.paymentDate = `Payment date cannot be before an allocated invoice date (${laterInvoice.invoiceDate}).`;
+  }
 
   for (const invoice of invoices) {
     const enteredAmount = allocationAmounts[invoice.id]?.trim() ?? "";
@@ -195,6 +208,7 @@ export function CustomerReceiptForm({
 }: CustomerReceiptFormProps): React.JSX.Element {
   const customersQuery = useCustomers({ active: true, page: 1, pageSize: 100 });
   const createReceipt = useCreateCustomerReceipt();
+  const idempotencyKey = useRef(crypto.randomUUID());
   const [customerId, setCustomerId] = useState("");
   const [paymentDate, setPaymentDate] = useState(today());
   const [notes, setNotes] = useState("");
@@ -231,7 +245,7 @@ export function CustomerReceiptForm({
     setAllocationAmounts((current) => ({ ...current, [invoiceId]: amount }));
   }
 
-  /** Submits one validated receipt using a fresh idempotency key. */
+  /** Submits one validated receipt while preserving its idempotency key across retries. */
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
@@ -261,8 +275,9 @@ export function CustomerReceiptForm({
           splits,
           notes: notes.trim() || null,
         },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: idempotencyKey.current,
       });
+      idempotencyKey.current = crypto.randomUUID();
       onSaved();
     } catch (error) {
       setErrors({ ...nextErrors, root: readReceiptError(error) });
@@ -297,6 +312,7 @@ export function CustomerReceiptForm({
             <span>Payment date</span>
             <input
               disabled={createReceipt.isPending}
+              max={today()}
               onChange={(event) => setPaymentDate(event.target.value)}
               type="date"
               value={paymentDate}

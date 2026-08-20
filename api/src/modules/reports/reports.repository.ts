@@ -697,20 +697,21 @@ async function listInventoryValuationRows(
       )`,
       damagedValue: sql<string>`cast(
         coalesce(${inventoryBalances.damagedQuantityOnHand}, 0.000)
-        * coalesce(${inventoryBalances.weightedAverageCost}, 0.00)
+        * coalesce(${inventoryBalances.damagedWeightedAverageCost}, 0.00)
         as numeric(20,2)
       )`,
       expiredValue: sql<string>`cast(
         coalesce(${inventoryBalances.expiredQuantityOnHand}, 0.000)
-        * coalesce(${inventoryBalances.weightedAverageCost}, 0.00)
+        * coalesce(${inventoryBalances.expiredWeightedAverageCost}, 0.00)
         as numeric(20,2)
       )`,
       totalValue: sql<string>`cast(
-        (
-          coalesce(${inventoryBalances.sellableQuantityOnHand}, 0.000)
-          + coalesce(${inventoryBalances.damagedQuantityOnHand}, 0.000)
-          + coalesce(${inventoryBalances.expiredQuantityOnHand}, 0.000)
-        ) * coalesce(${inventoryBalances.weightedAverageCost}, 0.00)
+        coalesce(${inventoryBalances.sellableQuantityOnHand}, 0.000)
+          * coalesce(${inventoryBalances.weightedAverageCost}, 0.00)
+        + coalesce(${inventoryBalances.damagedQuantityOnHand}, 0.000)
+          * coalesce(${inventoryBalances.damagedWeightedAverageCost}, 0.00)
+        + coalesce(${inventoryBalances.expiredQuantityOnHand}, 0.000)
+          * coalesce(${inventoryBalances.expiredWeightedAverageCost}, 0.00)
         as numeric(20,2)
       )`,
     })
@@ -746,18 +747,19 @@ async function readInventoryValuationTotals(
       ), 0.00) as numeric(24,2))`,
       damagedValue: sql<string>`cast(coalesce(sum(
         coalesce(${inventoryBalances.damagedQuantityOnHand}, 0.000)
-        * coalesce(${inventoryBalances.weightedAverageCost}, 0.00)
+        * coalesce(${inventoryBalances.damagedWeightedAverageCost}, 0.00)
       ), 0.00) as numeric(24,2))`,
       expiredValue: sql<string>`cast(coalesce(sum(
         coalesce(${inventoryBalances.expiredQuantityOnHand}, 0.000)
-        * coalesce(${inventoryBalances.weightedAverageCost}, 0.00)
+        * coalesce(${inventoryBalances.expiredWeightedAverageCost}, 0.00)
       ), 0.00) as numeric(24,2))`,
       totalValue: sql<string>`cast(coalesce(sum(
-        (
-          coalesce(${inventoryBalances.sellableQuantityOnHand}, 0.000)
-          + coalesce(${inventoryBalances.damagedQuantityOnHand}, 0.000)
-          + coalesce(${inventoryBalances.expiredQuantityOnHand}, 0.000)
-        ) * coalesce(${inventoryBalances.weightedAverageCost}, 0.00)
+        coalesce(${inventoryBalances.sellableQuantityOnHand}, 0.000)
+          * coalesce(${inventoryBalances.weightedAverageCost}, 0.00)
+        + coalesce(${inventoryBalances.damagedQuantityOnHand}, 0.000)
+          * coalesce(${inventoryBalances.damagedWeightedAverageCost}, 0.00)
+        + coalesce(${inventoryBalances.expiredQuantityOnHand}, 0.000)
+          * coalesce(${inventoryBalances.expiredWeightedAverageCost}, 0.00)
       ), 0.00) as numeric(24,2))`,
     })
     .from(products)

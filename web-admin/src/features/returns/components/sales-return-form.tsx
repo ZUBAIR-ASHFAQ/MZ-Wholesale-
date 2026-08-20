@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
+import { currentBusinessDate } from "../../../lib/utils.ts";
 import { useCustomers } from "../../customers/hooks/use-customers.ts";
 import type { PaymentAccounts } from "../../payments/api/payments.api.ts";
 import { useSale, useSales } from "../../sales/hooks/use-sales.ts";
@@ -21,7 +22,10 @@ const quantitySchema = z
 const salesReturnFormSchema = z
   .object({
     originalSaleId: z.string().min(1, "Select a confirmed sale."),
-    returnDate: z.string().min(1, "Return date is required."),
+    returnDate: z
+      .string()
+      .min(1, "Return date is required.")
+      .refine((value) => value <= today(), "Return date cannot be in the future."),
     reason: z.string().trim().min(1, "Return reason is required.").max(500, "Reason must be 500 characters or fewer."),
     refundMode: z.enum(["DUE_REDUCTION", "CASH", "BANK_TRANSFER"]),
     cashAccountId: z.string(),
@@ -67,15 +71,13 @@ type SalesReturnFormValues = z.infer<typeof salesReturnFormSchema>;
 interface SalesReturnFormProps {
   accounts: PaymentAccounts;
   initialOriginalSaleId?: string;
-  onSaved(): void;
+  onSaved(salesReturnId: string): void;
   onCancel(): void;
 }
 
 /** Returns today's local form date in YYYY-MM-DD format. */
 function today(): string {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+  return currentBusinessDate();
 }
 
 
@@ -110,11 +112,13 @@ export function SalesReturnForm({
   onCancel,
 }: SalesReturnFormProps): React.JSX.Element {
   const createReturn = useCreateSalesReturn();
+  const idempotencyKey = useRef(crypto.randomUUID());
   const customersQuery = useCustomers({ page: 1, pageSize: 100 });
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const confirmedSalesQuery = useSales({
     customerId: selectedCustomerId || undefined,
     status: "CONFIRMED",
+    returnableOnly: true,
     page: 1,
     pageSize: 100,
   });
@@ -241,6 +245,14 @@ export function SalesReturnForm({
     }
 
     const validatedValues = parsed.data;
+
+    if (validatedValues.returnDate < selectedSale.sale.invoiceDate) {
+      setError("returnDate", {
+        message: `Return date cannot be before the original sale date (${selectedSale.sale.invoiceDate}).`,
+      });
+      return;
+    }
+
     const soldQuantityErrors: Record<number, string> = {};
 
     validatedValues.items.forEach((item, index) => {
@@ -264,7 +276,7 @@ export function SalesReturnForm({
       }));
 
     try {
-      await createReturn.mutateAsync({
+      const response = await createReturn.mutateAsync({
         input: {
           originalSaleId: validatedValues.originalSaleId,
           returnDate: validatedValues.returnDate,
@@ -274,9 +286,10 @@ export function SalesReturnForm({
           bankAccountId: validatedValues.refundMode === "BANK_TRANSFER" ? validatedValues.bankAccountId : undefined,
           items,
         },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: idempotencyKey.current,
       });
-      onSaved();
+      idempotencyKey.current = crypto.randomUUID();
+      onSaved(response.data.salesReturn.id);
     } catch (error) {
       applyApiErrors(error);
     }
@@ -329,7 +342,13 @@ export function SalesReturnForm({
 
           <label className="ui-field">
             <span>Return date</span>
-            <input disabled={createReturn.isPending} type="date" {...register("returnDate")} />
+            <input
+              disabled={createReturn.isPending}
+              max={today()}
+              min={selectedSale?.sale.invoiceDate}
+              type="date"
+              {...register("returnDate")}
+            />
             {errors.returnDate ? <small className="error-message">{errors.returnDate.message}</small> : null}
           </label>
         </div>

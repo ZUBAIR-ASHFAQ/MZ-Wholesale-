@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isBusinessDateNotFuture } from "../../shared/utils/business-date.js";
 import {
   isMoneyWithinDatabaseRange,
   isQuantityWithinDatabaseRange,
@@ -44,6 +45,11 @@ const dateSchema = z
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD format.")
   .refine(isValidDate, "Date must be a valid calendar date.");
+
+const mutationDateSchema = dateSchema.refine(
+  isBusinessDateNotFuture,
+  "Date cannot be in the future.",
+);
 
 const notesSchema = z
   .string()
@@ -191,7 +197,7 @@ const initialPaymentSchema = z
 
 const saleFields = {
   customerId: uuidSchema,
-  invoiceDate: dateSchema,
+  invoiceDate: mutationDateSchema,
   items: z
     .array(saleItemInputSchema)
     .min(1, "At least one sale item is required.")
@@ -214,6 +220,10 @@ export const listSalesQuerySchema = z
     status: salesStatusSchema.optional(),
     startDate: dateSchema.optional(),
     endDate: dateSchema.optional(),
+    returnableOnly: z
+      .enum(["true", "false"])
+      .transform((value) => value === "true")
+      .optional(),
     page: z.coerce.number().int().positive().default(1),
     pageSize: z.coerce.number().int().positive().max(100).default(20),
   })
@@ -242,7 +252,7 @@ export const createSaleSchema = z
 export const updateSaleDraftSchema = z
   .object({
     customerId: uuidSchema.optional(),
-    invoiceDate: dateSchema.optional(),
+    invoiceDate: mutationDateSchema.optional(),
     status: editableSalesStatusSchema.optional(),
     items: z
       .array(saleItemInputSchema)

@@ -42,7 +42,7 @@ export function InventoryTable({ items }: InventoryTableProps): React.JSX.Elemen
             <th>Sellable</th>
             <th>Damaged</th>
             <th>Expired</th>
-            <th>Weighted cost</th>
+            <th>Sellable weighted cost</th>
             <th>Reorder level</th>
             <th>Status</th>
             <th>Actions</th>

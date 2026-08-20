@@ -588,7 +588,7 @@ test("reports routes expose the authenticated supplier aging endpoint", async ()
   );
 });
 
-test("inventory valuation repository values every stock condition at weighted-average cost", async () => {
+test("inventory valuation repository values each stock condition at its own weighted-average cost", async () => {
   const source = await readSource(reportsRepositoryPath);
 
   assert.match(
@@ -597,15 +597,15 @@ test("inventory valuation repository values every stock condition at weighted-av
   );
   assert.match(
     source,
-    /damagedValue:[\s\S]*?damagedQuantityOnHand[\s\S]*?weightedAverageCost/,
+    /damagedValue:[\s\S]*?damagedQuantityOnHand[\s\S]*?damagedWeightedAverageCost/,
   );
   assert.match(
     source,
-    /expiredValue:[\s\S]*?expiredQuantityOnHand[\s\S]*?weightedAverageCost/,
+    /expiredValue:[\s\S]*?expiredQuantityOnHand[\s\S]*?expiredWeightedAverageCost/,
   );
   assert.match(
     source,
-    /totalValue:[\s\S]*?sellableQuantityOnHand[\s\S]*?damagedQuantityOnHand[\s\S]*?expiredQuantityOnHand[\s\S]*?weightedAverageCost/,
+    /totalValue:[\s\S]*?sellableQuantityOnHand[\s\S]*?weightedAverageCost[\s\S]*?damagedQuantityOnHand[\s\S]*?damagedWeightedAverageCost[\s\S]*?expiredQuantityOnHand[\s\S]*?expiredWeightedAverageCost/,
   );
 });
 
@@ -620,6 +620,8 @@ test("inventory valuation repository keeps products with no balance row as zero 
   assert.match(source, /coalesce\([^)]*damagedQuantityOnHand[^)]*,\s*0\.000\)/);
   assert.match(source, /coalesce\([^)]*expiredQuantityOnHand[^)]*,\s*0\.000\)/);
   assert.match(source, /coalesce\([^)]*weightedAverageCost[^)]*,\s*0\.00\)/);
+  assert.match(source, /coalesce\([^)]*damagedWeightedAverageCost[^)]*,\s*0\.00\)/);
+  assert.match(source, /coalesce\([^)]*expiredWeightedAverageCost[^)]*,\s*0\.00\)/);
 });
 
 test("inventory valuation repository totals are calculated across the full filtered result", async () => {

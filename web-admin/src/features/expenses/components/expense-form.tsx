@@ -5,13 +5,17 @@ import { z } from "zod";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
+import { currentBusinessDate } from "../../../lib/utils.ts";
 import { usePaymentAccounts } from "../../payments/hooks/use-payments.ts";
 import { useExpenseCategories, useCreateExpense } from "../hooks/use-expenses.ts";
 
 const expenseFormSchema = z
   .object({
     expenseCategoryId: z.string().uuid("Select an expense category."),
-    expenseDate: z.string().min(1, "Expense date is required."),
+    expenseDate: z
+      .string()
+      .min(1, "Expense date is required.")
+      .refine((value) => value <= today(), "Expense date cannot be in the future."),
     amount: z
       .string()
       .trim()
@@ -56,11 +60,7 @@ interface ExpenseFormProps {
 
 /** Returns today's local date in the YYYY-MM-DD format expected by the API. */
 function today(): string {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return currentBusinessDate();
 }
 
 /** Returns a readable message from an API or unexpected form error. */
@@ -157,7 +157,7 @@ export function ExpenseForm({
     <form className="management-form" onSubmit={form.handleSubmit(handleSubmit)}>
       <h3>Add expense</h3>
 
-      <div className="payment-filter-grid">
+      <div className="payment-filter-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
         <label className="ui-field">
           <span>Category</span>
           <select
@@ -180,6 +180,7 @@ export function ExpenseForm({
           <span>Expense date</span>
           <input
             disabled={createExpense.isPending}
+            max={today()}
             type="date"
             {...form.register("expenseDate")}
           />
@@ -254,6 +255,18 @@ export function ExpenseForm({
             ) : null}
           </label>
         )}
+
+        <label className="ui-field">
+          <span>Receipt URL</span>
+          <input
+            disabled={createExpense.isPending}
+            placeholder="https://..."
+            {...form.register("receiptUrl")}
+          />
+          {form.formState.errors.receiptUrl ? (
+            <small>{form.formState.errors.receiptUrl.message}</small>
+          ) : null}
+        </label>
       </div>
 
       <label className="ui-field">
@@ -268,17 +281,6 @@ export function ExpenseForm({
         ) : null}
       </label>
 
-      <label className="ui-field">
-        <span>Receipt URL</span>
-        <input
-          disabled={createExpense.isPending}
-          placeholder="https://..."
-          {...form.register("receiptUrl")}
-        />
-        {form.formState.errors.receiptUrl ? (
-          <small>{form.formState.errors.receiptUrl.message}</small>
-        ) : null}
-      </label>
 
       {categoriesQuery.isError ? (
         <p className="error-message">Expense categories could not be loaded.</p>

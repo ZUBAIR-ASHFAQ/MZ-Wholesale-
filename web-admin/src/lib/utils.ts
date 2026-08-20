@@ -13,6 +13,25 @@ export function readCookie(cookieName: string): string | null {
   return null;
 }
 
+/** Returns today's business date in the fixed Asia/Karachi timezone. */
+export function currentBusinessDate(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Karachi",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) {
+    throw new Error("Business date could not be created.");
+  }
+
+  return `${year}-${month}-${day}`;
+}
+
 /** Formats a decimal money value using the ERP's fixed PKR currency. */
 export function formatMoney(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") {

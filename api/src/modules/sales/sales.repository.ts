@@ -85,6 +85,15 @@ function buildSaleFilters(query: ListSalesQuery): SQL[] {
     filters.push(lte(salesInvoices.invoiceDate, query.endDate));
   }
 
+  if (query.returnableOnly) {
+    filters.push(eq(salesInvoices.status, "CONFIRMED"));
+    filters.push(sql`not exists (
+      select 1
+      from ${salesReturns}
+      where ${salesReturns.originalSaleId} = ${salesInvoices.id}
+    )`);
+  }
+
   return filters;
 }
 
@@ -206,9 +215,16 @@ export async function getSaleOutstandingAmount(
     where ${salesReturns.originalSaleId} = ${salesInvoices.id}
       and ${salesReturns.status} = 'CONFIRMED'
   ), 0)`;
+  const refundedAmount = sql<string>`coalesce((
+    select sum(${salesReturns.totalAmount})
+    from ${salesReturns}
+    where ${salesReturns.originalSaleId} = ${salesInvoices.id}
+      and ${salesReturns.status} = 'CONFIRMED'
+      and ${salesReturns.refundMode} in ('CASH', 'BANK_TRANSFER')
+  ), 0)`;
   const rows = await database
     .select({
-      outstandingAmount: sql<string>`greatest(${salesInvoices.totalAmount} - ${returnedAmount} - ${paidAmount}, 0)::text`,
+      outstandingAmount: sql<string>`greatest(${salesInvoices.totalAmount} - ${returnedAmount} - ${paidAmount} + ${refundedAmount}, 0)::text`,
     })
     .from(salesInvoices)
     .leftJoin(

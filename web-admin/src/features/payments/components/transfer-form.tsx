@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
+import { currentBusinessDate } from "../../../lib/utils.ts";
 import type { PaymentAccounts } from "../api/payments.api.ts";
 import { useCreateTransfer } from "../hooks/use-payments.ts";
 
@@ -17,7 +18,10 @@ const transferSchema = z
     destinationAccountType: z.enum(["CASH", "BANK"]),
     destinationAccountId: z.string().uuid("Select a destination account."),
     amount: z.string().regex(moneyPattern, "Enter a valid positive amount."),
-    transferDate: z.string().min(1, "Transfer date is required."),
+    transferDate: z
+      .string()
+      .min(1, "Transfer date is required.")
+      .refine((value) => value <= today(), "Transfer date cannot be in the future."),
     notes: z.string().trim().max(500).optional(),
   })
   .refine((value) => moneyToCents(value.amount) > 0n, {
@@ -54,7 +58,7 @@ interface AccountOption {
 
 /** Returns today in the date-input format used by the API. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return currentBusinessDate();
 }
 
 /** Converts cash or bank accounts into simple select options. */
@@ -87,6 +91,7 @@ export function TransferForm({
   onFinished,
 }: TransferFormProps): React.JSX.Element {
   const createTransfer = useCreateTransfer();
+  const idempotencyKey = useRef(crypto.randomUUID());
   const form = useForm<TransferValues>({
     resolver: zodResolver(transferSchema),
     defaultValues: {
@@ -126,9 +131,13 @@ export function TransferForm({
   async function handleSubmit(values: TransferValues): Promise<void> {
     try {
       await createTransfer.mutateAsync({
-        ...values,
-        notes: values.notes?.trim() || null,
+        input: {
+          ...values,
+          notes: values.notes?.trim() || null,
+        },
+        idempotencyKey: idempotencyKey.current,
       });
+      idempotencyKey.current = crypto.randomUUID();
       onFinished();
     } catch (error) {
       form.setError("root", { message: readTransferError(error) });
@@ -185,7 +194,7 @@ export function TransferForm({
         </label>
         <label className="ui-field">
           <span>Transfer date</span>
-          <input type="date" {...form.register("transferDate")} />
+          <input max={today()} type="date" {...form.register("transferDate")} />
           {form.formState.errors.transferDate ? <small>{form.formState.errors.transferDate.message}</small> : null}
         </label>
       </div>

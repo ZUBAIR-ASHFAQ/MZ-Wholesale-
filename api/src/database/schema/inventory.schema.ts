@@ -42,7 +42,7 @@ export const stockCountStatusEnum = pgEnum("stock_count_status", [
   "CONFIRMED",
 ]);
 
-/** Stores the current quantity and weighted cost for one product. */
+/** Stores current quantities and condition-specific weighted costs for one product. */
 export const inventoryBalances = pgTable(
   "inventory_balances",
   {
@@ -67,6 +67,18 @@ export const inventoryBalances = pgTable(
       .default("0.000")
       .notNull(),
     weightedAverageCost: numeric("weighted_average_cost", {
+      precision: 14,
+      scale: 2,
+    })
+      .default("0.00")
+      .notNull(),
+    damagedWeightedAverageCost: numeric("damaged_weighted_average_cost", {
+      precision: 14,
+      scale: 2,
+    })
+      .default("0.00")
+      .notNull(),
+    expiredWeightedAverageCost: numeric("expired_weighted_average_cost", {
       precision: 14,
       scale: 2,
     })
@@ -102,6 +114,14 @@ export const inventoryBalances = pgTable(
       check(
         "inventory_balances_weighted_cost_non_negative_check",
         sql`${table.weightedAverageCost} >= 0`,
+      ),
+      check(
+        "inventory_balances_damaged_weighted_cost_non_negative_check",
+        sql`${table.damagedWeightedAverageCost} >= 0`,
+      ),
+      check(
+        "inventory_balances_expired_weighted_cost_non_negative_check",
+        sql`${table.expiredWeightedAverageCost} >= 0`,
       ),
     ];
   },

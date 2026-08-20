@@ -45,10 +45,11 @@ export function ExpenseCategoryForm({
     resolver: zodResolver(expenseCategorySchema),
     defaultValues: { name: "" },
   });
+  const reset = form.reset;
 
   useEffect(() => {
-    form.reset({ name: category?.name ?? "" });
-  }, [category, form]);
+    reset({ name: category?.name ?? "" });
+  }, [category, reset]);
 
   /** Saves the validated category name. */
   async function handleSubmit(

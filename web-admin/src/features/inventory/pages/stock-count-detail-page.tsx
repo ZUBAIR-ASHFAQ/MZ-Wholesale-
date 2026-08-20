@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
@@ -31,6 +31,7 @@ export function StockCountDetailPage({
 }: StockCountDetailPageProps): React.JSX.Element {
   const countQuery = useStockCount(stockCountId);
   const confirmMutation = useConfirmStockCount();
+  const confirmationKey = useRef(crypto.randomUUID());
   const [confirmError, setConfirmError] = useState("");
   const detail = countQuery.data?.data;
 
@@ -47,7 +48,11 @@ export function StockCountDetailPage({
     setConfirmError("");
 
     try {
-      await confirmMutation.mutateAsync(stockCountId);
+      await confirmMutation.mutateAsync({
+        stockCountId,
+        idempotencyKey: confirmationKey.current,
+      });
+      confirmationKey.current = crypto.randomUUID();
     } catch (error) {
       setConfirmError(
         error instanceof ApiError

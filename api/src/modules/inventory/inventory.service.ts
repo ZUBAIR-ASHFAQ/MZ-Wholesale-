@@ -4,6 +4,10 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { AppError } from "../../shared/errors/app-error.js";
 import {
+  businessDateInKarachi,
+  isBusinessDateNotFuture,
+} from "../../shared/utils/business-date.js";
+import {
   acquireInventoryProductLock,
   createInventoryBalance,
   countInventoryBalances,
@@ -14,6 +18,7 @@ import {
   createStockMovement,
   findInventoryBalanceByProductId,
   findInventoryProductById,
+  findLatestProductMovementBusinessDate,
   findStockCountById,
   findStockCountItems,
   hasNormalProductTransactions,
@@ -209,6 +214,22 @@ function readConditionQuantity(
   return balance.expiredQuantityOnHand;
 }
 
+/** Reads the weighted-average cost for one stock condition. */
+function readConditionWeightedAverageCost(
+  balance: InventoryBalanceRecord,
+  stockCondition: InventoryStockCondition,
+): string {
+  if (stockCondition === "SELLABLE") {
+    return balance.weightedAverageCost;
+  }
+
+  if (stockCondition === "DAMAGED") {
+    return balance.damagedWeightedAverageCost;
+  }
+
+  return balance.expiredWeightedAverageCost;
+}
+
 /** Calculates how a movement changes the selected stock-condition quantity. */
 function conditionQuantityChange(
   stockCondition: InventoryStockCondition,
@@ -225,7 +246,23 @@ function conditionQuantityChange(
   return { expiredQuantityOnHand: quantity };
 }
 
-/** Calculates weighted-average cost for incoming sellable stock. */
+/** Selects the weighted-average cost column for one stock condition. */
+function conditionWeightedAverageCostChange(
+  stockCondition: InventoryStockCondition,
+  weightedAverageCost: string,
+): InventoryBalanceChanges {
+  if (stockCondition === "SELLABLE") {
+    return { weightedAverageCost };
+  }
+
+  if (stockCondition === "DAMAGED") {
+    return { damagedWeightedAverageCost: weightedAverageCost };
+  }
+
+  return { expiredWeightedAverageCost: weightedAverageCost };
+}
+
+/** Calculates weighted-average cost for incoming stock in one condition. */
 export function calculateWeightedAverageCost(input: {
   currentQuantity: string;
   currentCost: string;
@@ -252,6 +289,53 @@ export function calculateWeightedAverageCost(input: {
     currentQuantity * currentCost + incomingQuantity * incomingCost;
   const weightedCost = divideAndRound(totalValue, totalQuantity);
 
+  return scaledIntegerToDecimal(weightedCost, MONEY_SCALE);
+}
+
+/** Reverses returned purchase value from sellable stock and recalculates weighted-average cost. */
+function calculateWeightedAverageCostAfterPurchaseReturn(input: {
+  currentQuantity: string;
+  currentCost: string;
+  returnedQuantity: string;
+  returnedCost: string;
+}): string {
+  const currentQuantity = decimalToScaledInteger(
+    input.currentQuantity,
+    QUANTITY_SCALE,
+  );
+  const returnedQuantity = decimalToScaledInteger(
+    input.returnedQuantity,
+    QUANTITY_SCALE,
+  );
+
+  if (returnedQuantity > currentQuantity) {
+    throw inventoryError(
+      "INSUFFICIENT_STOCK",
+      "The requested quantity is greater than the available stock.",
+      409,
+    );
+  }
+
+  const remainingQuantity = currentQuantity - returnedQuantity;
+
+  if (remainingQuantity === 0n) {
+    return "0.00";
+  }
+
+  const currentCost = decimalToScaledInteger(input.currentCost, MONEY_SCALE);
+  const returnedCost = decimalToScaledInteger(input.returnedCost, MONEY_SCALE);
+  const remainingValue =
+    currentQuantity * currentCost - returnedQuantity * returnedCost;
+
+  if (remainingValue < 0n) {
+    throw inventoryError(
+      "PURCHASE_RETURN_VALUE_EXCEEDS_INVENTORY_VALUE",
+      "Purchase Return value is greater than the current sellable inventory value.",
+      409,
+    );
+  }
+
+  const weightedCost = divideAndRound(remainingValue, remainingQuantity);
   return scaledIntegerToDecimal(weightedCost, MONEY_SCALE);
 }
 
@@ -284,7 +368,7 @@ export async function getOrCreateLockedBalance(
   return createdBalance;
 }
 
-/** Adds stock to one condition and updates weighted cost only for sellable stock. */
+/** Adds stock to one condition and updates that condition's weighted-average cost. */
 export async function applyStockIn(
   database: InventoryDatabase,
   balance: InventoryBalanceRecord,
@@ -294,8 +378,12 @@ export async function applyStockIn(
     unitCost: string;
   },
 ): Promise<InventoryBalanceChangeResult> {
+  const currentQuantityValue = readConditionQuantity(
+    balance,
+    input.stockCondition,
+  );
   const currentQuantity = decimalToScaledInteger(
-    readConditionQuantity(balance, input.stockCondition),
+    currentQuantityValue,
     QUANTITY_SCALE,
   );
   const incomingQuantity = decimalToScaledInteger(input.quantity, QUANTITY_SCALE);
@@ -303,16 +391,22 @@ export async function applyStockIn(
     currentQuantity + incomingQuantity,
     QUANTITY_SCALE,
   );
-  const changes = conditionQuantityChange(input.stockCondition, newQuantity);
-
-  if (input.stockCondition === "SELLABLE") {
-    changes.weightedAverageCost = calculateWeightedAverageCost({
-      currentQuantity: balance.sellableQuantityOnHand,
-      currentCost: balance.weightedAverageCost,
-      incomingQuantity: input.quantity,
-      incomingCost: input.unitCost,
-    });
-  }
+  const weightedAverageCost = calculateWeightedAverageCost({
+    currentQuantity: currentQuantityValue,
+    currentCost: readConditionWeightedAverageCost(
+      balance,
+      input.stockCondition,
+    ),
+    incomingQuantity: input.quantity,
+    incomingCost: input.unitCost,
+  });
+  const changes = {
+    ...conditionQuantityChange(input.stockCondition, newQuantity),
+    ...conditionWeightedAverageCostChange(
+      input.stockCondition,
+      weightedAverageCost,
+    ),
+  };
 
   const updatedBalance = await updateInventoryBalance(
     database,
@@ -330,10 +424,7 @@ export async function applyStockIn(
 
   return {
     balance: updatedBalance,
-    unitCost:
-      input.stockCondition === "SELLABLE"
-        ? input.unitCost
-        : balance.weightedAverageCost,
+    unitCost: input.unitCost,
   };
 }
 
@@ -380,8 +471,32 @@ export async function applyStockOut(
 
   return {
     balance: updatedBalance,
-    unitCost: balance.weightedAverageCost,
+    unitCost: readConditionWeightedAverageCost(
+      balance,
+      input.stockCondition,
+    ),
   };
+}
+
+/** Prevents dated stock writes from being inserted before already-applied product state. */
+async function requireChronologicalStockMovement(
+  database: InventoryDatabase,
+  productId: string,
+  occurredAt: Date,
+): Promise<void> {
+  const latestBusinessDate = await findLatestProductMovementBusinessDate(
+    database,
+    productId,
+  );
+  const movementBusinessDate = businessDateInKarachi(occurredAt);
+
+  if (latestBusinessDate && movementBusinessDate < latestBusinessDate) {
+    throw inventoryError(
+      "BACKDATED_STOCK_MOVEMENT",
+      `Stock-changing transactions for this product cannot be dated before ${latestBusinessDate}.`,
+      409,
+    );
+  }
 }
 
 /** Removes confirmed sale stock and records its immutable SALE movement. */
@@ -397,6 +512,11 @@ export async function recordSaleStockOut(
   await requireActiveInventoryProduct(database, input.productId, "Sale confirmation");
 
   const balance = await getOrCreateLockedBalance(database, input.productId);
+  await requireChronologicalStockMovement(
+    database,
+    input.productId,
+    input.occurredAt,
+  );
   const stockResult = await applyStockOut(database, balance, {
     stockCondition: "SELLABLE",
     quantity: input.quantity,
@@ -436,6 +556,11 @@ export async function recordSalesReturnStockIn(
   },
 ): Promise<StockMovementRecord> {
   const balance = await getOrCreateLockedBalance(database, input.productId);
+  await requireChronologicalStockMovement(
+    database,
+    input.productId,
+    input.occurredAt,
+  );
 
   await applyStockIn(database, balance, {
     stockCondition: input.stockCondition,
@@ -464,6 +589,43 @@ export async function recordSalesReturnStockIn(
   );
 }
 
+/** Removes Purchase Return stock value and quantity from the locked sellable balance. */
+async function applyPurchaseReturnStockOut(
+  database: InventoryDatabase,
+  balance: InventoryBalanceRecord,
+  input: { quantity: string; unitCost: string },
+): Promise<InventoryBalanceRecord> {
+  const weightedAverageCost = calculateWeightedAverageCostAfterPurchaseReturn({
+    currentQuantity: balance.sellableQuantityOnHand,
+    currentCost: balance.weightedAverageCost,
+    returnedQuantity: input.quantity,
+    returnedCost: input.unitCost,
+  });
+  const currentQuantity = decimalToScaledInteger(
+    balance.sellableQuantityOnHand,
+    QUANTITY_SCALE,
+  );
+  const returnedQuantity = decimalToScaledInteger(input.quantity, QUANTITY_SCALE);
+  const sellableQuantityOnHand = scaledIntegerToDecimal(
+    currentQuantity - returnedQuantity,
+    QUANTITY_SCALE,
+  );
+  const updatedBalance = await updateInventoryBalance(database, balance.productId, {
+    sellableQuantityOnHand,
+    weightedAverageCost,
+  });
+
+  if (!updatedBalance) {
+    throw inventoryError(
+      "INVENTORY_BALANCE_UPDATE_FAILED",
+      "Inventory balance could not be updated.",
+      500,
+    );
+  }
+
+  return updatedBalance;
+}
+
 /** Removes confirmed Purchase Return stock and records its immutable PURCHASE_RETURN movement. */
 export async function recordPurchaseReturnStockOut(
   database: InventoryDatabase,
@@ -476,10 +638,15 @@ export async function recordPurchaseReturnStockOut(
   },
 ): Promise<StockMovementRecord> {
   const balance = await getOrCreateLockedBalance(database, input.productId);
+  await requireChronologicalStockMovement(
+    database,
+    input.productId,
+    input.occurredAt,
+  );
 
-  await applyStockOut(database, balance, {
-    stockCondition: "SELLABLE",
+  await applyPurchaseReturnStockOut(database, balance, {
     quantity: input.quantity,
+    unitCost: input.unitCost,
   });
 
   return createRequiredMovement(
@@ -518,6 +685,11 @@ export async function recordPurchaseStockIn(
   await requireActiveInventoryProduct(database, input.productId, "Purchase confirmation");
 
   const balance = await getOrCreateLockedBalance(database, input.productId);
+  await requireChronologicalStockMovement(
+    database,
+    input.productId,
+    input.occurredAt,
+  );
   await applyStockIn(database, balance, {
     stockCondition: "SELLABLE",
     quantity: input.quantity,
@@ -1033,18 +1205,12 @@ export interface ConfirmStockCountResult extends StockCountDetail {
   movements: StockMovementRecord[];
 }
 
-/** Rejects positive sellable stock-count differences that have no reliable cost. */
-function requireStockCountSellableCost(
-  stockCondition: InventoryStockCondition,
-  unitCost: string,
-): void {
-  if (
-    stockCondition === "SELLABLE" &&
-    decimalToScaledInteger(unitCost, MONEY_SCALE) <= 0n
-  ) {
+/** Rejects positive stock-count differences that have no reliable condition cost. */
+function requireStockCountCost(unitCost: string): void {
+  if (decimalToScaledInteger(unitCost, MONEY_SCALE) <= 0n) {
     throw inventoryError(
       "STOCK_COUNT_COST_REQUIRED",
-      "Add the sellable stock with a costed IN adjustment before confirming this stock count.",
+      "Add stock for this condition with a costed IN adjustment before confirming this stock count.",
       409,
     );
   }
@@ -1072,6 +1238,14 @@ export async function confirmStockCount(
       "This stock count has already been confirmed.",
     );
 
+    if (!isBusinessDateNotFuture(currentStockCount.countDate)) {
+      throw inventoryError(
+        "FUTURE_BUSINESS_DATE",
+        "Stock count date cannot be in the future.",
+        400,
+      );
+    }
+
     const savedItems = await findStockCountItems(transaction, stockCountId);
     const orderedItems = [...savedItems].sort((left, right) => {
       const productOrder = left.productId.localeCompare(right.productId);
@@ -1080,6 +1254,7 @@ export async function confirmStockCount(
         : left.stockCondition.localeCompare(right.stockCondition);
     });
     const movements: StockMovementRecord[] = [];
+    const occurredAt = new Date(`${currentStockCount.countDate}T00:00:00+05:00`);
 
     for (const item of orderedItems) {
       const balance = await getOrCreateLockedBalance(
@@ -1100,13 +1275,21 @@ export async function confirmStockCount(
       );
 
       if (difference !== 0n) {
+        await requireChronologicalStockMovement(
+          transaction,
+          item.productId,
+          occurredAt,
+        );
         const quantity = absoluteDifferenceQuantity(differenceQuantity);
         const direction = difference > 0n ? "IN" : "OUT";
         let unitCost: string;
 
         if (direction === "IN") {
-          unitCost = balance.weightedAverageCost;
-          requireStockCountSellableCost(item.stockCondition, unitCost);
+          unitCost = readConditionWeightedAverageCost(
+            balance,
+            item.stockCondition,
+          );
+          requireStockCountCost(unitCost);
           await applyStockIn(transaction, balance, {
             stockCondition: item.stockCondition,
             quantity,
@@ -1132,6 +1315,7 @@ export async function confirmStockCount(
           sourceId: stockCountId,
           reason: "Stock count confirmation",
           notes: currentStockCount.notes,
+          occurredAt,
         };
 
         movements.push(

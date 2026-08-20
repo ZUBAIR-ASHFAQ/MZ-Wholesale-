@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
+import { currentBusinessDate } from "../../../lib/utils.ts";
 import { usePurchase, usePurchases } from "../../purchases/hooks/use-purchases.ts";
 import { useSuppliers } from "../../suppliers/hooks/use-suppliers.ts";
 import { useCreatePurchaseReturn } from "../hooks/use-returns.ts";
@@ -19,7 +20,10 @@ const quantitySchema = z
 const purchaseReturnFormSchema = z
   .object({
     originalPurchaseId: z.string().min(1, "Select a confirmed purchase."),
-    returnDate: z.string().min(1, "Return date is required."),
+    returnDate: z
+      .string()
+      .min(1, "Return date is required.")
+      .refine((value) => value <= today(), "Return date cannot be in the future."),
     reason: z
       .string()
       .trim()
@@ -48,15 +52,13 @@ type PurchaseReturnFormValues = z.infer<typeof purchaseReturnFormSchema>;
 
 interface PurchaseReturnFormProps {
   initialOriginalPurchaseId?: string;
-  onSaved(): void;
+  onSaved(purchaseReturnId: string): void;
   onCancel(): void;
 }
 
 /** Returns today's local form date in YYYY-MM-DD format. */
 function today(): string {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+  return currentBusinessDate();
 }
 
 /** Converts one valid quantity string to thousandths for exact comparisons. */
@@ -68,11 +70,11 @@ function quantityToUnits(value: string): bigint | null {
   return BigInt(wholePart) * 1000n + BigInt(fractionPart.padEnd(3, "0"));
 }
 
-/** Returns whether a requested return quantity exceeds the original purchased quantity. */
-function exceedsPurchasedQuantity(returnQuantity: string, purchasedQuantity: string): boolean {
+/** Returns whether a requested return quantity exceeds one available quantity. */
+function exceedsAvailableQuantity(returnQuantity: string, availableQuantity: string): boolean {
   const returnUnits = quantityToUnits(returnQuantity);
-  const purchasedUnits = quantityToUnits(purchasedQuantity);
-  return returnUnits !== null && purchasedUnits !== null && returnUnits > purchasedUnits;
+  const availableUnits = quantityToUnits(availableQuantity);
+  return returnUnits !== null && availableUnits !== null && returnUnits > availableUnits;
 }
 
 /** Reads one user-friendly error message from the shared API error type. */
@@ -89,11 +91,13 @@ export function PurchaseReturnForm({
   onCancel,
 }: PurchaseReturnFormProps): React.JSX.Element {
   const createReturn = useCreatePurchaseReturn();
+  const idempotencyKey = useRef(crypto.randomUUID());
   const suppliersQuery = useSuppliers({ page: 1, pageSize: 100 });
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const confirmedPurchasesQuery = usePurchases({
     supplierId: selectedSupplierId || undefined,
     status: "CONFIRMED",
+    returnableOnly: true,
     page: 1,
     pageSize: 100,
   });
@@ -121,6 +125,12 @@ export function PurchaseReturnForm({
   const originalPurchaseId = watch("originalPurchaseId", initialOriginalPurchaseId) ?? "";
   const selectedPurchaseQuery = usePurchase(originalPurchaseId);
   const selectedPurchase = selectedPurchaseQuery.data?.data;
+  const returnAvailabilityByItemId = new Map(
+    (selectedPurchase?.returnAvailability ?? []).map((availability) => [
+      availability.originalPurchaseItemId,
+      availability,
+    ]),
+  );
   const suppliers = suppliersQuery.data?.data.items ?? [];
   const confirmedPurchases = selectedSupplierId
     ? (confirmedPurchasesQuery.data?.data.items ?? []).filter(
@@ -205,17 +215,33 @@ export function PurchaseReturnForm({
     }
 
     const validatedValues = parsed.data;
-    const purchasedQuantityErrors: Record<number, string> = {};
+
+    if (validatedValues.returnDate < selectedPurchase.purchase.purchaseDate) {
+      setError("returnDate", {
+        message: `Return date cannot be before the original purchase date (${selectedPurchase.purchase.purchaseDate}).`,
+      });
+      return;
+    }
+
+    const availableQuantityErrors: Record<number, string> = {};
 
     validatedValues.items.forEach((item, index) => {
       const purchaseItem = selectedPurchase.items[index];
-      if (purchaseItem && exceedsPurchasedQuantity(item.quantity, purchaseItem.quantity)) {
-        purchasedQuantityErrors[index] = `Return quantity cannot exceed purchased quantity (${purchaseItem.quantity}).`;
+      if (!purchaseItem || Number(item.quantity) <= 0) return;
+
+      const availability = returnAvailabilityByItemId.get(purchaseItem.id);
+      const remainingQuantity = availability?.remainingReturnableQuantity ?? purchaseItem.quantity;
+      const currentStockQuantity = availability?.currentStockQuantity ?? purchaseItem.quantity;
+
+      if (exceedsAvailableQuantity(item.quantity, remainingQuantity)) {
+        availableQuantityErrors[index] = `Return quantity cannot exceed remaining returnable quantity (${remainingQuantity}).`;
+      } else if (exceedsAvailableQuantity(item.quantity, currentStockQuantity)) {
+        availableQuantityErrors[index] = `Return quantity cannot exceed current sellable stock (${currentStockQuantity}).`;
       }
     });
 
-    if (Object.keys(purchasedQuantityErrors).length > 0) {
-      setQuantityErrors(purchasedQuantityErrors);
+    if (Object.keys(availableQuantityErrors).length > 0) {
+      setQuantityErrors(availableQuantityErrors);
       return;
     }
 
@@ -227,16 +253,17 @@ export function PurchaseReturnForm({
       }));
 
     try {
-      await createReturn.mutateAsync({
+      const response = await createReturn.mutateAsync({
         input: {
           originalPurchaseId: validatedValues.originalPurchaseId,
           returnDate: validatedValues.returnDate,
           reason: validatedValues.reason.trim(),
           items,
         },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: idempotencyKey.current,
       });
-      onSaved();
+      idempotencyKey.current = crypto.randomUUID();
+      onSaved(response.data.purchaseReturn.id);
     } catch (error) {
       applyApiErrors(error);
     }
@@ -293,6 +320,8 @@ export function PurchaseReturnForm({
             <span>Return date</span>
             <input
               disabled={createReturn.isPending}
+              max={today()}
+              min={selectedPurchase?.purchase.purchaseDate}
               type="date"
               {...register("returnDate")}
             />
@@ -323,8 +352,8 @@ export function PurchaseReturnForm({
         <section className="management-card">
           <h2>Returned items</h2>
           <p>
-            Enter only the quantity being returned. The server checks previously
-            returned quantities before confirmation.
+            Enter only the quantity being returned. Previously returned quantity and
+            current sellable stock are shown for each original purchase line.
           </p>
 
           <div className="table-scroll">
@@ -333,6 +362,9 @@ export function PurchaseReturnForm({
                 <tr>
                   <th>Product</th>
                   <th>Purchased qty</th>
+                  <th>Already returned</th>
+                  <th>Remaining qty</th>
+                  <th>Stock on hand</th>
                   <th>Cost</th>
                   <th>Return qty</th>
                 </tr>
@@ -343,12 +375,21 @@ export function PurchaseReturnForm({
 
                   if (!purchaseItem) return null;
 
+                  const availability = returnAvailabilityByItemId.get(purchaseItem.id);
+                  const returnedQuantity = availability?.returnedQuantity ?? "0.000";
+                  const remainingQuantity = availability?.remainingReturnableQuantity ?? purchaseItem.quantity;
+                  const currentStockQuantity = availability?.currentStockQuantity ?? "0.000";
+                  const canReturn = Number(remainingQuantity) > 0 && Number(currentStockQuantity) > 0;
+
                   return (
                     <tr key={purchaseItem.id}>
                       <td>
                         {purchaseItem.productSkuSnapshot} - {purchaseItem.productNameSnapshot} ({purchaseItem.unitNameSnapshot})
                       </td>
                       <td>{purchaseItem.quantity}</td>
+                      <td>{returnedQuantity}</td>
+                      <td>{remainingQuantity}</td>
+                      <td>{currentStockQuantity}</td>
                       <td>PKR {purchaseItem.landedUnitCost}</td>
                       <td>
                         <label className="ui-field compact-money-field">
@@ -356,7 +397,7 @@ export function PurchaseReturnForm({
                             Return quantity for {purchaseItem.productNameSnapshot}
                           </span>
                           <input
-                            disabled={createReturn.isPending}
+                            disabled={createReturn.isPending || !canReturn}
                             inputMode="decimal"
                             onChange={(event) => {
                               const quantity = event.target.value;
@@ -367,8 +408,10 @@ export function PurchaseReturnForm({
                               );
                               setQuantityErrors((currentErrors) => {
                                 const nextErrors = { ...currentErrors };
-                                if (exceedsPurchasedQuantity(quantity, purchaseItem.quantity)) {
-                                  nextErrors[index] = `Return quantity cannot exceed purchased quantity (${purchaseItem.quantity}).`;
+                                if (exceedsAvailableQuantity(quantity, remainingQuantity)) {
+                                  nextErrors[index] = `Return quantity cannot exceed remaining returnable quantity (${remainingQuantity}).`;
+                                } else if (exceedsAvailableQuantity(quantity, currentStockQuantity)) {
+                                  nextErrors[index] = `Return quantity cannot exceed current sellable stock (${currentStockQuantity}).`;
                                 } else {
                                   delete nextErrors[index];
                                 }

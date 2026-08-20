@@ -161,10 +161,11 @@ export function loadPaymentAccounts(): Promise<ApiSuccess<PaymentAccounts>> {
 /** Creates one cash account and protects its opening movement from duplicate retries. */
 export function createCashAccount(
   input: CreateCashAccountInput,
+  idempotencyKey: string,
 ): Promise<ApiSuccess<CashAccount>> {
   return requestApi<ApiSuccess<CashAccount>>("/payments/cash-accounts", {
     method: "POST",
-    headers: { "Idempotency-Key": crypto.randomUUID() },
+    headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify(input),
   });
 }
@@ -183,10 +184,11 @@ export function updateCashAccount(
 /** Creates one bank account and protects its opening movement from duplicate retries. */
 export function createBankAccount(
   input: CreateBankAccountInput,
+  idempotencyKey: string,
 ): Promise<ApiSuccess<BankAccount>> {
   return requestApi<ApiSuccess<BankAccount>>("/payments/bank-accounts", {
     method: "POST",
-    headers: { "Idempotency-Key": crypto.randomUUID() },
+    headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify(input),
   });
 }
@@ -381,7 +383,7 @@ export function loadCustomerReceipt(
   );
 }
 
-/** Reverses one customer receipt with a new idempotency key. */
+/** Reverses one customer receipt with an explicit idempotency key. */
 export function reverseCustomerReceipt(
   receiptId: string,
   input: ReversePaymentInput,
@@ -427,7 +429,7 @@ export function loadSupplierPayment(
   );
 }
 
-/** Reverses one supplier payment with a new idempotency key. */
+/** Reverses one supplier payment with an explicit idempotency key. */
 export function reverseSupplierPayment(
   paymentId: string,
   input: ReversePaymentInput,
@@ -511,10 +513,11 @@ export function loadTransfer(
 /** Creates one idempotent transfer between two money accounts. */
 export function createTransfer(
   input: CreateTransferInput,
+  idempotencyKey: string,
 ): Promise<ApiSuccess<CashBankTransfer>> {
   return requestApi<ApiSuccess<CashBankTransfer>>("/payments/transfers", {
     method: "POST",
-    headers: { "idempotency-key": crypto.randomUUID() },
+    headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify(input),
   });
 }
@@ -603,9 +606,10 @@ export function updateCashReconciliation(
 /** Confirms one draft reconciliation with idempotency protection. */
 export function confirmCashReconciliation(
   reconciliationId: string,
+  idempotencyKey: string,
 ): Promise<ApiSuccess<CashReconciliation>> {
   return requestApi<ApiSuccess<CashReconciliation>>(
     `/payments/cash-reconciliations/${reconciliationId}/confirm`,
-    { method: "POST", headers: { "idempotency-key": crypto.randomUUID() } },
+    { method: "POST", headers: { "Idempotency-Key": idempotencyKey } },
   );
 }

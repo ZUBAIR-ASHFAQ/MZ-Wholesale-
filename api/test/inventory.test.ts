@@ -76,6 +76,14 @@ test("inventory cost columns use numeric 14,2", async () => {
     source,
     /weightedAverageCost: numeric\("weighted_average_cost", \{[\s\S]*?precision: 14,[\s\S]*?scale: 2/,
   );
+  assert.match(
+    source,
+    /damagedWeightedAverageCost: numeric\("damaged_weighted_average_cost", \{[\s\S]*?precision: 14,[\s\S]*?scale: 2/,
+  );
+  assert.match(
+    source,
+    /expiredWeightedAverageCost: numeric\("expired_weighted_average_cost", \{[\s\S]*?precision: 14,[\s\S]*?scale: 2/,
+  );
   assert.match(source, /unitCost: numeric\("unit_cost", \{ precision: 14, scale: 2 \}\)/);
 });
 
@@ -139,11 +147,15 @@ test("adjustment OUT rejects a supplied unit cost", async () => {
   assert.match(source, /Unit cost must not be provided for an OUT adjustment/);
 });
 
-/** Verifies that stock-out movements use the saved weighted-average cost. */
-test("adjustment OUT uses weighted-average cost", async () => {
+/** Verifies that stock-out movements use the selected condition's saved weighted-average cost. */
+test("adjustment OUT uses condition weighted-average cost", async () => {
   const source = await readSource(inventoryServicePath);
 
-  assert.match(source, /unitCost: balance\.weightedAverageCost/);
+  assert.match(source, /function readConditionWeightedAverageCost/);
+  assert.match(source, /return balance\.weightedAverageCost/);
+  assert.match(source, /return balance\.damagedWeightedAverageCost/);
+  assert.match(source, /return balance\.expiredWeightedAverageCost/);
+  assert.match(source, /unitCost: readConditionWeightedAverageCost\(/);
 });
 
 /** Verifies that insufficient stock produces the approved stable error. */
@@ -154,14 +166,44 @@ test("insufficient stock is blocked", async () => {
   assert.match(source, /"INSUFFICIENT_STOCK"/);
 });
 
-/** Verifies that damaged and expired stock use separate balance columns. */
-test("damaged and expired stock stay separate from sellable stock", async () => {
+/** Verifies Purchase Returns reverse their original cost from the moving inventory value. */
+test("purchase return recalculates weighted-average cost from the returned original cost", async () => {
+  const source = await readSource(inventoryServicePath);
+  const calculationSource = source.slice(
+    source.indexOf("function calculateWeightedAverageCostAfterPurchaseReturn"),
+    source.indexOf("/** Locks and returns one product balance", source.indexOf("function calculateWeightedAverageCostAfterPurchaseReturn")),
+  );
+  const stockOutSource = source.slice(
+    source.indexOf("async function applyPurchaseReturnStockOut"),
+    source.indexOf("/** Removes confirmed Purchase Return stock", source.indexOf("async function applyPurchaseReturnStockOut")),
+  );
+  const movementSource = source.slice(
+    source.indexOf("export async function recordPurchaseReturnStockOut"),
+    source.indexOf("/** Adds confirmed purchase stock", source.indexOf("export async function recordPurchaseReturnStockOut")),
+  );
+
+  assert.match(
+    calculationSource,
+    /currentQuantity \* currentCost - returnedQuantity \* returnedCost/,
+  );
+  assert.match(calculationSource, /remainingQuantity === 0n/);
+  assert.match(calculationSource, /PURCHASE_RETURN_VALUE_EXCEEDS_INVENTORY_VALUE/);
+  assert.match(stockOutSource, /weightedAverageCost/);
+  assert.match(stockOutSource, /sellableQuantityOnHand/);
+  assert.match(movementSource, /applyPurchaseReturnStockOut/);
+  assert.doesNotMatch(movementSource, /applyStockOut/);
+});
+
+/** Verifies that damaged and expired stock keep separate quantities and weighted costs. */
+test("damaged and expired stock keep condition-specific weighted costs", async () => {
   const source = await readSource(inventoryServicePath);
 
   assert.match(source, /stockCondition === "DAMAGED"/);
   assert.match(source, /damagedQuantityOnHand/);
   assert.match(source, /expiredQuantityOnHand/);
-  assert.match(source, /input\.stockCondition === "SELLABLE"/);
+  assert.match(source, /damagedWeightedAverageCost/);
+  assert.match(source, /expiredWeightedAverageCost/);
+  assert.match(source, /conditionWeightedAverageCostChange/);
 });
 
 /** Verifies that stock movements have no update or delete repository workflow. */
@@ -189,15 +231,15 @@ test("confirmed stock counts cannot be edited or confirmed again", async () => {
   assert.match(source, /currentStockCount\.status !== "DRAFT"/);
 });
 
-/** Verifies that positive sellable count differences cannot create zero-cost stock. */
-test("positive sellable stock-count differences require a saved cost", async () => {
+/** Verifies that positive count differences cannot create zero-cost stock in any condition. */
+test("positive stock-count differences require a saved condition cost", async () => {
   const source = await readSource(inventoryServicePath);
 
-  assert.match(source, /function requireStockCountSellableCost/);
-  assert.match(source, /stockCondition === "SELLABLE"/);
+  assert.match(source, /function requireStockCountCost/);
   assert.match(source, /decimalToScaledInteger\(unitCost, MONEY_SCALE\) <= 0n/);
   assert.match(source, /"STOCK_COUNT_COST_REQUIRED"/);
-  assert.match(source, /requireStockCountSellableCost\(item\.stockCondition, unitCost\)/);
+  assert.match(source, /readConditionWeightedAverageCost\(/);
+  assert.match(source, /requireStockCountCost\(unitCost\)/);
 });
 
 /** Verifies that count confirmation creates immutable correction movements. */
@@ -363,16 +405,28 @@ test("idempotency keys reject different request bodies", async () => {
   assert.match(helper, /createRequestHash\(input\.body\)/);
 });
 
-/** Verifies authentication refresh retries keep the same request options and key. */
-test("authentication refresh preserves the Inventory idempotency key", async () => {
+/** Verifies authentication and manual retries preserve caller-owned Inventory keys. */
+test("Inventory retries preserve one idempotency key per user operation", async () => {
   const apiClient = await readSource(
     new URL("../../web-admin/src/lib/api-client.ts", import.meta.url),
   );
   const inventoryApi = await readSource(inventoryApiPath);
+  const openingForm = await readSource(
+    new URL("../../web-admin/src/features/inventory/components/opening-stock-form.tsx", import.meta.url),
+  );
+  const adjustmentForm = await readSource(
+    new URL("../../web-admin/src/features/inventory/components/inventory-adjustment-form.tsx", import.meta.url),
+  );
+  const countPage = await readSource(stockCountDetailPagePath);
 
   assert.match(apiClient, /result = await sendRequest\(path, options\)/);
-  assert.equal(countOccurrences(apiClient, "sendRequest(path, options)"), 2);
-  assert.match(inventoryApi, /"Idempotency-Key": crypto\.randomUUID\(\)/);
+  assert.equal(countOccurrences(apiClient, "sendRequest(path, options)"), 4);
+  assert.match(inventoryApi, /"Idempotency-Key": idempotencyKey/);
+  assert.doesNotMatch(inventoryApi, /crypto\.randomUUID/);
+  assert.match(openingForm, /useRef\(crypto\.randomUUID\(\)\)/);
+  assert.match(openingForm, /idempotencyKey: idempotencyKey\.current/);
+  assert.match(adjustmentForm, /idempotencyKey: idempotencyKey\.current/);
+  assert.match(countPage, /idempotencyKey: confirmationKey\.current/);
 });
 
 /** Verifies stock-count product names come from joined item data without a page-size limit. */
@@ -386,12 +440,12 @@ test("large stock counts do not depend on a limited product list", async () => {
   assert.doesNotMatch(pageSource, /useProducts/);
 });
 
-/** Verifies positive sellable count differences use a real saved weighted cost. */
-test("positive sellable count differences use existing weighted cost", async () => {
+/** Verifies positive count differences use the saved cost for their stock condition. */
+test("positive stock-count differences use existing condition weighted cost", async () => {
   const source = await readSource(inventoryServicePath);
 
-  assert.match(source, /unitCost = balance\.weightedAverageCost/);
-  assert.match(source, /requireStockCountSellableCost\(item\.stockCondition, unitCost\)/);
+  assert.match(source, /unitCost = readConditionWeightedAverageCost\(/);
+  assert.match(source, /requireStockCountCost\(unitCost\)/);
   assert.match(source, /applyStockIn\(transaction,\s*balance,\s*\{/);
 });
 

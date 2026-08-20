@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router";
 
-import type { PurchaseReturn } from "../api/returns.api.ts";
+import type { PurchaseReturnListItem } from "../api/returns.api.ts";
 
 interface PurchaseReturnTableProps {
-  purchaseReturns: PurchaseReturn[];
+  purchaseReturns: PurchaseReturnListItem[];
   supplierNames: ReadonlyMap<string, string>;
 }
 
@@ -24,6 +24,7 @@ export function PurchaseReturnTable({
             <th>Return no.</th>
             <th>Date</th>
             <th>Supplier</th>
+            <th>Returned qty</th>
             <th>Total</th>
             <th>Reason</th>
           </tr>
@@ -44,6 +45,7 @@ export function PurchaseReturnTable({
                 {supplierNames.get(purchaseReturn.supplierId) ??
                   purchaseReturn.supplierId}
               </td>
+              <td>{purchaseReturn.returnedQuantity}</td>
               <td>PKR {purchaseReturn.totalAmount}</td>
               <td>{purchaseReturn.reason}</td>
             </tr>

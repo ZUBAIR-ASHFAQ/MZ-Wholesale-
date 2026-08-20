@@ -235,7 +235,14 @@ export async function listRecentCustomerInvoices(
     where ${salesReturns.originalSaleId} = ${salesInvoices.id}
       and ${salesReturns.status} = 'CONFIRMED'
   ), 0)`;
-  const dueAmount = sql<string>`greatest(${salesInvoices.totalAmount} - ${returnedAmount} - ${paidAmount}, 0)`;
+  const refundedAmount = sql<string>`coalesce((
+    select sum(${salesReturns.totalAmount})
+    from ${salesReturns}
+    where ${salesReturns.originalSaleId} = ${salesInvoices.id}
+      and ${salesReturns.status} = 'CONFIRMED'
+      and ${salesReturns.refundMode} in ('CASH', 'BANK_TRANSFER')
+  ), 0)`;
+  const dueAmount = sql<string>`greatest(${salesInvoices.totalAmount} - ${returnedAmount} - ${paidAmount} + ${refundedAmount}, 0)`;
 
   const rows = await database
     .select({
@@ -292,7 +299,14 @@ export async function getCustomerOpenInvoiceDueTotal(
     where ${salesReturns.originalSaleId} = ${salesInvoices.id}
       and ${salesReturns.status} = 'CONFIRMED'
   ), 0)`;
-  const dueAmount = sql<string>`greatest(${salesInvoices.totalAmount} - ${returnedAmount} - ${paidAmount}, 0)`;
+  const refundedAmount = sql<string>`coalesce((
+    select sum(${salesReturns.totalAmount})
+    from ${salesReturns}
+    where ${salesReturns.originalSaleId} = ${salesInvoices.id}
+      and ${salesReturns.status} = 'CONFIRMED'
+      and ${salesReturns.refundMode} in ('CASH', 'BANK_TRANSFER')
+  ), 0)`;
+  const dueAmount = sql<string>`greatest(${salesInvoices.totalAmount} - ${returnedAmount} - ${paidAmount} + ${refundedAmount}, 0)`;
   const openInvoiceDues = database
     .select({ dueAmount: sql<string>`${dueAmount}::numeric`.as("due_amount") })
     .from(salesInvoices)
@@ -335,7 +349,14 @@ export async function listCustomerOpenInvoices(
     where ${salesReturns.originalSaleId} = ${salesInvoices.id}
       and ${salesReturns.status} = 'CONFIRMED'
   ), 0)`;
-  const dueAmount = sql<string>`greatest(${salesInvoices.totalAmount} - ${returnedAmount} - ${paidAmount}, 0)`;
+  const refundedAmount = sql<string>`coalesce((
+    select sum(${salesReturns.totalAmount})
+    from ${salesReturns}
+    where ${salesReturns.originalSaleId} = ${salesInvoices.id}
+      and ${salesReturns.status} = 'CONFIRMED'
+      and ${salesReturns.refundMode} in ('CASH', 'BANK_TRANSFER')
+  ), 0)`;
+  const dueAmount = sql<string>`greatest(${salesInvoices.totalAmount} - ${returnedAmount} - ${paidAmount} + ${refundedAmount}, 0)`;
   const baseWhere = and(
     eq(salesInvoices.customerId, customerId),
     eq(salesInvoices.status, "CONFIRMED"),

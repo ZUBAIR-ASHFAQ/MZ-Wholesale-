@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
+import { currentBusinessDate } from "../../../lib/utils.ts";
 import type { CashAccount, CashReconciliation } from "../api/payments.api.ts";
 import {
   useCreateCashReconciliation,
@@ -14,7 +15,10 @@ const moneyPattern = /^\d{1,12}(\.\d{1,2})?$/;
 
 const reconciliationSchema = z.object({
   cashAccountId: z.string().uuid("Select a cash account."),
-  reconciliationDate: z.string().min(1, "Reconciliation date is required."),
+  reconciliationDate: z
+    .string()
+    .min(1, "Reconciliation date is required.")
+    .refine((value) => value <= today(), "Reconciliation date cannot be in the future."),
   countedAmount: z.string().regex(moneyPattern, "Enter a valid cash amount."),
   notes: z.string().trim().max(500).optional(),
 });
@@ -29,7 +33,7 @@ interface ReconciliationFormProps {
 
 /** Returns today in the date format accepted by the API. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return currentBusinessDate();
 }
 
 /** Reads a clear reconciliation error returned by the API. */
@@ -109,6 +113,7 @@ export function ReconciliationForm({
           <span>Reconciliation date</span>
           <input
             disabled={isEditing}
+            max={today()}
             type="date"
             {...form.register("reconciliationDate")}
           />

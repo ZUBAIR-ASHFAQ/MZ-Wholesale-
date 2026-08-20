@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -47,6 +47,7 @@ export function CashAccountForm({
 }: CashAccountFormProps): React.JSX.Element {
   const createAccount = useCreateCashAccount();
   const updateAccount = useUpdateCashAccount();
+  const idempotencyKey = useRef(crypto.randomUUID());
   const isSaving = createAccount.isPending || updateAccount.isPending;
   const form = useForm<CashAccountValues>({
     resolver: zodResolver(cashAccountSchema),
@@ -65,9 +66,13 @@ export function CashAccountForm({
         await updateAccount.mutateAsync({ accountId: account.id, input: { name: values.name.trim() } });
       } else {
         await createAccount.mutateAsync({
-          name: values.name.trim(),
-          openingBalance: values.openingBalance,
+          input: {
+            name: values.name.trim(),
+            openingBalance: values.openingBalance,
+          },
+          idempotencyKey: idempotencyKey.current,
         });
+        idempotencyKey.current = crypto.randomUUID();
       }
       onFinished();
     } catch (error) {
@@ -110,6 +115,7 @@ export function BankAccountForm({
 }: BankAccountFormProps): React.JSX.Element {
   const createAccount = useCreateBankAccount();
   const updateAccount = useUpdateBankAccount();
+  const idempotencyKey = useRef(crypto.randomUUID());
   const isSaving = createAccount.isPending || updateAccount.isPending;
   const form = useForm<BankAccountValues>({
     resolver: zodResolver(bankAccountSchema),
@@ -140,11 +146,15 @@ export function BankAccountForm({
         });
       } else {
         await createAccount.mutateAsync({
-          bankName: values.bankName.trim(),
-          accountName: values.accountName.trim(),
-          accountNumber: values.accountNumber.trim(),
-          openingBalance: values.openingBalance,
+          input: {
+            bankName: values.bankName.trim(),
+            accountName: values.accountName.trim(),
+            accountNumber: values.accountNumber.trim(),
+            openingBalance: values.openingBalance,
+          },
+          idempotencyKey: idempotencyKey.current,
         });
+        idempotencyKey.current = crypto.randomUUID();
       }
       onFinished();
     } catch (error) {

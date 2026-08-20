@@ -74,6 +74,7 @@ export interface SaleListFilters {
   status?: SaleStatus;
   startDate?: string;
   endDate?: string;
+  returnableOnly?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -179,6 +180,9 @@ function buildSaleListQuery(filters: SaleListFilters): string {
   addTextFilter(params, "status", filters.status);
   addTextFilter(params, "startDate", filters.startDate);
   addTextFilter(params, "endDate", filters.endDate);
+  if (filters.returnableOnly !== undefined) {
+    params.set("returnableOnly", String(filters.returnableOnly));
+  }
   addPagination(params, filters);
   return createQueryString(params);
 }
@@ -203,8 +207,8 @@ export function createSale(
   idempotencyKey?: string,
 ): Promise<ApiSuccess<SavedSale>> {
   const headers =
-    input.status === "CONFIRMED"
-      ? { "Idempotency-Key": idempotencyKey ?? crypto.randomUUID() }
+    input.status === "CONFIRMED" && idempotencyKey
+      ? { "Idempotency-Key": idempotencyKey }
       : undefined;
 
   return requestApi<ApiSuccess<SavedSale>>("/sales", {

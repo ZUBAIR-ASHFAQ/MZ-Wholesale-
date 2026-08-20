@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { StatusBadge } from "../../../components/ui/status-badge.tsx";
@@ -42,6 +42,7 @@ export function CashReconciliationsPage(): React.JSX.Element {
   const reconciliationsQuery = useCashReconciliations(filters);
   const accountsQuery = usePaymentAccounts();
   const confirmReconciliation = useConfirmCashReconciliation();
+  const confirmationKeys = useRef(new Map<string, string>());
   const result = reconciliationsQuery.data?.data;
   const cashAccounts = accountsQuery.data?.data.cashAccounts ?? [];
   const totalPages = result ? Math.max(1, Math.ceil(result.total / result.pageSize)) : 1;
@@ -96,9 +97,19 @@ export function CashReconciliationsPage(): React.JSX.Element {
 
     if (!approved) return;
 
+    let idempotencyKey = confirmationKeys.current.get(reconciliation.id);
+    if (!idempotencyKey) {
+      idempotencyKey = crypto.randomUUID();
+      confirmationKeys.current.set(reconciliation.id, idempotencyKey);
+    }
+
     try {
       setActionError(null);
-      await confirmReconciliation.mutateAsync(reconciliation.id);
+      await confirmReconciliation.mutateAsync({
+        reconciliationId: reconciliation.id,
+        idempotencyKey,
+      });
+      confirmationKeys.current.delete(reconciliation.id);
     } catch (error) {
       setActionError(readConfirmationError(error));
     }

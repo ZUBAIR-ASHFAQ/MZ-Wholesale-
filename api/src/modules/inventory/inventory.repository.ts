@@ -53,6 +53,8 @@ export interface InventoryBalanceChanges {
   damagedQuantityOnHand?: string;
   expiredQuantityOnHand?: string;
   weightedAverageCost?: string;
+  damagedWeightedAverageCost?: string;
+  expiredWeightedAverageCost?: string;
 }
 
 /** Represents one saved immutable stock-movement row. */
@@ -283,6 +285,21 @@ export async function updateInventoryBalance(
     .returning();
 
   return rows[0] ?? null;
+}
+
+/** Reads the latest business date already applied to one product's sequential stock state. */
+export async function findLatestProductMovementBusinessDate(
+  database: InventoryDatabase,
+  productId: string,
+): Promise<string | null> {
+  const rows = await database
+    .select({
+      businessDate: sql<string | null>`max(timezone('Asia/Karachi', ${stockMovements.occurredAt})::date)::text`,
+    })
+    .from(stockMovements)
+    .where(eq(stockMovements.productId, productId));
+
+  return rows[0]?.businessDate ?? null;
 }
 
 /** Creates one immutable stock movement and returns the saved row. */

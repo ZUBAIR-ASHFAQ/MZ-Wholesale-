@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
+import { currentBusinessDate } from "../../../lib/utils.ts";
 import type { SupplierPurchaseSummary } from "../../suppliers/api/suppliers.api.ts";
 import {
   useSupplierOpenPurchases,
@@ -40,7 +41,7 @@ const emptyErrors: SupplierPaymentFormErrors = {
 
 /** Returns today's date in the YYYY-MM-DD format expected by the API. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return currentBusinessDate();
 }
 
 /** Converts a valid money string into integer cents for exact comparison. */
@@ -108,9 +109,21 @@ function validatePayment(
 
   if (!supplierId) errors.supplierId = "Select a supplier.";
   if (!paymentDate) errors.paymentDate = "Payment date is required.";
+  else if (paymentDate > today()) errors.paymentDate = "Payment date cannot be in the future.";
   if (notes.trim().length > 500) errors.notes = "Notes must be 500 characters or fewer.";
 
   const allocations = selectedAllocations(purchases, allocationAmounts);
+  const allocatedPurchaseIds = new Set(allocations.map((allocation) => allocation.documentId));
+  const laterPurchase = paymentDate
+    ? purchases.find(
+        (purchase) =>
+          allocatedPurchaseIds.has(purchase.id) && purchase.purchaseDate > paymentDate,
+      )
+    : undefined;
+
+  if (laterPurchase) {
+    errors.paymentDate = `Payment date cannot be before an allocated purchase date (${laterPurchase.purchaseDate}).`;
+  }
 
   for (const purchase of purchases) {
     const enteredAmount = allocationAmounts[purchase.id]?.trim() ?? "";
@@ -193,6 +206,7 @@ export function SupplierPaymentForm({
 }: SupplierPaymentFormProps): React.JSX.Element {
   const suppliersQuery = useSuppliers({ active: true, page: 1, pageSize: 100 });
   const createPayment = useCreateSupplierPayment();
+  const idempotencyKey = useRef(crypto.randomUUID());
   const [supplierId, setSupplierId] = useState("");
   const [paymentDate, setPaymentDate] = useState(today());
   const [notes, setNotes] = useState("");
@@ -229,7 +243,7 @@ export function SupplierPaymentForm({
     setAllocationAmounts((current) => ({ ...current, [purchaseId]: amount }));
   }
 
-  /** Submits one validated supplier payment using a fresh idempotency key. */
+  /** Submits one validated supplier payment while preserving its idempotency key across retries. */
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
@@ -259,8 +273,9 @@ export function SupplierPaymentForm({
           splits,
           notes: notes.trim() || null,
         },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: idempotencyKey.current,
       });
+      idempotencyKey.current = crypto.randomUUID();
       onSaved();
     } catch (error) {
       setErrors({ ...nextErrors, root: readPaymentError(error) });
@@ -293,6 +308,7 @@ export function SupplierPaymentForm({
             <span>Payment date</span>
             <input
               disabled={createPayment.isPending}
+              max={today()}
               onChange={(event) => setPaymentDate(event.target.value)}
               type="date"
               value={paymentDate}

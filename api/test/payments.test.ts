@@ -1497,7 +1497,7 @@ test("Module 8 Pass 22 adds simple transfer frontend screens", async () => {
   const router = await readProjectFile("../../web-admin/src/app/router.tsx");
 
   assert.match(apiFile, /\/payments\/transfers/);
-  assert.match(apiFile, /idempotency-key/);
+  assert.match(apiFile, /idempotency-key/i);
   assert.match(hooksFile, /useCreateTransfer/);
   assert.match(hooksFile, /useTransfers/);
   assert.match(formFile, /react-hook-form/);
@@ -1519,7 +1519,7 @@ test("Module 8 Pass 23 adds simple cash reconciliation screens", async () => {
   const router = await readProjectFile("../../web-admin/src/app/router.tsx");
 
   assert.match(apiFile, /\/payments\/cash-reconciliations/);
-  assert.match(apiFile, /idempotency-key/);
+  assert.match(apiFile, /idempotency-key/i);
   assert.match(hooksFile, /useConfirmCashReconciliation/);
   assert.match(formFile, /react-hook-form/);
   assert.match(pageFile, /Cash reconciliations/);
@@ -1799,19 +1799,29 @@ test("Module 8 financial POST routes keep idempotency protection", async () => {
   }
 });
 
-/** Verifies account creation sends an idempotency key because opening balances create movements. */
-test("Module 8 account creation protects opening movements from duplicate browser retries", async () => {
+/** Verifies payment UIs own idempotency keys so manual retries cannot duplicate financial writes. */
+test("Module 8 browser retries reuse operation-scoped idempotency keys", async () => {
   const api = await readProjectFile(
     "../../web-admin/src/features/payments/api/payments.api.ts",
   );
+  const accountForm = await readFrontendPaymentFile("components/account-form.tsx");
+  const receiptForm = await readFrontendPaymentFile("components/customer-receipt-form.tsx");
+  const supplierForm = await readFrontendPaymentFile("components/supplier-payment-form.tsx");
+  const transferForm = await readFrontendPaymentFile("components/transfer-form.tsx");
+  const receiptDetail = await readFrontendPaymentFile("pages/customer-receipt-detail-page.tsx");
+  const supplierDetail = await readFrontendPaymentFile("pages/supplier-payment-detail-page.tsx");
+  const reconciliationPage = await readFrontendPaymentFile("pages/cash-reconciliations-page.tsx");
 
-  const cashStart = api.indexOf("export function createCashAccount");
-  const bankStart = api.indexOf("export function createBankAccount");
-  const cashSection = api.slice(cashStart, bankStart);
-  const bankSection = api.slice(bankStart, api.indexOf("export function updateBankAccount", bankStart));
-
-  assert.match(cashSection, /"Idempotency-Key": crypto\.randomUUID\(\)/);
-  assert.match(bankSection, /"Idempotency-Key": crypto\.randomUUID\(\)/);
+  assert.match(api, /"Idempotency-Key": idempotencyKey/);
+  assert.doesNotMatch(api, /crypto\.randomUUID/);
+  assert.match(accountForm, /idempotencyKey: idempotencyKey\.current/);
+  assert.match(receiptForm, /idempotencyKey: idempotencyKey\.current/);
+  assert.match(supplierForm, /idempotencyKey: idempotencyKey\.current/);
+  assert.match(transferForm, /idempotencyKey: idempotencyKey\.current/);
+  assert.match(receiptDetail, /idempotencyKey: reversalKeyRef\.current/);
+  assert.match(supplierDetail, /idempotencyKey: reversalKeyRef\.current/);
+  assert.match(reconciliationPage, /confirmationKeys\.current\.get\(reconciliation\.id\)/);
+  assert.match(reconciliationPage, /idempotencyKey,/);
 });
 
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isBusinessDateNotFuture } from "../../shared/utils/business-date.js";
 import {
   isDecimalGreaterThanZero,
   isMoneyWithinDatabaseRange,
@@ -45,6 +46,11 @@ const dateSchema = z
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD format.")
   .refine(isValidDate, "Date must be a valid calendar date.");
+
+const mutationDateSchema = dateSchema.refine(
+  isBusinessDateNotFuture,
+  "Date cannot be in the future.",
+);
 
 const notesSchema = z
   .string()
@@ -249,7 +255,7 @@ export const listStockCountsQuerySchema = z
 /** Validates all fields accepted when creating a draft stock count. */
 export const createStockCountSchema = z
   .object({
-    countDate: dateSchema,
+    countDate: mutationDateSchema,
     notes: z.preprocess(emptyStringToNull, notesSchema.nullable().optional()),
     items: z
       .array(stockCountItemInputSchema)

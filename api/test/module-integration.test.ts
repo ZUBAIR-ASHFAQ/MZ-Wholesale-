@@ -1053,8 +1053,13 @@ function customerBalanceFromEffects(effects: Array<{ debit: number; credit: numb
 }
 
 /** Calculates one invoice outstanding value from its confirmed effective effects. */
-function invoiceOutstanding(total: number, returned: number, allocated: number): number {
-  return Math.max(total - returned - allocated, 0);
+function invoiceOutstanding(
+  total: number,
+  returned: number,
+  allocated: number,
+  refunded = 0,
+): number {
+  return Math.max(total - returned - allocated + refunded, 0);
 }
 
 /** Protects the customer sale -> receipt -> reversal -> receipt -> return consistency rule. */
@@ -1080,6 +1085,11 @@ test("customer ledger and invoice outstanding agree after receipt reversal and s
   assert.equal(ledgerBalance, 3_000);
   assert.equal(documentOutstanding, 3_000);
   assert.equal(ledgerBalance, documentOutstanding);
+  assert.equal(
+    invoiceOutstanding(10_000, 2_000, 5_000, 2_000),
+    5_000,
+    "cash/bank refunds restore the refunded receipt amount instead of reducing invoice due twice",
+  );
 
   // Sale confirmation creates the invoice debit.
   assert.match(salesService, /writeCustomerDebit\(transaction,[\s\S]*referenceType: "SALE"/);
@@ -1097,7 +1107,7 @@ test("customer ledger and invoice outstanding agree after receipt reversal and s
   assert.match(customersRepository, /customerPayments\.status\} = 'CONFIRMED'/);
   assert.match(customersRepository, /customerPayments\.reversalOfPaymentId\} is null/);
   assert.match(customersRepository, /salesReturns\.status\} = 'CONFIRMED'/);
-  assert.match(customersRepository, /greatest\(\$\{salesInvoices\.totalAmount\} - \$\{returnedAmount\} - \$\{paidAmount\}, 0\)/);
+  assert.match(customersRepository, /greatest\(\$\{salesInvoices\.totalAmount\} - \$\{returnedAmount\} - \$\{paidAmount\} \+ \$\{refundedAmount\}, 0\)/);
 
   // Customer outstanding is independently derived from immutable ledger debits minus credits.
   assert.match(ledgersRepository, /sum\(\$\{customerLedgerEntries\.debit\} - \$\{customerLedgerEntries\.credit\}\)/);

@@ -45,6 +45,14 @@ export interface PurchaseItem {
   createdAt: string;
 }
 
+/** Cumulative Purchase Return and current-stock quantities for one purchase item. */
+export interface PurchaseItemReturnAvailability {
+  originalPurchaseItemId: string;
+  returnedQuantity: string;
+  remainingReturnableQuantity: string;
+  currentStockQuantity: string;
+}
+
 /** One supplier payment allocation shown on purchase detail. */
 export interface PurchasePayment {
   paymentId: string;
@@ -61,6 +69,7 @@ export interface PurchaseDetail {
   items: PurchaseItem[];
   payments: PurchasePayment[];
   currentOutstandingAmount: string | null;
+  returnAvailability: PurchaseItemReturnAvailability[];
 }
 
 /** Filters accepted by GET /purchases. */
@@ -69,6 +78,7 @@ export interface PurchaseListFilters {
   status?: PurchaseStatus;
   startDate?: string;
   endDate?: string;
+  returnableOnly?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -175,6 +185,9 @@ function buildPurchaseListQuery(filters: PurchaseListFilters): string {
   addTextFilter(params, "status", filters.status);
   addTextFilter(params, "startDate", filters.startDate);
   addTextFilter(params, "endDate", filters.endDate);
+  if (filters.returnableOnly !== undefined) {
+    params.set("returnableOnly", String(filters.returnableOnly));
+  }
   addPagination(params, filters);
   return createQueryString(params);
 }
@@ -201,8 +214,8 @@ export function createPurchase(
   idempotencyKey?: string,
 ): Promise<ApiSuccess<PurchaseDetail>> {
   const headers =
-    input.status === "CONFIRMED"
-      ? { "Idempotency-Key": idempotencyKey ?? crypto.randomUUID() }
+    input.status === "CONFIRMED" && idempotencyKey
+      ? { "Idempotency-Key": idempotencyKey }
       : undefined;
 
   return requestApi<ApiSuccess<PurchaseDetail>>("/purchases", {

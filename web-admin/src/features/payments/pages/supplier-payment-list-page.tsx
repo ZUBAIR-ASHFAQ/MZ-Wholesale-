@@ -1,12 +1,11 @@
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
-import { Dialog } from "../../../components/ui/dialog.tsx";
 import { useSuppliers } from "../../suppliers/hooks/use-suppliers.ts";
 import type { SupplierPaymentFilters } from "../api/payments.api.ts";
-import { SupplierPaymentForm } from "../components/supplier-payment-form.tsx";
 import { SupplierPaymentsTable } from "../components/supplier-payments-table.tsx";
-import { usePaymentAccounts, useSupplierPayments } from "../hooks/use-payments.ts";
+import { useSupplierPayments } from "../hooks/use-payments.ts";
 
 const pageSize = 20;
 
@@ -19,9 +18,7 @@ export function SupplierPaymentListPage(): React.JSX.Element {
     page: 1,
     pageSize,
   });
-  const [isNewPaymentOpen, setIsNewPaymentOpen] = useState(false);
 
-  const accountsQuery = usePaymentAccounts();
   const suppliersQuery = useSuppliers({ page: 1, pageSize: 100 });
   const paymentsQuery = useSupplierPayments(appliedFilters);
   const result = paymentsQuery.data?.data;
@@ -60,7 +57,7 @@ export function SupplierPaymentListPage(): React.JSX.Element {
           <h1>Supplier payments</h1>
           <p>View confirmed and reversed supplier payments.</p>
         </div>
-        <Button label="New payment" onClick={() => setIsNewPaymentOpen(true)} />
+        <Link className="primary-link" to="/payments/supplier-payments/new">New payment</Link>
       </div>
 
       <section className="management-card">
@@ -150,25 +147,6 @@ export function SupplierPaymentListPage(): React.JSX.Element {
           </div>
         ) : null}
       </section>
-
-      <Dialog
-        isOpen={isNewPaymentOpen}
-        onClose={() => setIsNewPaymentOpen(false)}
-        title="New supplier payment"
-        wide
-      >
-        {accountsQuery.isPending ? <p>Loading payment accounts...</p> : null}
-        {accountsQuery.isError ? (
-          <p className="error-message">Payment accounts could not be loaded.</p>
-        ) : null}
-        {accountsQuery.data?.data ? (
-          <SupplierPaymentForm
-            accounts={accountsQuery.data.data}
-            onCancel={() => setIsNewPaymentOpen(false)}
-            onSaved={() => setIsNewPaymentOpen(false)}
-          />
-        ) : null}
-      </Dialog>
     </section>
   );
 }

@@ -115,6 +115,11 @@ export interface PurchaseReturn {
   createdAt: string;
 }
 
+/** One Purchase Return list row with the quantity returned on that document. */
+export interface PurchaseReturnListItem extends PurchaseReturn {
+  returnedQuantity: string;
+}
+
 /** One immutable item snapshot stored on a confirmed Purchase Return. */
 export interface PurchaseReturnItem {
   id: string;
@@ -165,7 +170,7 @@ export interface PurchaseReturnListFilters {
 
 /** One paginated Purchase Return list response. */
 export interface PaginatedPurchaseReturns {
-  items: PurchaseReturn[];
+  items: PurchaseReturnListItem[];
   total: number;
   page: number;
   pageSize: number;

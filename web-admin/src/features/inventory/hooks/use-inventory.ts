@@ -52,16 +52,27 @@ export function useProductMovements(
   });
 }
 
+interface CreateOpeningStockVariables {
+  input: CreateOpeningStockInput;
+  idempotencyKey: string;
+}
+
 /** Creates opening stock and refreshes inventory queries. */
 export function useCreateOpeningStock() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: CreateOpeningStockInput) => createOpeningStock(input),
+    mutationFn: ({ input, idempotencyKey }: CreateOpeningStockVariables) =>
+      createOpeningStock(input, idempotencyKey),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.all });
     },
   });
+}
+
+interface CreateInventoryAdjustmentVariables {
+  input: CreateInventoryAdjustmentInput;
+  idempotencyKey: string;
 }
 
 /** Creates one adjustment and refreshes inventory queries. */
@@ -69,8 +80,8 @@ export function useCreateInventoryAdjustment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: CreateInventoryAdjustmentInput) =>
-      createInventoryAdjustment(input),
+    mutationFn: ({ input, idempotencyKey }: CreateInventoryAdjustmentVariables) =>
+      createInventoryAdjustment(input, idempotencyKey),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.all });
     },
@@ -131,17 +142,23 @@ export function useUpdateStockCount() {
   });
 }
 
+interface ConfirmStockCountVariables {
+  stockCountId: string;
+  idempotencyKey: string;
+}
+
 /** Confirms a draft count and refreshes all affected inventory data. */
 export function useConfirmStockCount() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (stockCountId: string) => confirmStockCount(stockCountId),
-    onSuccess: async (_response, stockCountId) => {
+    mutationFn: ({ stockCountId, idempotencyKey }: ConfirmStockCountVariables) =>
+      confirmStockCount(stockCountId, idempotencyKey),
+    onSuccess: async (_response, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.all }),
         queryClient.invalidateQueries({
-          queryKey: inventoryQueryKeys.countDetail(stockCountId),
+          queryKey: inventoryQueryKeys.countDetail(variables.stockCountId),
         }),
       ]);
     },

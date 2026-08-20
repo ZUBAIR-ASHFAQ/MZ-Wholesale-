@@ -24,12 +24,14 @@ import {
   findPurchaseReturnById,
   findPurchaseReturnItems,
   findSalesReturnById,
+  findSalesReturnByOriginalSaleId,
   findOriginalSaleItems,
   createPurchaseReturn,
   createPurchaseReturnItems,
   createSalesReturn,
   createSalesReturnItems,
   getPurchaseItemReturnedQuantity,
+  getPurchaseReturnSettlementAmounts,
   getSalesItemReturnedAmount,
   getSalesItemReturnedQuantity,
   getSalesReturnSettlementAmounts,
@@ -45,6 +47,7 @@ import {
   type OriginalSaleItemRecord,
   type OriginalSaleRecord,
   type PurchaseReturnItemRecord,
+  type PurchaseReturnListRecord,
   type PurchaseReturnRecord,
   type ReturnsDatabase,
   type SalesReturnItemRecord,
@@ -105,7 +108,7 @@ export interface PaginatedSalesReturns {
 
 /** Contains one paginated Purchase Return list response. */
 export interface PaginatedPurchaseReturns {
-  items: PurchaseReturnRecord[];
+  items: PurchaseReturnListRecord[];
   total: number;
   page: number;
   pageSize: number;
@@ -164,6 +167,23 @@ function returnError(
   fields?: AppErrorField[],
 ): AppError {
   return new AppError(code, message, statusCode, fields);
+}
+
+/** Ensures a return cannot be dated before its confirmed source document. */
+function requireReturnDateOnOrAfterSource(
+  returnDate: string,
+  sourceDate: string,
+  sourceLabel: "sale" | "purchase",
+): void {
+  if (returnDate < sourceDate) {
+    const message = `Return date cannot be before the original ${sourceLabel} date (${sourceDate}).`;
+    throw returnError(
+      "RETURN_DATE_BEFORE_ORIGINAL",
+      message,
+      400,
+      [{ field: "returnDate", message }],
+    );
+  }
 }
 
 /** Builds the simple stock-result summary from immutable Sales Return item snapshots. */
@@ -600,16 +620,31 @@ export async function applyPreparedPurchaseReturnInventory(
 export async function validatePreparedPurchaseReturnPayable(
   database: ReturnsDatabase,
   prepared: PreparedPurchaseReturn,
+  excludePurchaseReturnId?: string,
 ): Promise<void> {
-  const currentPayable = await getSupplierCurrentPayable(
-    database,
-    prepared.originalPurchase.supplierId,
-  );
+  const [currentPayable, settlement] = await Promise.all([
+    getSupplierCurrentPayable(database, prepared.originalPurchase.supplierId),
+    getPurchaseReturnSettlementAmounts(
+      database,
+      prepared.originalPurchase.id,
+      excludePurchaseReturnId,
+    ),
+  ]);
   const currentPayableCents = decimalToScaledInteger(currentPayable, MONEY_SCALE);
-  const returnAmountCents = decimalToScaledInteger(
-    prepared.totalAmount,
-    MONEY_SCALE,
-  );
+  const returnAmountCents = decimalToScaledInteger(prepared.totalAmount, MONEY_SCALE);
+  const purchaseOutstandingCents =
+    decimalToScaledInteger(prepared.originalPurchase.totalAmount, MONEY_SCALE)
+    - decimalToScaledInteger(settlement.paidAmount, MONEY_SCALE)
+    - decimalToScaledInteger(settlement.previousReturnAmount, MONEY_SCALE);
+
+  if (returnAmountCents > (purchaseOutstandingCents > 0n ? purchaseOutstandingCents : 0n)) {
+    throw returnError(
+      "PURCHASE_RETURN_EXCEEDS_PURCHASE_DUE",
+      "Purchase Return cannot be greater than the outstanding amount of the original purchase.",
+      409,
+      [{ field: "items", message: "Reduce the return amount to the unpaid balance of this purchase." }],
+    );
+  }
 
   if (returnAmountCents > currentPayableCents) {
     throw returnError(
@@ -629,7 +664,7 @@ export async function applyPreparedPurchaseReturnSupplierLedger(
   occurredAt: Date,
   prepared: PreparedPurchaseReturn,
 ): Promise<void> {
-  await validatePreparedPurchaseReturnPayable(database, prepared);
+  await validatePreparedPurchaseReturnPayable(database, prepared, purchaseReturnId);
 
   // A zero-value return changes stock but must not create an invalid zero ledger entry.
   if (decimalToScaledInteger(prepared.totalAmount, MONEY_SCALE) === 0n) {
@@ -924,6 +959,22 @@ export async function createConfirmedSalesReturnInTransaction(
     );
   }
 
+  requireReturnDateOnOrAfterSource(
+    input.returnDate,
+    lockedSale.invoiceDate,
+    "sale",
+  );
+
+  const existingReturn = await findSalesReturnByOriginalSaleId(transaction, lockedSale.id);
+  if (existingReturn) {
+    throw returnError(
+      "SALE_ALREADY_RETURNED",
+      "This sale already has a Sales Return and cannot be returned again.",
+      409,
+      [{ field: "originalSaleId", message: "Select a sale that has not already been returned." }],
+    );
+  }
+
   // Lock the party and source items before checking prior returns and balances.
   const customer = await findCustomerByIdForUpdate(
     transaction,
@@ -1051,6 +1102,12 @@ export async function createConfirmedPurchaseReturnInTransaction(
       404,
     );
   }
+
+  requireReturnDateOnOrAfterSource(
+    input.returnDate,
+    lockedPurchase.purchaseDate,
+    "purchase",
+  );
 
   // Lock the supplier and source items before checking previous returns/payable.
   const supplier = await findSupplierByIdForUpdate(

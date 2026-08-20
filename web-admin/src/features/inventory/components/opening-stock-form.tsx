@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -90,6 +90,7 @@ export function OpeningStockForm({
 }: OpeningStockFormProps): React.JSX.Element {
   const productsQuery = useProducts({ active: true, page: 1, pageSize: 100 });
   const createMutation = useCreateOpeningStock();
+  const idempotencyKey = useRef(crypto.randomUUID());
   const [formError, setFormError] = useState("");
   const products = productsQuery.data?.data.items ?? [];
 
@@ -126,9 +127,13 @@ export function OpeningStockForm({
 
     try {
       await createMutation.mutateAsync({
-        items: values.items,
-        notes: optionalNotes(values.notes),
+        input: {
+          items: values.items,
+          notes: optionalNotes(values.notes),
+        },
+        idempotencyKey: idempotencyKey.current,
       });
+      idempotencyKey.current = crypto.randomUUID();
       onSaved();
     } catch (error) {
       setFormError(

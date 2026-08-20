@@ -1,4 +1,5 @@
 import { AppError } from "../../shared/errors/app-error.js";
+import { isBusinessDateNotFuture } from "../../shared/utils/business-date.js";
 import { reserveBusinessDocumentNumberInTransaction } from "../business-settings/index.js";
 import { recordPurchaseStockIn } from "../inventory/inventory.service.js";
 import { recordPurchaseInitialSupplierPayment } from "../payments/payments.service.js";
@@ -14,6 +15,7 @@ import {
   countPurchases,
   findPurchaseById,
   getPurchaseOutstandingAmount,
+  listPurchaseItemReturnAvailability,
   listPurchaseItems,
   listPurchasePayments,
   listPurchases as readPurchases,
@@ -24,6 +26,7 @@ import {
   updatePurchaseDraft as updatePurchaseDraftRecord,
   type NewPurchaseItem,
   type PurchaseItemRecord,
+  type PurchaseItemReturnAvailabilityRecord,
   type PurchaseRecord,
   type PurchasesDatabase,
 } from "./purchases.repository.js";
@@ -564,6 +567,7 @@ export async function createPurchaseInTransaction(
     items: created.items,
     payments: [],
     currentOutstandingAmount: null,
+    returnAvailability: [],
   };
 }
 
@@ -595,6 +599,7 @@ export interface PurchaseDetail {
   items: PurchaseItemRecord[];
   payments: Awaited<ReturnType<typeof listPurchasePayments>>;
   currentOutstandingAmount: string | null;
+  returnAvailability: PurchaseItemReturnAvailabilityRecord[];
 }
 
 /** Lists purchases using the approved supplier, status, date, and page filters. */
@@ -630,15 +635,18 @@ export async function getPurchase(
     );
   }
 
-  const [items, payments, currentOutstandingAmount] = await Promise.all([
+  const [items, payments, currentOutstandingAmount, returnAvailability] = await Promise.all([
     listPurchaseItems(database, purchaseId),
     listPurchasePayments(database, purchaseId),
     purchase.status === "CONFIRMED"
       ? getPurchaseOutstandingAmount(database, purchaseId)
       : Promise.resolve(null),
+    purchase.status === "CONFIRMED"
+      ? listPurchaseItemReturnAvailability(database, purchaseId)
+      : Promise.resolve([]),
   ]);
 
-  return { purchase, items, payments, currentOutstandingAmount };
+  return { purchase, items, payments, currentOutstandingAmount, returnAvailability };
 }
 
 
@@ -806,6 +814,7 @@ export async function updatePurchaseDraft(
       items,
       payments,
       currentOutstandingAmount: null,
+      returnAvailability: [],
     };
   });
 }
@@ -843,6 +852,7 @@ export async function cancelPurchase(
       items,
       payments,
       currentOutstandingAmount: null,
+      returnAvailability: [],
     };
   });
 }
@@ -870,6 +880,15 @@ export async function confirmPurchaseInTransaction(
     const purchase = requireDraftPurchase(
       await lockPurchaseById(transaction, purchaseId),
     );
+
+    if (!isBusinessDateNotFuture(purchase.purchaseDate)) {
+      throw purchaseError(
+        "FUTURE_BUSINESS_DATE",
+        "Purchase date cannot be in the future.",
+        400,
+        "purchaseDate",
+      );
+    }
 
     await requireActiveSupplier(transaction, purchase.supplierId);
 
@@ -977,15 +996,17 @@ export async function confirmPurchaseInTransaction(
       );
     }
 
-    const [payments, currentOutstandingAmount] = await Promise.all([
+    const [payments, currentOutstandingAmount, returnAvailability] = await Promise.all([
       listPurchasePayments(transaction, purchase.id),
       getPurchaseOutstandingAmount(transaction, purchase.id),
+      listPurchaseItemReturnAvailability(transaction, purchase.id),
     ]);
     return {
       purchase: confirmedPurchase,
       items,
       payments,
       currentOutstandingAmount,
+      returnAvailability,
     };
 }
 

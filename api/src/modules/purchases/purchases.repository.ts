@@ -12,7 +12,9 @@ import {
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import {
+  inventoryBalances,
   purchaseItems,
+  purchaseReturnItems,
   purchaseReturns,
   purchases,
   supplierPaymentAllocations,
@@ -39,6 +41,14 @@ export type NewPurchase = typeof purchases.$inferInsert;
 
 /** Contains the values required to insert one purchase item. */
 export type NewPurchaseItem = typeof purchaseItems.$inferInsert;
+
+/** Represents cumulative return and current-stock quantities for one purchase item. */
+export interface PurchaseItemReturnAvailabilityRecord {
+  originalPurchaseItemId: string;
+  returnedQuantity: string;
+  remainingReturnableQuantity: string;
+  currentStockQuantity: string;
+}
 
 /** Represents one supplier-payment allocation shown on a purchase detail. */
 export interface PurchasePaymentRecord {
@@ -99,6 +109,20 @@ function buildPurchaseFilters(query: ListPurchasesQuery): SQL[] {
 
   if (query.endDate) {
     filters.push(lte(purchases.purchaseDate, query.endDate));
+  }
+
+  if (query.returnableOnly) {
+    filters.push(eq(purchases.status, "CONFIRMED"));
+    filters.push(sql`exists (
+      select 1
+      from ${purchaseItems}
+      where ${purchaseItems.purchaseId} = ${purchases.id}
+        and coalesce((
+          select sum(${purchaseReturnItems.quantity})
+          from ${purchaseReturnItems}
+          where ${purchaseReturnItems.originalPurchaseItemId} = ${purchaseItems.id}
+        ), 0) < ${purchaseItems.quantity}
+    )`);
   }
 
   return filters;
@@ -163,6 +187,33 @@ export async function listPurchaseItems(
   return database
     .select()
     .from(purchaseItems)
+    .where(eq(purchaseItems.purchaseId, purchaseId))
+    .orderBy(asc(purchaseItems.createdAt), asc(purchaseItems.id));
+}
+
+/** Reads cumulative returned, remaining returnable, and current sellable stock quantities for purchase items. */
+export async function listPurchaseItemReturnAvailability(
+  database: PurchasesDatabase,
+  purchaseId: string,
+): Promise<PurchaseItemReturnAvailabilityRecord[]> {
+  const returnedQuantity = sql<string>`coalesce((
+    select sum(${purchaseReturnItems.quantity})
+    from ${purchaseReturnItems}
+    where ${purchaseReturnItems.originalPurchaseItemId} = ${purchaseItems.id}
+  ), 0)`;
+
+  return database
+    .select({
+      originalPurchaseItemId: purchaseItems.id,
+      returnedQuantity: sql<string>`${returnedQuantity}::text`,
+      remainingReturnableQuantity: sql<string>`greatest(${purchaseItems.quantity} - ${returnedQuantity}, 0)::text`,
+      currentStockQuantity: sql<string>`trunc(coalesce(${inventoryBalances.sellableQuantityOnHand}, 0) / ${purchaseItems.conversionToBaseSnapshot}, 3)::text`,
+    })
+    .from(purchaseItems)
+    .leftJoin(
+      inventoryBalances,
+      eq(inventoryBalances.productId, purchaseItems.productId),
+    )
     .where(eq(purchaseItems.purchaseId, purchaseId))
     .orderBy(asc(purchaseItems.createdAt), asc(purchaseItems.id));
 }

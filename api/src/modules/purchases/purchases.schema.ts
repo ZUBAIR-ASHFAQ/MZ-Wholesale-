@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isBusinessDateNotFuture } from "../../shared/utils/business-date.js";
 import {
   isMoneyWithinDatabaseRange,
   isQuantityWithinDatabaseRange,
@@ -43,6 +44,11 @@ const dateSchema = z
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD format.")
   .refine(isValidDate, "Date must be a valid calendar date.");
+
+const mutationDateSchema = dateSchema.refine(
+  isBusinessDateNotFuture,
+  "Date cannot be in the future.",
+);
 
 const notesSchema = z
   .string()
@@ -190,7 +196,7 @@ const initialPaymentSchema = z
 
 const purchaseFields = {
   supplierId: uuidSchema,
-  purchaseDate: dateSchema,
+  purchaseDate: mutationDateSchema,
   items: z
     .array(purchaseItemInputSchema)
     .min(1, "At least one purchase item is required.")
@@ -214,6 +220,10 @@ export const listPurchasesQuerySchema = z
     status: purchaseStatusSchema.optional(),
     startDate: dateSchema.optional(),
     endDate: dateSchema.optional(),
+    returnableOnly: z
+      .enum(["true", "false"])
+      .transform((value) => value === "true")
+      .optional(),
     page: z.coerce.number().int().positive().default(1),
     pageSize: z.coerce.number().int().positive().max(100).default(20),
   })
@@ -242,7 +252,7 @@ export const createPurchaseSchema = z
 export const updatePurchaseDraftSchema = z
   .object({
     supplierId: uuidSchema.optional(),
-    purchaseDate: dateSchema.optional(),
+    purchaseDate: mutationDateSchema.optional(),
     items: z
       .array(purchaseItemInputSchema)
       .min(1, "At least one purchase item is required.")

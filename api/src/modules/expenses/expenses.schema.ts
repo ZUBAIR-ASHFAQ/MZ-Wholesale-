@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isBusinessDateNotFuture } from "../../shared/utils/business-date.js";
 import { isMoneyWithinDatabaseRange } from "../../shared/utils/decimal-validation.js";
 
 const uuidSchema = z.string().uuid("ID must be a valid UUID.");
@@ -30,6 +31,11 @@ const dateSchema = z
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD format.")
   .refine(isValidDate, "Date must be a valid calendar date.");
+
+const mutationDateSchema = dateSchema.refine(
+  isBusinessDateNotFuture,
+  "Date cannot be in the future.",
+);
 
 const noteSchema = z
   .string()
@@ -153,7 +159,7 @@ export const updateExpenseCategorySchema = z
 export const createExpenseSchema = z
   .object({
     expenseCategoryId: uuidSchema,
-    expenseDate: dateSchema,
+    expenseDate: mutationDateSchema,
     amount: positiveMoneySchema,
     paymentMethod: paymentMethodSchema,
     cashAccountId: uuidSchema.optional(),

@@ -268,18 +268,14 @@ export async function loadProductMovements(
   );
 }
 
-/** Creates one unique key that remains attached to a mutation retry. */
-function createIdempotencyHeaders(): HeadersInit {
-  return { "Idempotency-Key": crypto.randomUUID() };
-}
-
 /** Creates setup opening stock. */
 export async function createOpeningStock(
   input: CreateOpeningStockInput,
+  idempotencyKey: string,
 ): Promise<ApiSuccess<unknown>> {
   return requestApi<ApiSuccess<unknown>>("/inventory/opening-stock", {
     method: "POST",
-    headers: createIdempotencyHeaders(),
+    headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify(input),
   });
 }
@@ -287,10 +283,11 @@ export async function createOpeningStock(
 /** Creates one manual inventory adjustment. */
 export async function createInventoryAdjustment(
   input: CreateInventoryAdjustmentInput,
+  idempotencyKey: string,
 ): Promise<ApiSuccess<unknown>> {
   return requestApi<ApiSuccess<unknown>>("/inventory/adjustments", {
     method: "POST",
-    headers: createIdempotencyHeaders(),
+    headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify(input),
   });
 }
@@ -337,9 +334,10 @@ export async function updateStockCount(
 /** Confirms one draft stock count. */
 export async function confirmStockCount(
   stockCountId: string,
+  idempotencyKey: string,
 ): Promise<ApiSuccess<StockCountDetail>> {
   return requestApi<ApiSuccess<StockCountDetail>>(
     `/inventory/counts/${stockCountId}/confirm`,
-    { method: "POST", headers: createIdempotencyHeaders() },
+    { method: "POST", headers: { "Idempotency-Key": idempotencyKey } },
   );
 }

@@ -12,6 +12,8 @@ import {
   salesInvoices,
   salesReturnItems,
   salesReturns,
+  supplierPaymentAllocations,
+  supplierPayments,
 } from "../../database/schema/index.js";
 import type {
   ListPurchaseReturnsQuery,
@@ -47,6 +49,11 @@ export type OriginalPurchaseItemRecord = typeof purchaseItems.$inferSelect;
 /** Represents one Purchase Return header stored in PostgreSQL. */
 export type PurchaseReturnRecord = typeof purchaseReturns.$inferSelect;
 
+/** Represents one Purchase Return list row plus its summed returned quantity. */
+export type PurchaseReturnListRecord = PurchaseReturnRecord & {
+  returnedQuantity: string;
+};
+
 /** Represents one Purchase Return item stored in PostgreSQL. */
 export type PurchaseReturnItemRecord = typeof purchaseReturnItems.$inferSelect;
 
@@ -56,6 +63,12 @@ export interface SalesReturnSettlementAmounts {
   paidAmount: string;
   previousReturnAmount: string;
   previousRefundAmount: string;
+}
+
+/** Summarizes the original purchase settlement amounts used to prevent cross-purchase payable reductions. */
+export interface PurchaseReturnSettlementAmounts {
+  paidAmount: string;
+  previousReturnAmount: string;
 }
 
 /** Contains the values required to insert one Sales Return header. */
@@ -143,6 +156,20 @@ export async function countSalesReturns(
     .where(where);
 
   return rows[0]?.total ?? 0;
+}
+
+/** Reads the existing Sales Return for one original sale, if that sale was already returned. */
+export async function findSalesReturnByOriginalSaleId(
+  database: ReturnsDatabase,
+  originalSaleId: string,
+): Promise<SalesReturnRecord | null> {
+  const rows = await database
+    .select()
+    .from(salesReturns)
+    .where(eq(salesReturns.originalSaleId, originalSaleId))
+    .limit(1);
+
+  return rows[0] ?? null;
 }
 
 /** Reads one Sales Return header by UUID. */
@@ -234,6 +261,49 @@ export async function getSalesReturnSettlementAmounts(
     paidAmount: paymentRows[0]?.paidAmount ?? "0.00",
     previousReturnAmount: returnRows[0]?.previousReturnAmount ?? "0.00",
     previousRefundAmount: returnRows[0]?.previousRefundAmount ?? "0.00",
+  };
+}
+
+/** Reads paid and already-returned amounts for one original purchase. */
+export async function getPurchaseReturnSettlementAmounts(
+  database: ReturnsDatabase,
+  originalPurchaseId: string,
+  excludePurchaseReturnId?: string,
+): Promise<PurchaseReturnSettlementAmounts> {
+  const returnFilters = [eq(purchaseReturns.originalPurchaseId, originalPurchaseId)];
+
+  if (excludePurchaseReturnId) {
+    returnFilters.push(ne(purchaseReturns.id, excludePurchaseReturnId));
+  }
+
+  const [paymentRows, returnRows] = await Promise.all([
+    database
+      .select({
+        paidAmount: sql<string>`coalesce(sum(${supplierPaymentAllocations.amount}), 0)::text`,
+      })
+      .from(supplierPaymentAllocations)
+      .innerJoin(
+        supplierPayments,
+        eq(supplierPayments.id, supplierPaymentAllocations.supplierPaymentId),
+      )
+      .where(
+        and(
+          eq(supplierPaymentAllocations.purchaseId, originalPurchaseId),
+          eq(supplierPayments.status, "CONFIRMED"),
+          isNull(supplierPayments.reversalOfPaymentId),
+        ),
+      ),
+    database
+      .select({
+        previousReturnAmount: sql<string>`coalesce(sum(${purchaseReturns.totalAmount}), 0)::text`,
+      })
+      .from(purchaseReturns)
+      .where(and(...returnFilters)),
+  ]);
+
+  return {
+    paidAmount: paymentRows[0]?.paidAmount ?? "0.00",
+    previousReturnAmount: returnRows[0]?.previousReturnAmount ?? "0.00",
   };
 }
 
@@ -442,13 +512,28 @@ export async function getPurchaseItemReturnedQuantity(
 export async function listPurchaseReturns(
   database: ReturnsDatabase,
   query: ListPurchaseReturnsQuery,
-): Promise<PurchaseReturnRecord[]> {
+): Promise<PurchaseReturnListRecord[]> {
   const filters = buildPurchaseReturnFilters(query);
   const where = filters.length > 0 ? and(...filters) : undefined;
   const offset = (query.page - 1) * query.pageSize;
 
   return database
-    .select()
+    .select({
+      id: purchaseReturns.id,
+      returnNumber: purchaseReturns.returnNumber,
+      originalPurchaseId: purchaseReturns.originalPurchaseId,
+      supplierId: purchaseReturns.supplierId,
+      returnDate: purchaseReturns.returnDate,
+      status: purchaseReturns.status,
+      reason: purchaseReturns.reason,
+      totalAmount: purchaseReturns.totalAmount,
+      createdAt: purchaseReturns.createdAt,
+      returnedQuantity: sql<string>`coalesce((
+        select sum(${purchaseReturnItems.quantity})
+        from ${purchaseReturnItems}
+        where ${purchaseReturnItems.purchaseReturnId} = ${purchaseReturns.id}
+      ), 0)::text`,
+    })
     .from(purchaseReturns)
     .where(where)
     .orderBy(

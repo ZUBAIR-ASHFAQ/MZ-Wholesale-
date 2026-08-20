@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -99,6 +99,7 @@ export function InventoryAdjustmentForm({
 }: InventoryAdjustmentFormProps): React.JSX.Element {
   const productsQuery = useProducts({ active: true, page: 1, pageSize: 100 });
   const createMutation = useCreateInventoryAdjustment();
+  const idempotencyKey = useRef(crypto.randomUUID());
   const [formError, setFormError] = useState("");
   const products = productsQuery.data?.data.items ?? [];
 
@@ -129,14 +130,18 @@ export function InventoryAdjustmentForm({
 
     try {
       await createMutation.mutateAsync({
-        productId: values.productId,
-        stockCondition: values.stockCondition,
-        direction: values.direction,
-        quantity: values.quantity,
-        reason: values.reason.trim(),
-        unitCost: values.direction === "IN" ? values.unitCost : undefined,
-        notes: optionalNotes(values.notes),
+        input: {
+          productId: values.productId,
+          stockCondition: values.stockCondition,
+          direction: values.direction,
+          quantity: values.quantity,
+          reason: values.reason.trim(),
+          unitCost: values.direction === "IN" ? values.unitCost : undefined,
+          notes: optionalNotes(values.notes),
+        },
+        idempotencyKey: idempotencyKey.current,
       });
+      idempotencyKey.current = crypto.randomUUID();
       onSaved();
     } catch (error) {
       setFormError(
