@@ -11,7 +11,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-/** These are the only document types that receive generated numbers in version 1. */
+/** Lists every business document type that receives a generated number. */
 export const DOCUMENT_TYPES = [
   "SALE",
   "PURCHASE",
@@ -20,6 +20,10 @@ export const DOCUMENT_TYPES = [
   "SALES_RETURN",
   "PURCHASE_RETURN",
   "EXPENSE",
+  "EMPLOYEE_ADVANCE",
+  "PAYROLL",
+  "SALARY_PAYMENT",
+  "ADVANCE_RECOVERY",
 ] as const;
 
 /** The database stores Pakistani rupees only in version 1. */
@@ -28,7 +32,7 @@ export const FIXED_CURRENCY = "PKR";
 /** Business dates and reports use the Karachi timezone in version 1. */
 export const FIXED_TIMEZONE = "Asia/Karachi";
 
-/** PostgreSQL limits sequence rows to the seven approved document types. */
+/** PostgreSQL limits sequence rows to the approved document types. */
 export const documentTypeEnum = pgEnum("document_type", DOCUMENT_TYPES);
 
 /**

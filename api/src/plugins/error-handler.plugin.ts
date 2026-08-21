@@ -151,6 +151,20 @@ function readUniqueConstraintError(
         message: "Supplier code already exists.",
         fields: uniqueField("code", "Supplier code already exists."),
       };
+    case "employees_employee_code_normalized_unique":
+      return {
+        statusCode: 409,
+        code: "DUPLICATE_EMPLOYEE_CODE",
+        message: "Employee code already exists.",
+        fields: uniqueField("employeeCode", "Employee code already exists."),
+      };
+    case "employees_reference_id_normalized_unique":
+      return {
+        statusCode: 409,
+        code: "DUPLICATE_EMPLOYEE_REFERENCE_ID",
+        message: "CNIC/reference ID already exists.",
+        fields: uniqueField("referenceId", "CNIC/reference ID already exists."),
+      };
     case "cash_accounts_name_unique":
       return {
         statusCode: 409,

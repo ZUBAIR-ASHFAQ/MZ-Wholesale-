@@ -50,6 +50,10 @@ export const movementSourceTypeEnum = pgEnum("movement_source_type", [
   "SALES_RETURN",
   "EXPENSE",
   "EXPENSE_REVERSAL",
+  "EMPLOYEE_ADVANCE",
+  "ADVANCE_RECOVERY",
+  "SALARY_PAYMENT",
+  "SALARY_PAYMENT_REVERSAL",
 ]);
 
 /** Lists the editable and immutable states of a cash reconciliation. */

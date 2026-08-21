@@ -27,6 +27,9 @@ import { ExpenseCategoriesPage } from "../features/expenses/pages/expense-catego
 import { ExpenseDetailPage } from "../features/expenses/pages/expense-detail-page.tsx";
 import { ExpenseFormPage } from "../features/expenses/pages/expense-form-page.tsx";
 import { ExpenseListPage } from "../features/expenses/pages/expense-list-page.tsx";
+import { EmployeeDetailPage } from "../features/employees/pages/employee-detail-page.tsx";
+import { AttendancePage } from "../features/employees/pages/attendance-page.tsx";
+import { EmployeeListPage } from "../features/employees/pages/employee-list-page.tsx";
 import { CustomerOutstandingPage } from "../features/ledgers/pages/customer-outstanding-page.tsx";
 import { CustomerStatementPage } from "../features/ledgers/pages/customer-statement-page.tsx";
 import { SupplierPayablesPage } from "../features/ledgers/pages/supplier-payables-page.tsx";
@@ -197,6 +200,12 @@ function SupplierEditRoutePage(): React.JSX.Element {
 function SupplierDetailRoutePage(): React.JSX.Element {
   const { supplierId } = supplierDetailRoute.useParams();
   return <SupplierDetailPage supplierId={supplierId} />;
+}
+
+/** Reads the employee ID from the detail route and renders the profile page. */
+function EmployeeDetailRoutePage(): React.JSX.Element {
+  const { employeeId } = employeeDetailRoute.useParams();
+  return <EmployeeDetailPage employeeId={employeeId} />;
 }
 
 /** Reads the customer ID from the detail route and renders the profile page. */
@@ -615,6 +624,24 @@ const supplierDetailRoute = createRoute({
   component: SupplierDetailRoutePage,
 });
 
+const employeesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/employees",
+  component: EmployeeListPage,
+});
+
+const employeeAttendanceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/employees/attendance",
+  component: AttendancePage,
+});
+
+const employeeDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/employees/$employeeId",
+  component: EmployeeDetailRoutePage,
+});
+
 const customersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/customers",
@@ -829,6 +856,9 @@ const routeTree = rootRoute.addChildren([
   newSupplierRoute,
   supplierEditRoute,
   supplierDetailRoute,
+  employeesRoute,
+  employeeAttendanceRoute,
+  employeeDetailRoute,
   customersRoute,
   newCustomerRoute,
   customerEditRoute,

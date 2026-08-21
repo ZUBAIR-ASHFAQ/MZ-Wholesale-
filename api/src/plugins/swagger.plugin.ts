@@ -21,6 +21,7 @@ export async function registerSwaggerPlugin(
         { name: "products", description: "Products, categories, brands and units." },
         { name: "customers", description: "Walk-in and credit-customer master data." },
         { name: "suppliers", description: "Supplier master data." },
+        { name: "employees", description: "Employee master data for attendance, leave, advances, and payroll." },
         { name: "inventory", description: "Stock balances, movements, adjustments and counts." },
         { name: "ledgers", description: "Customer and supplier statements, outstanding dues and payables." },
         { name: "payments", description: "Cash and bank accounts, customer receipts, supplier payments, movements, transfers and reconciliation." },

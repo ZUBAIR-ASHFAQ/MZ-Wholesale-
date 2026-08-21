@@ -17,7 +17,22 @@ export type DocumentType =
   | "SUPPLIER_PAYMENT"
   | "SALES_RETURN"
   | "PURCHASE_RETURN"
-  | "EXPENSE";
+  | "EXPENSE"
+  | "EMPLOYEE_ADVANCE"
+  | "PAYROLL"
+  | "SALARY_PAYMENT"
+  | "ADVANCE_RECOVERY";
+
+/** Keeps first-time setup compatible with the existing seven core document sequences. */
+const INITIAL_SETUP_DOCUMENT_TYPES = [
+  "SALE",
+  "PURCHASE",
+  "CUSTOMER_RECEIPT",
+  "SUPPLIER_PAYMENT",
+  "SALES_RETURN",
+  "PURCHASE_RETURN",
+  "EXPENSE",
+] as const;
 
 /** Contains the fields accepted for one document sequence. */
 export interface DocumentSequenceInput {
@@ -142,7 +157,7 @@ function validateSetupSequences(
 ): void {
   validateUniqueSequences(sequences, context);
 
-  for (const documentType of DOCUMENT_TYPES) {
+  for (const documentType of INITIAL_SETUP_DOCUMENT_TYPES) {
     let typeWasProvided = false;
 
     for (const sequence of sequences) {
@@ -214,7 +229,7 @@ export const businessSettingsUpdateSchema = z
     sequences: z
       .array(documentSequenceInputSchema)
       .min(1, "At least one sequence is required when sequences are supplied.")
-      .max(7, "No more than seven sequences are allowed.")
+      .max(11, "No more than eleven sequences are allowed.")
       .optional(),
   })
   .strict()

@@ -17,6 +17,7 @@ import {
 import { businessSettingsModule } from "./modules/business-settings/index.js";
 import { customersModule } from "./modules/customers/index.js";
 import { dashboardModule } from "./modules/dashboard/index.js";
+import { employeesModule } from "./modules/employees/index.js";
 import { expensesModule } from "./modules/expenses/index.js";
 import { inventoryModule } from "./modules/inventory/index.js";
 import { ledgersModule } from "./modules/ledgers/index.js";
@@ -167,6 +168,7 @@ export async function createApp(
   await app.register(productsModule);
   await app.register(customersModule);
   await app.register(suppliersModule);
+  await app.register(employeesModule);
   await app.register(inventoryModule);
   await app.register(ledgersModule);
   await app.register(paymentsModule);

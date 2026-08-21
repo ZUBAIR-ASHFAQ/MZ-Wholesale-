@@ -25,6 +25,7 @@ function sectionTitle(currentPath: string): string {
   if (currentPath.startsWith("/products") || currentPath === "/product-settings") return "Products";
   if (currentPath.startsWith("/customers")) return "Customers";
   if (currentPath.startsWith("/suppliers")) return "Suppliers";
+  if (currentPath.startsWith("/employees")) return "Employees";
   if (currentPath.startsWith("/ledgers")) return "Ledgers";
   if (currentPath.startsWith("/payments")) return "Payments, cash and bank";
   if (currentPath.startsWith("/returns")) return "Returns";
@@ -59,6 +60,7 @@ export function AppLayout({
   const customersActive = currentPath.startsWith("/customers") || customerReceiptsActive;
   const supplierPaymentsActive = currentPath.startsWith("/payments/supplier-payments");
   const suppliersActive = currentPath.startsWith("/suppliers") || supplierPaymentsActive;
+  const employeesActive = currentPath.startsWith("/employees");
   const inventoryActive = currentPath.startsWith("/inventory");
   const ledgersActive = currentPath.startsWith("/ledgers");
   const paymentsActive = currentPath.startsWith("/payments") && !supplierPaymentsActive && !customerReceiptsActive;
@@ -205,6 +207,20 @@ export function AppLayout({
                 </Link>
                 <Link className={linkClass(currentPath === "/payments/supplier-payments/new")} to="/payments/supplier-payments/new">
                   New supplier payment
+                </Link>
+              </div>
+            </details>
+
+            <details className="sidebar-nav-group" open={employeesActive}>
+              <summary className={employeesActive ? "sidebar-nav-trigger active" : "sidebar-nav-trigger"}>
+                Employees
+              </summary>
+              <div className="sidebar-subnav">
+                <Link className={linkClass(currentPath === "/employees")} to="/employees">
+                  Employee list
+                </Link>
+                <Link className={linkClass(currentPath === "/employees/attendance")} to="/employees/attendance">
+                  Attendance
                 </Link>
               </div>
             </details>
