@@ -711,7 +711,14 @@ test("API has a normal compiled production build", async () => {
 
   assert.match(packageSource, /"build": "tsc -p tsconfig\.build\.json"/);
   assert.match(packageSource, /"start": "node dist\/server\.js"/);
-  assert.match(packageSource, /"dev": "tsx watch src\/server\.ts"/);
+  assert.match(
+    packageSource,
+    /"dev": "node --env-file-if-exists=\.\.\/\.env --watch --import tsx src\/server\.ts"/,
+  );
+  assert.match(
+    packageSource,
+    /"db:migrate": "node --env-file-if-exists=\.\.\/\.env --import tsx src\/commands\/migrate\.ts"/,
+  );
   assert.doesNotMatch(packageSource, /experimental-strip-types/);
   assert.match(buildConfig, /"outDir": "dist"/);
   assert.match(buildConfig, /"rootDir": "src"/);

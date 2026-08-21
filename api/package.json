@@ -7,10 +7,10 @@
     "node": ">=22.6.0"
   },
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "node --env-file-if-exists=../.env --watch --import tsx src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
-    "db:migrate": "tsx src/commands/migrate.ts",
+    "db:migrate": "node --env-file-if-exists=../.env --import tsx src/commands/migrate.ts",
     "db:migrate:production": "node dist/commands/migrate.js",
     "initialize:system": "tsx src/commands/initialize-system.ts",
     "initialize:system:production": "node dist/commands/initialize-system.js",

@@ -81,3 +81,22 @@ export {
 
 /** Central Expense exports keep the Module 12 tables in the Drizzle schema. */
 export { expenseCategories, expenses } from "./expense.schema.js";
+
+/** Central Employee exports keep Module 16 employee/payroll tables in the Drizzle schema. */
+export {
+  attendanceRecords,
+  attendanceStatusEnum,
+  employeeAdvanceRecoveries,
+  employeeAdvances,
+  employeeLeaveStatusEnum,
+  employeeLeaves,
+  employeeLedgerEntries,
+  employees,
+  leaveTypes,
+  payrollItems,
+  payrollRuns,
+  payrollStatusEnum,
+  salaryPaymentAllocations,
+  salaryPaymentSplits,
+  salaryPayments,
+} from "./employee.schema.js";
