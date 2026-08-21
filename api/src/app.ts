@@ -1,6 +1,5 @@
 import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
-import { sql } from "drizzle-orm";
 import Fastify, {
   type FastifyInstance,
   type FastifyReply,
@@ -23,6 +22,7 @@ import { inventoryModule } from "./modules/inventory/index.js";
 import { ledgersModule } from "./modules/ledgers/index.js";
 import { paymentsModule } from "./modules/payments/index.js";
 import { operationsModule } from "./modules/operations/index.js";
+import { checkDatabaseReady } from "./modules/operations/operations.repository.js";
 import { productsModule } from "./modules/products/index.js";
 import { purchasesModule } from "./modules/purchases/index.js";
 import { salesModule } from "./modules/sales/index.js";
@@ -56,11 +56,13 @@ export interface ApplicationOptions {
   authSigningSecret: string;
   secureCookies: boolean;
   webAdminUrl?: string;
+  csrfCookieDomain?: string;
   sessionVerifier?: AdminSessionVerifier;
   csrfTokenVerifier?: CsrfTokenVerifier;
   loginLimit?: number;
   refreshLimit?: number;
   rateLimitWindowMilliseconds?: number;
+  trustProxyHops?: number;
   logger?: FastifyServerOptions["logger"];
   appVersion?: string;
   appBuild?: string;
@@ -79,17 +81,15 @@ function createSignedCsrfVerifier(signingSecret: string): CsrfTokenVerifier {
 
 /** Registers the public database readiness endpoint required by deployments. */
 function registerHealthRoute(app: FastifyInstance): void {
-  /** Returns healthy only after PostgreSQL answers a simple query. */
+  /** Returns healthy only when PostgreSQL is reachable and fully migrated. */
   async function checkHealth(
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
-    try {
-      await app.db.execute(sql`select 1`);
-      reply.send(createDataResponse({ status: "ok" }));
-    } catch (error) {
-      const errorName = error instanceof Error ? error.name : "UnknownError";
-      request.log.error({ errorName }, "Database health check failed.");
+    const isReady = await checkDatabaseReady(app.db);
+
+    if (!isReady) {
+      request.log.error("Database readiness check failed.");
       reply
         .status(503)
         .send(
@@ -98,7 +98,10 @@ function registerHealthRoute(app: FastifyInstance): void {
             "The database is unavailable.",
           ),
         );
+      return;
     }
+
+    reply.send(createDataResponse({ status: "ok" }));
   }
 
   app.get(
@@ -121,7 +124,10 @@ function registerHealthRoute(app: FastifyInstance): void {
 export async function createApp(
   options: ApplicationOptions,
 ): Promise<FastifyInstance> {
-  const app = Fastify({ logger: options.logger ?? false });
+  const app = Fastify({
+    logger: options.logger ?? false,
+    trustProxy: options.trustProxyHops ?? false,
+  });
 
   await app.register(cookie);
   await app.register(jwt, {
@@ -153,6 +159,7 @@ export async function createApp(
     options.loginLimit,
     options.refreshLimit,
     options.rateLimitWindowMilliseconds,
+    options.csrfCookieDomain,
   );
 
   // Register the small production-operations module before business modules.

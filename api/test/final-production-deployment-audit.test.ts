@@ -24,6 +24,29 @@ test("production cookies are Secure, HttpOnly where required, and SameSite=Lax",
   assert.match(source, /secure:\s*secureCookies/);
 });
 
+test("production supports a shared CSRF cookie domain for sibling admin and API hosts", async () => {
+  const envSource = await readProjectFile("api/src/env.ts");
+  const routes = await readProjectFile("api/src/modules/auth/auth.routes.ts");
+  const envExample = await readProjectFile(".env.example");
+
+  assert.match(envSource, /CSRF_COOKIE_DOMAIN/);
+  assert.match(routes, /domain: csrfCookieDomain/);
+  assert.match(envExample, /CSRF_COOKIE_DOMAIN=example\.com/);
+});
+
+test("production trusts exactly one reverse-proxy hop for client IP metadata", async () => {
+  const envSource = await readProjectFile("api/src/env.ts");
+  const serverSource = await readProjectFile("api/src/server.ts");
+  const appSource = await readProjectFile("api/src/app.ts");
+  const compose = await readProjectFile("docker-compose.production.yml");
+
+  assert.match(envSource, /API_TRUST_PROXY_HOPS/);
+  assert.match(serverSource, /trustProxyHops: environment\.trustProxyHops/);
+  assert.match(appSource, /trustProxy: options\.trustProxyHops \?\? false/);
+  assert.match(compose, /API_TRUST_PROXY_HOPS:\s*"\$\{API_TRUST_PROXY_HOPS:-1\}"/);
+  assert.doesNotMatch(appSource, /trustProxy:\s*true/);
+});
+
 test("production CORS uses one configured admin origin with credentials", async () => {
   const source = await readProjectFile("api/src/plugins/cors.plugin.ts");
 
@@ -31,11 +54,11 @@ test("production CORS uses one configured admin origin with credentials", async 
   assert.match(source, /credentials:\s*true/);
 });
 
-test("public API health route checks PostgreSQL and can return 503", async () => {
+test("public API health route requires the migrated database and can return 503", async () => {
   const source = await readProjectFile("api/src/app.ts");
 
   assert.match(source, /"\/health"/);
-  assert.match(source, /select 1/);
+  assert.match(source, /checkDatabaseReady\(app\.db\)/);
   assert.match(source, /\.status\(503\)/);
 });
 
@@ -47,6 +70,7 @@ test("production Compose uses compiled containers and localhost-bound public ser
   assert.match(compose, /127\.0\.0\.1:3000:3000/);
   assert.match(compose, /127\.0\.0\.1:8080:80/);
   assert.match(compose, /condition:\s*service_healthy/);
+  assert.match(compose, /127\.0\.0\.1:3000\/health\/ready/);
 });
 
 test("production Dockerfiles do not run Vite or tsx watch servers", async () => {
@@ -94,7 +118,6 @@ test("encrypted off-server backup and restore verification remain documented", a
   assert.match(verify, /pg_restore/);
   assert.match(verify, /ALLOW_DATABASE_RESTORE/);
 });
-
 
 test("production acceptance runner uses a disposable clean database and full checks", async () => {
   const source = await readProjectFile("deployment/run-production-acceptance.sh");

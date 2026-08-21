@@ -383,6 +383,7 @@ export interface ProfitSummaryReport {
   expenseAmount: string;
   expenseReversalAmount: string;
   netExpenseAmount: string;
+  laborCostAmount: string;
   estimatedProfitAmount: string;
 }
 

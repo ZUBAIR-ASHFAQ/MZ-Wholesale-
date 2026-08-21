@@ -235,7 +235,8 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const input = createEmployeeLeaveSchema.parse(request.body);
-    const leave = await createEmployeeLeave(app.db, input);
+    const leave = await app.db.transaction((transaction) =>
+      createEmployeeLeave(transaction, input));
     await auditMutation(request, "EMPLOYEE_LEAVE_CREATED", leave, "EMPLOYEE_LEAVE");
     reply.status(201).send(createDataResponse(leave));
   }
@@ -247,7 +248,8 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
   ): Promise<void> {
     const params = employeeLeaveIdParamsSchema.parse(request.params);
     const input = updateEmployeeLeaveSchema.parse(request.body);
-    const leave = await updateEmployeeLeave(app.db, params.id, input);
+    const leave = await app.db.transaction((transaction) =>
+      updateEmployeeLeave(transaction, params.id, input));
     await auditMutation(request, "EMPLOYEE_LEAVE_UPDATED", leave, "EMPLOYEE_LEAVE");
     reply.send(createDataResponse(leave));
   }

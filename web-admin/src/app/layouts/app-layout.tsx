@@ -22,7 +22,7 @@ function sectionTitle(currentPath: string): string {
   if (currentPath.startsWith("/sales")) return "Counter sales";
   if (currentPath.startsWith("/purchases")) return "Purchases";
   if (currentPath.startsWith("/inventory")) return "Inventory";
-  if (currentPath.startsWith("/products") || currentPath === "/product-settings") return "Products";
+  if (currentPath.startsWith("/products")) return "Products";
   if (currentPath.startsWith("/customers")) return "Customers";
   if (currentPath.startsWith("/suppliers")) return "Suppliers";
   if (currentPath.startsWith("/employees")) return "Employees";
@@ -55,7 +55,7 @@ export function AppLayout({
 }: AppLayoutProps): React.JSX.Element {
   const logout = useLogoutAdmin();
   const dashboardActive = currentPath === "/dashboard";
-  const productsActive = currentPath.startsWith("/products") || currentPath === "/product-settings";
+  const productsActive = currentPath.startsWith("/products");
   const customerReceiptsActive = currentPath.startsWith("/payments/customer-receipts");
   const customersActive = currentPath.startsWith("/customers") || customerReceiptsActive;
   const supplierPaymentsActive = currentPath.startsWith("/payments/supplier-payments");
@@ -136,9 +136,6 @@ export function AppLayout({
                 <Link className={linkClass(currentPath === "/inventory")} to="/inventory">
                   Stock overview
                 </Link>
-                <Link className={linkClass(currentPath === "/inventory/opening-stock")} to="/inventory/opening-stock">
-                  Opening stock
-                </Link>
                 <Link className={linkClass(currentPath === "/inventory/adjustments")} to="/inventory/adjustments">
                   Stock adjustments
                 </Link>
@@ -161,12 +158,6 @@ export function AppLayout({
               <div className="sidebar-subnav">
                 <Link className={linkClass(currentPath === "/products")} to="/products">
                   Product list
-                </Link>
-                <Link className={linkClass(currentPath === "/products/new")} to="/products/new">
-                  New product
-                </Link>
-                <Link className={linkClass(currentPath === "/product-settings")} to="/product-settings">
-                  Categories and brands
                 </Link>
               </div>
             </details>
@@ -198,9 +189,6 @@ export function AppLayout({
               <div className="sidebar-subnav">
                 <Link className={linkClass(currentPath === "/suppliers")} to="/suppliers">
                   Supplier list
-                </Link>
-                <Link className={linkClass(currentPath === "/suppliers/new")} to="/suppliers/new">
-                  New supplier
                 </Link>
                 <Link className={linkClass(currentPath === "/payments/supplier-payments")} to="/payments/supplier-payments">
                   Supplier payments
@@ -452,7 +440,7 @@ export function AppLayout({
           </div>
         </header>
 
-        <main className="page-content">{children}</main>
+        <main className={employeesActive ? "page-content employee-page-content" : "page-content"}>{children}</main>
       </div>
     </div>
   );

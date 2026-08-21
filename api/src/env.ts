@@ -8,8 +8,10 @@ export interface ApiEnvironment {
   databaseIdleTimeoutMilliseconds: number;
   authSigningSecret: string;
   webAdminUrl: string;
+  csrfCookieDomain?: string;
   apiHost: string;
   apiPort: number;
+  trustProxyHops: number;
   isProduction: boolean;
   appVersion: string;
   appBuild: string;
@@ -36,8 +38,10 @@ const apiEnvironmentSchema = z
       .string()
       .min(32, "AUTH_SIGNING_SECRET must contain at least 32 characters."),
     WEB_ADMIN_URL: z.url("WEB_ADMIN_URL must be a valid URL."),
+    CSRF_COOKIE_DOMAIN: z.string().trim().min(1).optional(),
     API_HOST: z.string().trim().min(1).default("0.0.0.0"),
     API_PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
+    API_TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
     APP_VERSION: z.string().trim().min(1).default("1.0.0"),
     APP_BUILD: z.string().trim().min(1).default("local"),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -53,6 +57,28 @@ const apiEnvironmentSchema = z
         message: "WEB_ADMIN_URL must use HTTPS in production.",
       });
     }
+
+    if (environment.CSRF_COOKIE_DOMAIN) {
+      const cookieDomain = environment.CSRF_COOKIE_DOMAIN.replace(
+        /^\./,
+        "",
+      ).toLowerCase();
+      const webAdminHostname = new URL(
+        environment.WEB_ADMIN_URL,
+      ).hostname.toLowerCase();
+
+      if (
+        !cookieDomain.includes(".") ||
+        (webAdminHostname !== cookieDomain &&
+          !webAdminHostname.endsWith(`.${cookieDomain}`))
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["CSRF_COOKIE_DOMAIN"],
+          message: "CSRF_COOKIE_DOMAIN must be a shared parent domain of WEB_ADMIN_URL.",
+        });
+      }
+    }
   });
 
 /** Reads and converts process environment values used by the API. */
@@ -67,8 +93,13 @@ export function readApiEnvironment(values: NodeJS.ProcessEnv): ApiEnvironment {
     databaseIdleTimeoutMilliseconds: environment.DATABASE_IDLE_TIMEOUT_MS,
     authSigningSecret: environment.AUTH_SIGNING_SECRET,
     webAdminUrl: environment.WEB_ADMIN_URL,
+    csrfCookieDomain: environment.CSRF_COOKIE_DOMAIN?.replace(
+      /^\./,
+      "",
+    ).toLowerCase(),
     apiHost: environment.API_HOST,
     apiPort: environment.API_PORT,
+    trustProxyHops: environment.API_TRUST_PROXY_HOPS,
     isProduction: environment.NODE_ENV === "production",
     appVersion: environment.APP_VERSION,
     appBuild: environment.APP_BUILD,

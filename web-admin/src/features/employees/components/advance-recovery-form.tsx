@@ -12,7 +12,10 @@ import { useRecoverEmployeeAdvance } from "../hooks/use-employees.ts";
 
 const recoveryFormSchema = z
   .object({
-    recoveryDate: z.string().min(1, "Recovery date is required."),
+    recoveryDate: z
+      .string()
+      .min(1, "Recovery date is required.")
+      .refine((value) => value <= currentBusinessDate(), "Recovery date cannot be in the future."),
     amount: z
       .string()
       .trim()
@@ -141,6 +144,7 @@ export function AdvanceRecoveryForm({
           <span>Recovery date</span>
           <input
             disabled={recoverAdvance.isPending}
+            max={currentBusinessDate()}
             min={advance.advanceDate}
             type="date"
             {...form.register("recoveryDate")}

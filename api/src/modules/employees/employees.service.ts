@@ -47,6 +47,7 @@ import {
   listSalaryPayments as readSalaryPayments,
   listSalaryPaymentSplits,
   lockEmployeeAdvanceById,
+  lockEmployeeLeaveApprovalScope,
   lockPayrollConfirmationScope,
   lockPayrollRunById,
   lockSalaryPaymentById,
@@ -508,8 +509,18 @@ export async function updateEmployee(
   const effectiveLeaveDate = input.leaveDate !== undefined
     ? input.leaveDate
     : existingEmployee.leaveDate;
+  const effectiveIsActive = input.isActive ?? existingEmployee.isActive;
 
   validateEffectiveEmploymentDates(effectiveJoinDate, effectiveLeaveDate);
+
+  if (!effectiveIsActive && !effectiveLeaveDate) {
+    throw employeeError(
+      "EMPLOYEE_LEAVE_DATE_REQUIRED",
+      "Leave date is required when an employee is inactive.",
+      400,
+      "leaveDate",
+    );
+  }
 
   const updatedEmployee = await saveEmployeeChanges(
     database,
@@ -719,6 +730,7 @@ export async function createEmployeeLeave(
   const status = input.status ?? "PENDING";
 
   if (status === "APPROVED") {
+    await lockEmployeeLeaveApprovalScope(database, input.employeeId);
     await ensureApprovedLeaveDoesNotOverlap(
       database,
       input.employeeId,
@@ -770,6 +782,7 @@ export async function updateEmployeeLeave(
   }
 
   if (status === "APPROVED") {
+    await lockEmployeeLeaveApprovalScope(database, employeeId);
     await ensureApprovedLeaveDoesNotOverlap(
       database,
       employeeId,
@@ -1711,9 +1724,9 @@ export async function confirmPayrollRunInTransaction(
     );
   }
 
-  const items = await listPayrollItemsByRun(database, run.id);
+  const currentItems = await listPayrollItemsByRun(database, run.id);
 
-  if (items.length === 0) {
+  if (currentItems.length === 0) {
     throw employeeError(
       "PAYROLL_ITEMS_NOT_FOUND",
       "Payroll run has no calculated employee rows to confirm.",
@@ -1721,12 +1734,40 @@ export async function confirmPayrollRunInTransaction(
     );
   }
 
-  const occurredAt = employeeBusinessDateToUtc(run.periodEnd);
+  const calculation = await calculateDraftPayroll(
+    database,
+    run.id,
+    run.periodStart,
+    run.periodEnd,
+    readExistingPayrollAdjustments(currentItems),
+    new Set(),
+  );
+
+  await deletePayrollItemsByRun(database, run.id);
+  const items = await insertPayrollItems(database, calculation.items);
+  const refreshedRun = await savePayrollRunChanges(database, run.id, {
+    grossTotal: calculation.grossTotal,
+    attendanceDeductionTotal: calculation.attendanceDeductionTotal,
+    additionsTotal: calculation.additionsTotal,
+    deductionsTotal: calculation.deductionsTotal,
+    advanceRecoveryTotal: calculation.advanceRecoveryTotal,
+    netTotal: calculation.netTotal,
+  });
+
+  if (!refreshedRun || items.length !== calculation.items.length) {
+    throw employeeError(
+      "PAYROLL_CONFIRMATION_RECALCULATION_FAILED",
+      "Payroll could not be recalculated before confirmation.",
+      500,
+    );
+  }
+
+  const occurredAt = employeeBusinessDateToUtc(refreshedRun.periodEnd);
   const orderedItems = [...items].sort((left, right) =>
     left.employeeId.localeCompare(right.employeeId));
 
   for (const item of orderedItems) {
-    await confirmPayrollAdvanceRecovery(database, run, item, occurredAt);
+    await confirmPayrollAdvanceRecovery(database, refreshedRun, item, occurredAt);
 
     if (moneyToCents(item.initialDueAmount) > 0n) {
       await insertEmployeeLedgerEntry(database, {
@@ -1734,16 +1775,16 @@ export async function confirmPayrollRunInTransaction(
         occurredAt,
         referenceType: "PAYROLL",
         referenceId: item.id,
-        documentNumber: run.payrollNumber,
-        description: `Salary payable: ${run.payrollNumber}`,
+        documentNumber: refreshedRun.payrollNumber,
+        description: `Salary payable: ${refreshedRun.payrollNumber}`,
         debit: "0.00",
         credit: item.initialDueAmount,
-        notes: run.notes,
+        notes: refreshedRun.notes,
       });
     }
   }
 
-  const confirmedRun = await markPayrollRunConfirmed(database, run.id, new Date());
+  const confirmedRun = await markPayrollRunConfirmed(database, refreshedRun.id, new Date());
 
   if (!confirmedRun) {
     throw employeeError(

@@ -2062,7 +2062,7 @@ test("application exposes only the approved health readiness route outside modul
   assert.match(appSource, /app\.get\(\s*["']\/health["']/);
   assert.match(appSource, /200:\s*openApiSuccessResponse/);
   assert.match(appSource, /503:\s*openApiErrorResponse/);
-  assert.match(appSource, /await app\.db\.execute\(sql`select 1`\)/);
+  assert.match(appSource, /checkDatabaseReady\(app\.db\)/);
 });
 
 /** Keeps Auth audit ownership in the service and prevents audit storage from changing auth outcomes. */
@@ -2265,8 +2265,8 @@ test("production operations liveness is a lightweight public process check", asy
   assert.match(service, /return \{ status: ["']ok["'] \}/);
 });
 
-/** Verifies Production Operations readiness checks PostgreSQL and returns a safe public result. */
-test("production operations readiness uses one lightweight database dependency check", async () => {
+/** Verifies Production Operations readiness requires PostgreSQL and the reviewed migration chain. */
+test("production operations readiness requires the complete migration chain", async () => {
   const routes = await readProjectFile("../src/modules/operations/operations.routes.ts");
   const service = await readProjectFile("../src/modules/operations/operations.service.ts");
   const repository = await readProjectFile("../src/modules/operations/operations.repository.ts");
@@ -2279,7 +2279,9 @@ test("production operations readiness uses one lightweight database dependency c
   assert.match(service, /checkDatabaseReady\(database\)/);
   assert.match(service, /status:\s*isReady\s*\?\s*["']ready["']\s*:\s*["']unavailable["']/);
 
-  assert.match(repository, /sql`select 1`/i);
+  assert.match(repository, /readMigrationFiles/);
+  assert.match(repository, /drizzle\.__drizzle_migrations/);
+  assert.match(repository, /expectedMigrationHashes\.every/);
   assert.match(repository, /database\.execute/);
   assert.match(repository, /catch\s*\{/);
 });

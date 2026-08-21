@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { Button } from "../../../components/ui/button.tsx";
+import { formatMoney } from "../../../lib/utils.ts";
 import { useBusinessSettings } from "../../business-settings/hooks/use-business-settings.ts";
 import { useCustomer } from "../../customers/hooks/use-customers.ts";
 import { usePaymentAccounts } from "../../payments/hooks/use-payments.ts";
@@ -149,7 +150,7 @@ export function SalesReturnDetailPage({
                   <td>{item.baseQuantity}</td>
                   <td>{item.stockCondition}</td>
                   <td>PKR {item.unitPriceSnapshot}</td>
-                  <td>PKR {item.unitCostSnapshot}</td>
+                  <td>{formatMoney(item.unitCostSnapshot)}</td>
                   <td>PKR {item.lineTotal}</td>
                 </tr>
               ))}

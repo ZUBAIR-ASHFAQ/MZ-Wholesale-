@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { calculateWeightedAverageCost } from "../src/modules/inventory/inventory.service.js";
+
 const inventorySchemaPath = new URL(
   "../src/database/schema/inventory.schema.ts",
   import.meta.url,
@@ -68,23 +70,36 @@ test("inventory quantity columns use numeric 14,3", async () => {
   assert.match(source, /numeric\("quantity", \{ precision: 14, scale: 3 \}\)/);
 });
 
-/** Verifies that inventory costs use the approved two-decimal scale. */
-test("inventory cost columns use numeric 14,2", async () => {
+/** Verifies that internal inventory costs retain fractional per-unit precision. */
+test("inventory cost columns use high-precision numeric storage", async () => {
   const source = await readSource(inventorySchemaPath);
 
   assert.match(
     source,
-    /weightedAverageCost: numeric\("weighted_average_cost", \{[\s\S]*?precision: 14,[\s\S]*?scale: 2/,
+    /weightedAverageCost: numeric\("weighted_average_cost", \{[\s\S]*?precision: 30,[\s\S]*?scale: 14/,
   );
   assert.match(
     source,
-    /damagedWeightedAverageCost: numeric\("damaged_weighted_average_cost", \{[\s\S]*?precision: 14,[\s\S]*?scale: 2/,
+    /damagedWeightedAverageCost: numeric\("damaged_weighted_average_cost", \{[\s\S]*?precision: 30,[\s\S]*?scale: 14/,
   );
   assert.match(
     source,
-    /expiredWeightedAverageCost: numeric\("expired_weighted_average_cost", \{[\s\S]*?precision: 14,[\s\S]*?scale: 2/,
+    /expiredWeightedAverageCost: numeric\("expired_weighted_average_cost", \{[\s\S]*?precision: 30,[\s\S]*?scale: 14/,
   );
-  assert.match(source, /unitCost: numeric\("unit_cost", \{ precision: 14, scale: 2 \}\)/);
+  assert.match(source, /unitCost: numeric\("unit_cost", \{ precision: 30, scale: 14 \}\)/);
+});
+
+/** Verifies weighted-average calculations do not collapse sub-cent unit costs. */
+test("weighted-average inventory preserves sub-cent unit cost", () => {
+  assert.equal(
+    calculateWeightedAverageCost({
+      currentQuantity: "0.000",
+      currentCost: "0.00000000000000",
+      incomingQuantity: "1000.000",
+      incomingCost: "1.00100000000000",
+    }),
+    "1.00100000000000",
+  );
 });
 
 /** Verifies that database checks prevent every tracked balance from becoming negative. */

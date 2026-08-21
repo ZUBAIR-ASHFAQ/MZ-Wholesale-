@@ -20,6 +20,7 @@ test("environment applies safe database pool defaults", () => {
   assert.equal(environment.databasePoolMax, 10);
   assert.equal(environment.databaseConnectionTimeoutMilliseconds, 5_000);
   assert.equal(environment.databaseIdleTimeoutMilliseconds, 30_000);
+  assert.equal(environment.trustProxyHops, 0);
 });
 
 test("environment accepts bounded database pool settings", () => {
@@ -33,6 +34,16 @@ test("environment accepts bounded database pool settings", () => {
   assert.equal(environment.databasePoolMax, 20);
   assert.equal(environment.databaseConnectionTimeoutMilliseconds, 7_000);
   assert.equal(environment.databaseIdleTimeoutMilliseconds, 45_000);
+});
+
+test("environment accepts a non-negative reverse-proxy hop count", () => {
+  const values = validEnvironment();
+  values.API_TRUST_PROXY_HOPS = "1";
+
+  assert.equal(readApiEnvironment(values).trustProxyHops, 1);
+
+  values.API_TRUST_PROXY_HOPS = "-1";
+  assert.throws(() => readApiEnvironment(values));
 });
 
 test("environment rejects a missing database URL", () => {
@@ -66,4 +77,24 @@ test("production requires an HTTPS web-admin URL", () => {
 
   values.WEB_ADMIN_URL = "https://erp.example.com";
   assert.equal(readApiEnvironment(values).isProduction, true);
+});
+
+test("environment accepts and normalizes a shared CSRF cookie domain", () => {
+  const values = validEnvironment();
+  values.NODE_ENV = "production";
+  values.WEB_ADMIN_URL = "https://erp.example.com";
+  values.CSRF_COOKIE_DOMAIN = ".example.com";
+
+  const environment = readApiEnvironment(values);
+
+  assert.equal(environment.csrfCookieDomain, "example.com");
+});
+
+test("environment rejects a CSRF cookie domain that cannot cover the admin origin", () => {
+  const values = validEnvironment();
+  values.NODE_ENV = "production";
+  values.WEB_ADMIN_URL = "https://erp.example.com";
+  values.CSRF_COOKIE_DOMAIN = "other.example.net";
+
+  assert.throws(() => readApiEnvironment(values));
 });

@@ -439,7 +439,10 @@ function validateEmployeeAdvanceAccount(
 export const createEmployeeAdvanceSchema = z
   .object({
     employeeId: uuidSchema,
-    advanceDate: businessDateSchema,
+    advanceDate: businessDateSchema.refine(
+      isBusinessDateNotFuture,
+      "Advance date cannot be in the future.",
+    ),
     amount: employeeAdvanceAmountSchema,
     paymentMethod: employeeAdvancePaymentMethodSchema,
     cashAccountId: uuidSchema.nullable().optional(),
@@ -452,7 +455,10 @@ export const createEmployeeAdvanceSchema = z
 /** Validates one direct recovery of an existing employee advance. */
 export const recoverEmployeeAdvanceSchema = z
   .object({
-    recoveryDate: businessDateSchema,
+    recoveryDate: businessDateSchema.refine(
+      isBusinessDateNotFuture,
+      "Recovery date cannot be in the future.",
+    ),
     amount: employeeAdvanceAmountSchema,
     paymentMethod: employeeAdvancePaymentMethodSchema,
     cashAccountId: uuidSchema.nullable().optional(),

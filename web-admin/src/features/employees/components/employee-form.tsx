@@ -45,6 +45,14 @@ const employeeFormSchema = z
         message: "Leave date cannot be before join date.",
       });
     }
+
+    if (!values.isActive && !values.leaveDate) {
+      context.addIssue({
+        code: "custom",
+        path: ["leaveDate"],
+        message: "Leave date is required when an employee is inactive.",
+      });
+    }
   });
 
 type EmployeeFormValues = z.infer<typeof employeeFormSchema>;

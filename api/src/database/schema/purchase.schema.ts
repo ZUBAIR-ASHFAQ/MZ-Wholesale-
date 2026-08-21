@@ -197,8 +197,8 @@ export const purchaseItems = pgTable(
       .default("0.00")
       .notNull(),
     landedUnitCost: numeric("landed_unit_cost", {
-      precision: 14,
-      scale: 2,
+      precision: 30,
+      scale: 14,
     }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

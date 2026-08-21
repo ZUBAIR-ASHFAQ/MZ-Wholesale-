@@ -487,7 +487,7 @@ function getSystemExportTable(source: SystemExportSource): SystemExportTable {
       columns: [
         "salesAmount", "salesReturnAmount", "netSalesAmount", "costOfGoodsSoldAmount", "returnedCostAmount",
         "netCostAmount", "grossProfitAmount", "expenseAmount", "expenseReversalAmount", "netExpenseAmount",
-        "estimatedProfitAmount",
+        "laborCostAmount", "estimatedProfitAmount",
       ],
       rows: [data],
     };

@@ -71,6 +71,10 @@ input {
   cursor: wait;
 }
 
+.employee-page-content .ui-button:disabled {
+  cursor: not-allowed;
+}
+
 .app-shell {
   display: grid;
   min-height: 100vh;

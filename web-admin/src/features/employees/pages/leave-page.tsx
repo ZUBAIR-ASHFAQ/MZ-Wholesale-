@@ -12,7 +12,7 @@ import { LeaveForm } from "../components/leave-form.tsx";
 import { LeaveTypeManager } from "../components/leave-type-manager.tsx";
 import {
   useEmployeeLeaves,
-  useEmployees,
+  useAllEmployees,
   useLeaveTypes,
 } from "../hooks/use-employees.ts";
 
@@ -33,10 +33,10 @@ export function LeavePage(): React.JSX.Element {
   const [isLeaveOpen, setIsLeaveOpen] = useState(false);
   const [isLeaveTypesOpen, setIsLeaveTypesOpen] = useState(false);
 
-  const employeesQuery = useEmployees({ page: 1, pageSize: 100 });
+  const employeesQuery = useAllEmployees();
   const leaveTypesQuery = useLeaveTypes();
   const leavesQuery = useEmployeeLeaves(appliedFilters);
-  const employees = employeesQuery.data?.data.items ?? [];
+  const employees = employeesQuery.data ?? [];
   const leaveTypes = leaveTypesQuery.data?.data ?? [];
   const result = leavesQuery.data?.data;
   const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / pageSize));

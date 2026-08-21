@@ -57,7 +57,7 @@ test("all database table primary keys use UUIDs", async () => {
   assert.equal(uuidPrimaryKeys.length, tables.length);
 });
 
-test("money and quantity fields use the approved numeric precision", async () => {
+test("money, quantity, and internal inventory cost fields use the approved numeric precision", async () => {
   const schemas = await readAllSchemas();
 
   const numericDeclarations = [...schemas.matchAll(/numeric\([\s\S]*?\}\)/g)].map(
@@ -67,8 +67,23 @@ test("money and quantity fields use the approved numeric precision", async () =>
   assert.ok(numericDeclarations.length > 0);
 
   for (const declaration of numericDeclarations) {
-    assert.match(declaration, /precision:\s*14/);
-    assert.match(declaration, /scale:\s*(2|3)/);
+    if (/precision:\s*30/.test(declaration)) {
+      assert.match(declaration, /scale:\s*14/);
+    } else {
+      assert.match(declaration, /precision:\s*14/);
+      assert.match(declaration, /scale:\s*(2|3)/);
+    }
+  }
+
+  const highPrecisionCosts = numericDeclarations.filter((declaration) =>
+    /precision:\s*30/.test(declaration),
+  );
+  assert.equal(highPrecisionCosts.length, 8);
+  for (const declaration of highPrecisionCosts) {
+    assert.match(
+      declaration,
+      /weighted_average_cost|damaged_weighted_average_cost|expired_weighted_average_cost|landed_unit_cost|unit_cost_snapshot|unit_cost/,
+    );
   }
 
   const quantityLike = numericDeclarations.filter((declaration) =>
@@ -218,7 +233,7 @@ test("database schema contains no excluded version-one business areas", async ()
   }
 });
 
-test("migration journal and SQL files are complete through Employee Module 16", async () => {
+test("migration journal and SQL files contain the complete current chain", async () => {
   const sqlFiles = (await listNames(drizzleDirectory)).filter((name) =>
     /^\d{4}_.+\.sql$/.test(name),
   );
@@ -226,10 +241,10 @@ test("migration journal and SQL files are complete through Employee Module 16", 
     entries: Array<{ idx: number; tag: string }>;
   };
 
-  assert.equal(sqlFiles.length, 25);
-  assert.equal(journal.entries.length, 25);
+  assert.equal(sqlFiles.length, 26);
+  assert.equal(journal.entries.length, 26);
 
-  for (let index = 0; index < 25; index += 1) {
+  for (let index = 0; index < 26; index += 1) {
     const prefix = String(index).padStart(4, "0");
     assert.equal(sqlFiles[index]?.startsWith(prefix), true);
     assert.equal(journal.entries[index]?.idx, index);
@@ -240,7 +255,7 @@ test("migration journal and SQL files are complete through Employee Module 16", 
 test("migration documentation lists the complete current migration chain", async () => {
   const readme = await readSource(new URL("../drizzle/README.md", import.meta.url));
 
-  for (let index = 0; index < 25; index += 1) {
+  for (let index = 0; index < 26; index += 1) {
     const prefix = String(index).padStart(4, "0");
     assert.equal(readme.includes("`" + prefix + "_"), true);
   }

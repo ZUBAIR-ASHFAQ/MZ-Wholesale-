@@ -703,7 +703,7 @@ async function listInventoryValuationRows(
         + coalesce(${inventoryBalances.expiredQuantityOnHand}, 0.000)
         as numeric(14,3)
       )`,
-      weightedAverageCost: sql<string>`cast(coalesce(${inventoryBalances.weightedAverageCost}, 0.00) as numeric(14,2))`,
+      weightedAverageCost: sql<string>`cast(coalesce(${inventoryBalances.weightedAverageCost}, 0.00) as numeric(30,14))`,
       sellableValue: sql<string>`cast(
         coalesce(${inventoryBalances.sellableQuantityOnHand}, 0.000)
         * coalesce(${inventoryBalances.weightedAverageCost}, 0.00)

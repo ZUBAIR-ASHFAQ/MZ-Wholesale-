@@ -98,6 +98,29 @@ export function useEmployees(filters: EmployeeListFilters = {}) {
   });
 }
 
+/** Loads every employee for selectors that must not silently stop at the API page-size cap. */
+export function useAllEmployees() {
+  return useQuery({
+    queryKey: [...employeeQueryKeys.lists(), "all"] as const,
+    queryFn: async () => {
+      const pageSize = 100;
+      const firstPage = await loadEmployees({ page: 1, pageSize });
+      const employees = [...firstPage.data.items];
+
+      for (let page = 2; employees.length < firstPage.data.total; page += 1) {
+        const response = await loadEmployees({ page, pageSize });
+        employees.push(...response.data.items);
+
+        if (response.data.items.length === 0) {
+          break;
+        }
+      }
+
+      return employees;
+    },
+  });
+}
+
 /** Loads one employee when its ID is available. */
 export function useEmployee(employeeId: string) {
   return useQuery({

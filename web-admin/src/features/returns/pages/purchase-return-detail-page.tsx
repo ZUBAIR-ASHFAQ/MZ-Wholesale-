@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { Button } from "../../../components/ui/button.tsx";
+import { formatMoney } from "../../../lib/utils.ts";
 import { useBusinessSettings } from "../../business-settings/hooks/use-business-settings.ts";
 import { useSupplier } from "../../suppliers/hooks/use-suppliers.ts";
 import { usePurchaseReturn } from "../hooks/use-returns.ts";
@@ -124,7 +125,7 @@ export function PurchaseReturnDetailPage({
                   <td>{item.unitNameSnapshot} ({item.conversionToBaseSnapshot} base)</td>
                   <td>{item.quantity}</td>
                   <td>{item.baseQuantity}</td>
-                  <td>PKR {item.unitCostSnapshot}</td>
+                  <td>{formatMoney(item.unitCostSnapshot)}</td>
                   <td>PKR {item.lineTotal}</td>
                 </tr>
               ))}
@@ -168,7 +169,7 @@ export function PurchaseReturnDetailPage({
                         : "Product snapshot unavailable"}
                     </td>
                     <td>{result.baseQuantity}</td>
-                    <td>PKR {result.unitCostSnapshot}</td>
+                    <td>{formatMoney(result.unitCostSnapshot)}</td>
                     <td>Stock out</td>
                   </tr>
                 );

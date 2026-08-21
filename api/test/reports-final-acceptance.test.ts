@@ -193,6 +193,15 @@ test("final acceptance keeps all eighteen frontend API loaders and TanStack quer
   for (const path of expectedReportPaths) {
     assert.ok(api.includes(`\`${path}\${`), `${path} loader must call the approved endpoint`);
   }
+
+  const profitPage = await readSource(
+    new URL(
+      "../../web-admin/src/features/reports/pages/profit-summary-report-page.tsx",
+      import.meta.url,
+    ),
+  );
+  assert.match(api, /export interface ProfitSummaryReport[\s\S]*laborCostAmount: string;/);
+  assert.match(profitPage, /report\.laborCostAmount/);
 });
 
 test("final acceptance registers every report page in router and sidebar navigation", async () => {

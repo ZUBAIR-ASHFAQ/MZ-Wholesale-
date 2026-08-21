@@ -188,7 +188,6 @@ test("production session routes call Auth service logic and clear current cookie
   assert.match(source, /handleLogoutAll[\s\S]*clearSessionCookies/);
 });
 
-
 test("access JWT rejects a refresh token and malformed session claim", async () => {
   const app = Fastify();
   await app.register(jwt, { secret: signingSecret });
@@ -285,7 +284,7 @@ test("password change revokes all sessions and requires re-login", async () => {
   const routeSource = await readAuthRoutes();
 
   assert.match(serviceSource, /changeAdminPassword[\s\S]*revokeAllAdminSessions/);
-  assert.match(routeSource, /handleChangePassword[\s\S]*clearSessionCookies\(reply, secureCookies\)/);
+  assert.match(routeSource, /handleChangePassword[\s\S]*clearSessionCookies\(reply, secureCookies, csrfCookieDomain\)/);
 });
 
 test("session cookies keep required security attributes", async () => {
@@ -294,4 +293,30 @@ test("session cookies keep required security attributes", async () => {
   assert.match(source, /ACCESS_SESSION_COOKIE_NAME[\s\S]*httpOnly:\s*true[\s\S]*sameSite:\s*"lax"[\s\S]*secure:\s*secureCookies/);
   assert.match(source, /REFRESH_SESSION_COOKIE_NAME[\s\S]*httpOnly:\s*true[\s\S]*sameSite:\s*"lax"[\s\S]*secure:\s*secureCookies/);
   assert.match(source, /CSRF_COOKIE_NAME[\s\S]*httpOnly:\s*false[\s\S]*sameSite:\s*"lax"[\s\S]*secure:\s*secureCookies/);
+});
+
+test("only the readable CSRF cookie can use the shared frontend domain", async () => {
+  const source = await readAuthRoutes();
+  const setCookies = source.match(
+    /function setSessionCookies[\s\S]*?\n\}/,
+  )?.[0] ?? "";
+
+  assert.match(setCookies, /CSRF_COOKIE_NAME[\s\S]*domain: csrfCookieDomain/);
+  assert.doesNotMatch(
+    setCookies.match(/ACCESS_SESSION_COOKIE_NAME[\s\S]*?\n  \}\);/)?.[0] ?? "",
+    /domain:/,
+  );
+  assert.doesNotMatch(
+    setCookies.match(/REFRESH_SESSION_COOKIE_NAME[\s\S]*?\n  \}\);/)?.[0] ?? "",
+    /domain:/,
+  );
+});
+
+test("CSRF cookie cleanup covers both legacy host-only and configured domain cookies", async () => {
+  const source = await readAuthRoutes();
+  const clearCookies = source.match(
+    /function clearSessionCookies[\s\S]*?\n\}/,
+  )?.[0] ?? "";
+
+  assert.match(clearCookies, /clearCookie\(CSRF_COOKIE_NAME[\s\S]*if \(csrfCookieDomain\)[\s\S]*domain: csrfCookieDomain/);
 });

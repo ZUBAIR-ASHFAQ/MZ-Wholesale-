@@ -13,7 +13,10 @@ import { useCreateEmployeeAdvance } from "../hooks/use-employees.ts";
 const advanceFormSchema = z
   .object({
     employeeId: z.string().uuid("Select an employee."),
-    advanceDate: z.string().min(1, "Advance date is required."),
+    advanceDate: z
+      .string()
+      .min(1, "Advance date is required.")
+      .refine((value) => value <= currentBusinessDate(), "Advance date cannot be in the future."),
     amount: z
       .string()
       .trim()
@@ -158,6 +161,7 @@ export function AdvanceForm({
           <span>Advance date</span>
           <input
             disabled={createAdvance.isPending}
+            max={currentBusinessDate()}
             type="date"
             {...form.register("advanceDate")}
           />

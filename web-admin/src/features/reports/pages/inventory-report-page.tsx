@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
+import { formatMoney } from "../../../lib/utils.ts";
 import { useProducts } from "../../products/hooks/use-products.ts";
 import type { InventoryReportFilters } from "../api/reports.api.ts";
 import {
@@ -226,7 +227,7 @@ export function InventoryReportPage(): React.JSX.Element {
                       <td>{row.damagedQuantity}</td>
                       <td>{row.expiredQuantity}</td>
                       <td>{row.reorderLevel}</td>
-                      <td>PKR {row.weightedAverageCost}</td>
+                      <td>{formatMoney(row.weightedAverageCost)}</td>
                       <td>{row.isLowStock ? "Low stock" : "In stock"}</td>
                     </tr>
                   ))}
@@ -266,7 +267,7 @@ export function InventoryReportPage(): React.JSX.Element {
                       <td>{reportLabel(row.stockCondition)}</td>
                       <td>{reportLabel(row.direction)}</td>
                       <td>{row.quantity}</td>
-                      <td>PKR {row.unitCost}</td>
+                      <td>{formatMoney(row.unitCost)}</td>
                       <td>
                         {row.allocatedExtraCost === null
                           ? "-"

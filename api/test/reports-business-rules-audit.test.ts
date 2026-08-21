@@ -67,5 +67,7 @@ test("expense reversals and profit calculations keep immutable correction semant
   assert.match(service, /reversalOfExpenseId/);
   assert.match(service, /expenseReversalCents/);
   assert.match(service, /unitCostSnapshot/);
+  assert.match(service, /readLaborCostSummaryReport\(database, query\)/);
+  assert.match(service, /grossProfitCents - netExpenseCents - laborCostCents/);
   assert.equal(/weightedAverageCost/.test(service), false);
 });

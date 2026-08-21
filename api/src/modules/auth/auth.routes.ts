@@ -58,6 +58,7 @@ function setSessionCookies(
   reply: FastifyReply,
   session: LoginSessionResult,
   secureCookies: boolean,
+  csrfCookieDomain?: string,
 ): void {
   const accessToken = createAccessJwt(app, session.sessionId);
 
@@ -75,12 +76,22 @@ function setSessionCookies(
     sameSite: "lax",
     secure: secureCookies,
   });
+  if (csrfCookieDomain) {
+    reply.clearCookie(CSRF_COOKIE_NAME, {
+      path: "/",
+      httpOnly: false,
+      sameSite: "lax",
+      secure: secureCookies,
+    });
+  }
+
   reply.setCookie(CSRF_COOKIE_NAME, session.csrfToken, {
     path: "/",
     expires: session.refreshTokenExpiresAt,
     httpOnly: false,
     sameSite: "lax",
     secure: secureCookies,
+    ...(csrfCookieDomain ? { domain: csrfCookieDomain } : {}),
   });
 }
 
@@ -88,6 +99,7 @@ function setSessionCookies(
 function clearSessionCookies(
   reply: FastifyReply,
   secureCookies: boolean,
+  csrfCookieDomain?: string,
 ): void {
   reply.clearCookie(ACCESS_SESSION_COOKIE_NAME, {
     path: "/",
@@ -107,6 +119,16 @@ function clearSessionCookies(
     sameSite: "lax",
     secure: secureCookies,
   });
+
+  if (csrfCookieDomain) {
+    reply.clearCookie(CSRF_COOKIE_NAME, {
+      path: "/",
+      httpOnly: false,
+      sameSite: "lax",
+      secure: secureCookies,
+      domain: csrfCookieDomain,
+    });
+  }
 }
 
 /** Uses a positive integer rate-limit option or the safe default value. */
@@ -129,6 +151,7 @@ export async function registerAuthRoutes(
   loginLimit?: number,
   refreshLimit?: number,
   rateLimitWindowMilliseconds?: number,
+  csrfCookieDomain?: string,
 ): Promise<void> {
 
   /** Reads request metadata passed to Auth service audit writes. */
@@ -168,7 +191,7 @@ export async function registerAuthRoutes(
       createAuditContext(request),
     );
 
-    setSessionCookies(app, reply, session, secureCookies);
+    setSessionCookies(app, reply, session, secureCookies, csrfCookieDomain);
     reply.send(createDataResponse({ admin: session.admin }));
   }
 
@@ -192,7 +215,7 @@ export async function registerAuthRoutes(
       now,
     );
 
-    setSessionCookies(app, reply, session, secureCookies);
+    setSessionCookies(app, reply, session, secureCookies, csrfCookieDomain);
     reply.send(createDataResponse({ admin: session.admin }));
   }
 
@@ -223,7 +246,7 @@ export async function registerAuthRoutes(
         createAuditContext(request),
       );
     } finally {
-      clearSessionCookies(reply, secureCookies);
+      clearSessionCookies(reply, secureCookies, csrfCookieDomain);
     }
 
     reply.send(createDataResponse({ loggedOut: true }));
@@ -275,7 +298,7 @@ export async function registerAuthRoutes(
     );
 
     if (result.currentSessionRevoked) {
-      clearSessionCookies(reply, secureCookies);
+      clearSessionCookies(reply, secureCookies, csrfCookieDomain);
     }
 
     reply.send(createDataResponse({
@@ -298,7 +321,7 @@ export async function registerAuthRoutes(
       createAuditContext(request),
     );
 
-    clearSessionCookies(reply, secureCookies);
+    clearSessionCookies(reply, secureCookies, csrfCookieDomain);
     reply.send(createDataResponse({
       loggedOut: true,
       revokedSessionCount: result.revokedSessionCount,
@@ -317,7 +340,7 @@ export async function registerAuthRoutes(
       new Date(),
       createAuditContext(request),
     );
-    clearSessionCookies(reply, secureCookies);
+    clearSessionCookies(reply, secureCookies, csrfCookieDomain);
     reply.send(createDataResponse({ admin, sessionsRevoked: true }));
   }
 

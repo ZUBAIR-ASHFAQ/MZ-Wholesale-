@@ -112,7 +112,7 @@ export async function getProductMovements(
 }
 
 const QUANTITY_SCALE = 3;
-const MONEY_SCALE = 2;
+const COST_SCALE = 14;
 
 /** Creates a consistent application error for inventory operations. */
 function inventoryError(
@@ -280,16 +280,16 @@ export function calculateWeightedAverageCost(input: {
   const totalQuantity = currentQuantity + incomingQuantity;
 
   if (totalQuantity <= 0n) {
-    return "0.00";
+    return "0.00000000000000";
   }
 
-  const currentCost = decimalToScaledInteger(input.currentCost, MONEY_SCALE);
-  const incomingCost = decimalToScaledInteger(input.incomingCost, MONEY_SCALE);
+  const currentCost = decimalToScaledInteger(input.currentCost, COST_SCALE);
+  const incomingCost = decimalToScaledInteger(input.incomingCost, COST_SCALE);
   const totalValue =
     currentQuantity * currentCost + incomingQuantity * incomingCost;
   const weightedCost = divideAndRound(totalValue, totalQuantity);
 
-  return scaledIntegerToDecimal(weightedCost, MONEY_SCALE);
+  return scaledIntegerToDecimal(weightedCost, COST_SCALE);
 }
 
 /** Reverses returned purchase value from sellable stock and recalculates weighted-average cost. */
@@ -319,11 +319,11 @@ function calculateWeightedAverageCostAfterPurchaseReturn(input: {
   const remainingQuantity = currentQuantity - returnedQuantity;
 
   if (remainingQuantity === 0n) {
-    return "0.00";
+    return "0.00000000000000";
   }
 
-  const currentCost = decimalToScaledInteger(input.currentCost, MONEY_SCALE);
-  const returnedCost = decimalToScaledInteger(input.returnedCost, MONEY_SCALE);
+  const currentCost = decimalToScaledInteger(input.currentCost, COST_SCALE);
+  const returnedCost = decimalToScaledInteger(input.returnedCost, COST_SCALE);
   const remainingValue =
     currentQuantity * currentCost - returnedQuantity * returnedCost;
 
@@ -336,7 +336,7 @@ function calculateWeightedAverageCostAfterPurchaseReturn(input: {
   }
 
   const weightedCost = divideAndRound(remainingValue, remainingQuantity);
-  return scaledIntegerToDecimal(weightedCost, MONEY_SCALE);
+  return scaledIntegerToDecimal(weightedCost, COST_SCALE);
 }
 
 /** Locks and returns one product balance, creating the zero row when missing. */
@@ -1207,7 +1207,7 @@ export interface ConfirmStockCountResult extends StockCountDetail {
 
 /** Rejects positive stock-count differences that have no reliable condition cost. */
 function requireStockCountCost(unitCost: string): void {
-  if (decimalToScaledInteger(unitCost, MONEY_SCALE) <= 0n) {
+  if (decimalToScaledInteger(unitCost, COST_SCALE) <= 0n) {
     throw inventoryError(
       "STOCK_COUNT_COST_REQUIRED",
       "Add stock for this condition with a costed IN adjustment before confirming this stock count.",

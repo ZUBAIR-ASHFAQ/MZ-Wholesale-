@@ -8,7 +8,7 @@ import type {
 } from "../api/employees.api.ts";
 import { AdvanceForm } from "../components/advance-form.tsx";
 import { AdvanceRecoveryForm } from "../components/advance-recovery-form.tsx";
-import { useEmployeeAdvances, useEmployees } from "../hooks/use-employees.ts";
+import { useAllEmployees, useEmployeeAdvances } from "../hooks/use-employees.ts";
 
 const pageSize = 20;
 
@@ -25,9 +25,9 @@ export function AdvancesPage(): React.JSX.Element {
   const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
   const [recoveryAdvance, setRecoveryAdvance] = useState<EmployeeAdvance | null>(null);
 
-  const employeesQuery = useEmployees({ page: 1, pageSize: 100 });
+  const employeesQuery = useAllEmployees();
   const advancesQuery = useEmployeeAdvances(appliedFilters);
-  const employees = employeesQuery.data?.data.items ?? [];
+  const employees = employeesQuery.data ?? [];
   const result = advancesQuery.data?.data;
   const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / pageSize));
 

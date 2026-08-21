@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { Button } from "../../../components/ui/button.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
-import { currentBusinessDate } from "../../../lib/utils.ts";
+import { currentBusinessDate, formatMoney } from "../../../lib/utils.ts";
 import { usePurchase, usePurchases } from "../../purchases/hooks/use-purchases.ts";
 import { useSuppliers } from "../../suppliers/hooks/use-suppliers.ts";
 import { useCreatePurchaseReturn } from "../hooks/use-returns.ts";
@@ -390,7 +390,7 @@ export function PurchaseReturnForm({
                       <td>{returnedQuantity}</td>
                       <td>{remainingQuantity}</td>
                       <td>{currentStockQuantity}</td>
-                      <td>PKR {purchaseItem.landedUnitCost}</td>
+                      <td>{formatMoney(purchaseItem.landedUnitCost)}</td>
                       <td>
                         <label className="ui-field compact-money-field">
                           <span className="sr-only">

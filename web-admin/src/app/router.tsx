@@ -57,7 +57,6 @@ import { SupplierListPage } from "../features/suppliers/pages/supplier-list-page
 import { ProductDetailPage } from "../features/products/pages/product-detail-page.tsx";
 import { ProductFormPage } from "../features/products/pages/product-form-page.tsx";
 import { ProductListPage } from "../features/products/pages/product-list-page.tsx";
-import { ProductSettingsPage } from "../features/products/pages/product-settings-page.tsx";
 import { PurchaseDetailPage } from "../features/purchases/pages/purchase-detail-page.tsx";
 import { PurchaseFormPage } from "../features/purchases/pages/purchase-form-page.tsx";
 import { PurchaseListPage } from "../features/purchases/pages/purchase-list-page.tsx";
@@ -626,7 +625,7 @@ const suppliersRoute = createRoute({
 const newSupplierRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/suppliers/new",
-  component: SupplierFormPage,
+  component: () => <Navigate to="/suppliers" replace />,
 });
 
 const supplierEditRoute = createRoute({
@@ -849,13 +848,13 @@ const productsRoute = createRoute({
 const newProductRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/products/new",
-  component: ProductFormPage,
+  component: () => <Navigate to="/products" replace />,
 });
 
 const productSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/product-settings",
-  component: ProductSettingsPage,
+  component: () => <Navigate to="/products" replace />,
 });
 
 const productEditRoute = createRoute({

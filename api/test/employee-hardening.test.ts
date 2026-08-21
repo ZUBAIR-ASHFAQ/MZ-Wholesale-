@@ -14,6 +14,20 @@ function between(text: string, start: string, end: string): string {
   return text.slice(startIndex, endIndex);
 }
 
+
+test("employee deactivation requires an employment end date", async () => {
+  const service = await source("src/modules/employees/employees.service.ts");
+  const updateEmployee = between(
+    service,
+    "export async function updateEmployee",
+    "/** Lists one employee's attendance history",
+  );
+
+  assert.match(updateEmployee, /const effectiveIsActive = input\.isActive \?\? existingEmployee\.isActive/);
+  assert.match(updateEmployee, /if \(!effectiveIsActive && !effectiveLeaveDate\)/);
+  assert.match(updateEmployee, /"EMPLOYEE_LEAVE_DATE_REQUIRED"/);
+});
+
 test("attendance keeps database and service duplicate protection", async () => {
   const [databaseSchema, service] = await Promise.all([
     source("src/database/schema/employee.schema.ts"),
@@ -24,6 +38,43 @@ test("attendance keeps database and service duplicate protection", async () => {
   assert.match(service, /readPostgresConstraint\(error\) === "attendance_records_employee_date_unique"/);
   assert.match(service, /"DUPLICATE_ATTENDANCE"/);
   assert.match(service, /validateAttendanceEmploymentDate\(employee, input\.attendanceDate\)/);
+});
+
+test("approved leave overlap checks are serialized inside route transactions", async () => {
+  const [repository, service, routes] = await Promise.all([
+    source("src/modules/employees/employees.repository.ts"),
+    source("src/modules/employees/employees.service.ts"),
+    source("src/modules/employees/employees.routes.ts"),
+  ]);
+
+  assert.match(repository, /pg_advisory_xact_lock\(hashtextextended/);
+  assert.match(repository, /employee_leave:\$\{employeeId\}/);
+  assert.match(service, /lockEmployeeLeaveApprovalScope\(database, input\.employeeId\)/);
+  assert.match(service, /lockEmployeeLeaveApprovalScope\(database, employeeId\)/);
+
+  const createLeave = between(routes, "async function handleCreateEmployeeLeave", "/** Updates one Employee Leave workflow row");
+  const updateLeave = between(routes, "async function handleUpdateEmployeeLeave", "/** Lists Employee Advances");
+  assert.match(createLeave, /app\.db\.transaction/);
+  assert.match(updateLeave, /app\.db\.transaction/);
+});
+
+test("employee advance and direct recovery dates cannot be future-dated", async () => {
+  const schema = await source("src/modules/employees/employees.schema.ts");
+  const advanceSchema = between(
+    schema,
+    "export const createEmployeeAdvanceSchema",
+    "/** Validates one direct recovery",
+  );
+  const recoverySchema = between(
+    schema,
+    "export const recoverEmployeeAdvanceSchema",
+    "/** Validates a Payroll Run UUID",
+  );
+
+  assert.match(advanceSchema, /isBusinessDateNotFuture/);
+  assert.match(advanceSchema, /Advance date cannot be in the future/);
+  assert.match(recoverySchema, /isBusinessDateNotFuture/);
+  assert.match(recoverySchema, /Recovery date cannot be in the future/);
 });
 
 test("employee advance payment and direct recovery keep opposite immutable cash effects", async () => {
@@ -69,6 +120,10 @@ test("payroll confirmation creates payable and payroll recovery without cash mov
   assert.match(confirmRecovery, /listPayrollAdvancesForEmployeeForUpdate/);
   assert.match(confirmRecovery, /payrollItemId: item\.id/);
   assert.match(confirmRecovery, /referenceType: "ADVANCE_RECOVERY"/);
+  assert.match(confirmPayroll, /calculateDraftPayroll\(/);
+  assert.match(confirmPayroll, /readExistingPayrollAdjustments\(currentItems\)/);
+  assert.match(confirmPayroll, /deletePayrollItemsByRun\(database, run\.id\)/);
+  assert.match(confirmPayroll, /insertPayrollItems\(database, calculation\.items\)/);
   assert.match(confirmPayroll, /referenceType: "PAYROLL"/);
   assert.match(confirmPayroll, /credit: item\.initialDueAmount/);
   assert.match(confirmPayroll, /markPayrollRunConfirmed/);
@@ -151,6 +206,27 @@ test("Employee, Reports, and Dashboard use the same derived financial sources", 
     reportsRepository,
     /laborCostAmount = sql<string>`\(coalesce\(sum\(\$\{payrollItems\.netSalary\}\), 0\) \+ coalesce\(sum\(\$\{payrollItems\.advanceRecoveryAmount\}\), 0\)\)::text`/,
   );
+});
+
+test("Leave and Advance selectors load beyond the first employee page", async () => {
+  const [hooks, leavePage, advancesPage] = await Promise.all([
+    source("../web-admin/src/features/employees/hooks/use-employees.ts"),
+    source("../web-admin/src/features/employees/pages/leave-page.tsx"),
+    source("../web-admin/src/features/employees/pages/advances-page.tsx"),
+  ]);
+
+  const allEmployees = between(
+    hooks,
+    "export function useAllEmployees",
+    "/** Loads one employee when its ID is available",
+  );
+  assert.match(allEmployees, /pageSize = 100/);
+  assert.match(allEmployees, /employees\.length < firstPage\.data\.total/);
+  assert.match(allEmployees, /loadEmployees\(\{ page, pageSize \}\)/);
+  assert.match(leavePage, /useAllEmployees\(\)/);
+  assert.match(advancesPage, /useAllEmployees\(\)/);
+  assert.doesNotMatch(leavePage, /pageSize: 100/);
+  assert.doesNotMatch(advancesPage, /pageSize: 100/);
 });
 
 test("Employee mutations invalidate Employee Reports and Dashboard read models", async () => {

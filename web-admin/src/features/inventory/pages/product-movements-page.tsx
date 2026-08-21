@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
+import { formatMoney } from "../../../lib/utils.ts";
 import { useProductMovements } from "../hooks/use-inventory.ts";
 
 interface ProductMovementsPageProps {
@@ -201,7 +202,7 @@ export function ProductMovementsPage({
                     <td>{movementLabel(movement.stockCondition)}</td>
                     <td>{movementLabel(movement.direction)}</td>
                     <td>{movement.quantity}</td>
-                    <td>PKR {movement.unitCost}</td>
+                    <td>{formatMoney(movement.unitCost)}</td>
                     <td>
                       {movement.allocatedExtraCost === null
                         ? "—"

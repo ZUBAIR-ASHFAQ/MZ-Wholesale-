@@ -38,7 +38,7 @@ test("GET /health/live checks only process liveness", async () => {
   assert.doesNotMatch(livenessHandler, /authenticate|preHandler/);
 });
 
-/** Verifies readiness uses one safe database check and maps failure to HTTP 503. */
+/** Verifies readiness requires the complete reviewed migration chain and maps failure to HTTP 503. */
 test("GET /health/ready reports PostgreSQL readiness safely", async () => {
   const routes = await readProjectFile("../src/modules/operations/operations.routes.ts");
   const service = await readProjectFile("../src/modules/operations/operations.service.ts");
@@ -51,7 +51,9 @@ test("GET /health/ready reports PostgreSQL readiness safely", async () => {
   assert.match(routes, /SERVICE_UNAVAILABLE/);
   assert.match(service, /const isReady = await checkDatabaseReady\(database\)/);
   assert.match(service, /status: isReady \? ["']ready["'] : ["']unavailable["']/);
-  assert.match(repository, /await database\.execute\(sql`select 1`\)/);
+  assert.match(repository, /readMigrationFiles/);
+  assert.match(repository, /drizzle\.__drizzle_migrations/);
+  assert.match(repository, /expectedMigrationHashes\.every/);
   assert.match(repository, /catch\s*\{/);
   assert.match(repository, /return false/);
 

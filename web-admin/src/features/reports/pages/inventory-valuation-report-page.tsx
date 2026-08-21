@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { formatMoney } from "../../../lib/utils.ts";
 import { useProductCategories } from "../../products/hooks/use-products.ts";
 import type { InventoryValuationReportFilters } from "../api/reports.api.ts";
 import { useInventoryValuationReport } from "../hooks/use-reports.ts";
@@ -254,7 +255,7 @@ export function InventoryValuationReportPage(): React.JSX.Element {
                       <td>{row.damagedQuantity}</td>
                       <td>{row.expiredQuantity}</td>
                       <td>{row.totalQuantity}</td>
-                      <td>PKR {row.weightedAverageCost}</td>
+                      <td>{formatMoney(row.weightedAverageCost)}</td>
                       <td>PKR {row.sellableValue}</td>
                       <td>PKR {row.damagedValue}</td>
                       <td>PKR {row.expiredValue}</td>

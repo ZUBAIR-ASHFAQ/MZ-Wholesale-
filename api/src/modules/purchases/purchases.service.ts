@@ -39,6 +39,7 @@ import type {
 } from "./purchases.schema.js";
 
 const MONEY_SCALE = 2;
+const COST_SCALE = 14;
 const QUANTITY_SCALE = 3;
 
 /** Contains the values needed to calculate one purchase line before it is stored. */
@@ -188,13 +189,14 @@ function calculateLandedUnitCost(
 ): string {
   const baseQuantityUnits = decimalToScaledInteger(baseQuantity, QUANTITY_SCALE);
   const valuationCents = netItemCostCents + allocatedExtraCostCents;
-  const quantityMultiplier = 10n ** BigInt(QUANTITY_SCALE);
-  const landedUnitCostCents = divideAndRound(
-    valuationCents * quantityMultiplier,
+  const costScaleMultiplier =
+    10n ** BigInt(QUANTITY_SCALE + COST_SCALE - MONEY_SCALE);
+  const landedUnitCost = divideAndRound(
+    valuationCents * costScaleMultiplier,
     baseQuantityUnits,
   );
 
-  return scaledIntegerToDecimal(landedUnitCostCents, MONEY_SCALE);
+  return scaledIntegerToDecimal(landedUnitCost, COST_SCALE);
 }
 
 /** Adds the optional initial-payment splits using exact money arithmetic. */

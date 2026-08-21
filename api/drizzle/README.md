@@ -33,6 +33,7 @@ Do not edit a migration after it has been applied to a shared database. Create a
 | `0022_inventory_condition_weighted_costs.sql` | Preserves condition-specific inventory weighted costs |
 | `0023_module_16_employee_foundation.sql` | Employee, attendance, leave, advance, payroll, salary-payment, and employee-ledger foundation |
 | `0024_module_16_employee_infrastructure.sql` | Employee document sequences and cash/bank movement source registrations |
+| `0025_inventory_cost_precision.sql` | Preserves fractional per-unit inventory valuation costs until monetary totals are finalized |
 
 Modules 13 (Reports) and 14 (Dashboard) are read-only and therefore add no database tables or migrations. Module 16 adds the Employee Management foundation and its minimum shared financial infrastructure.
 
@@ -43,7 +44,7 @@ Before deployment, verify that each new migration:
 1. Runs successfully on an empty database after all earlier migrations.
 2. Runs successfully against a copy of the current production schema.
 3. Uses UUID primary keys and direct UUID foreign keys for direct relationships.
-4. Uses `numeric(14,2)` for money and `numeric(14,3)` for quantities.
+4. Uses `numeric(14,2)` for entered/accounting money, `numeric(30,14)` for internal inventory unit-cost snapshots, and `numeric(14,3)` for quantities.
 5. Adds only indexes required by real query patterns.
 6. Adds database constraints for important invariants.
 7. Contains no passwords, tokens, administrator credentials, or customer business data.

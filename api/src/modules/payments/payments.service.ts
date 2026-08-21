@@ -1656,15 +1656,15 @@ export async function createCustomerReceipt(
   database: PaymentsDatabase,
   input: CreateCustomerReceiptInput,
 ): Promise<CustomerReceiptDetail> {
-  const customer = await findCustomerByIdForUpdate(database, input.customerId);
-  if (!customer) {
-    throw paymentError("CUSTOMER_NOT_FOUND", "Customer was not found.", 404);
-  }
-
   const invoiceRows = await lockCustomerPaymentSales(
     database,
     input.allocations.map((allocation) => allocation.documentId),
   );
+
+  const customer = await findCustomerByIdForUpdate(database, input.customerId);
+  if (!customer) {
+    throw paymentError("CUSTOMER_NOT_FOUND", "Customer was not found.", 404);
+  }
   const documents: ResolvedAllocationDocument[] = invoiceRows.map((invoice) => ({
     documentId: invoice.id,
     partyId: invoice.customerId,

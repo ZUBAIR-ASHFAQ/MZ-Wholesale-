@@ -137,8 +137,8 @@ export const salesReturnItems = pgTable(
       scale: 2,
     }).notNull(),
     unitCostSnapshot: numeric("unit_cost_snapshot", {
-      precision: 14,
-      scale: 2,
+      precision: 30,
+      scale: 14,
     }).notNull(),
     stockCondition: salesReturnStockConditionEnum("stock_condition").notNull(),
     lineTotal: numeric("line_total", { precision: 14, scale: 2 }).notNull(),
@@ -295,8 +295,8 @@ export const purchaseReturnItems = pgTable(
       scale: 3,
     }).notNull(),
     unitCostSnapshot: numeric("unit_cost_snapshot", {
-      precision: 14,
-      scale: 2,
+      precision: 30,
+      scale: 14,
     }).notNull(),
     lineTotal: numeric("line_total", { precision: 14, scale: 2 }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })

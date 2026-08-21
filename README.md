@@ -186,7 +186,7 @@ The health/version endpoints expose no business data or secrets. The reporting a
 ## Core data-integrity rules
 
 - UUID primary keys and direct UUID foreign keys are used for direct relationships.
-- Money uses `numeric(14,2)` and quantity uses `numeric(14,3)`.
+- Entered/accounting money uses `numeric(14,2)`, internal inventory unit-cost snapshots use `numeric(30,14)`, and quantity uses `numeric(14,3)`.
 - Decimal values are returned by the API as strings.
 - Currency is PKR.
 - Reporting/business timezone is Asia/Karachi; stored timestamps are UTC.
@@ -369,11 +369,12 @@ Before deployment:
 2. Set `NODE_ENV=production`.
 3. Set the exact HTTPS web-admin origin for production CORS.
 4. Set the browser-visible HTTPS API URL for the frontend build.
-5. Use a non-superuser PostgreSQL application account.
-6. Keep `.env` and backup encryption credentials outside Git.
-7. Put an HTTPS reverse proxy/load balancer in front of the application.
-8. Review Drizzle migration files before applying them.
-9. Back up PostgreSQL before risky migrations.
+5. If the admin and API use sibling subdomains, set `CSRF_COOKIE_DOMAIN` to their shared parent domain.
+6. Use a non-superuser PostgreSQL application account.
+7. Keep `.env` and backup encryption credentials outside Git.
+8. Put an HTTPS reverse proxy/load balancer in front of the application.
+9. Review Drizzle migration files before applying them.
+10. Back up PostgreSQL before risky migrations.
 
 Typical production startup:
 

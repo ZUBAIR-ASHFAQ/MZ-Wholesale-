@@ -193,8 +193,8 @@ export const salesInvoiceItems = pgTable(
       .notNull(),
     lineTotal: numeric("line_total", { precision: 14, scale: 2 }).notNull(),
     unitCostSnapshot: numeric("unit_cost_snapshot", {
-      precision: 14,
-      scale: 2,
+      precision: 30,
+      scale: 14,
     }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

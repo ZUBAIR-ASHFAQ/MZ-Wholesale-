@@ -7,6 +7,8 @@ const CSRF_HEADER_NAME = "x-csrf-token";
 const DEFAULT_ERROR_CODE = "REQUEST_FAILED";
 const DEFAULT_ERROR_MESSAGE = "The request could not be completed.";
 
+let refreshSessionPromise: Promise<boolean> | null = null;
+
 /** Checks that one value is a plain object before reading its properties. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -139,13 +141,19 @@ function canRefreshRequest(path: string, response: Response): boolean {
   ].includes(path);
 }
 
-/** Calls the refresh endpoint once and reports whether it succeeded. */
-async function tryRefreshSession(): Promise<boolean> {
-  const refreshResult = await sendRequest("/auth/refresh", {
-    method: "POST",
-  });
+/** Shares one in-flight refresh across requests and reports whether it succeeded. */
+function tryRefreshSession(): Promise<boolean> {
+  if (!refreshSessionPromise) {
+    refreshSessionPromise = sendRequest("/auth/refresh", {
+      method: "POST",
+    })
+      .then((refreshResult) => refreshResult.response.ok)
+      .finally(() => {
+        refreshSessionPromise = null;
+      });
+  }
 
-  return refreshResult.response.ok;
+  return refreshSessionPromise;
 }
 
 /** Throws the shared typed error for a failed API response. */

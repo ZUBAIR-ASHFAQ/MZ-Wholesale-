@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
+import { formatMoney } from "../../../lib/utils.ts";
 import { useSupplier } from "../../suppliers/hooks/use-suppliers.ts";
 import type { Purchase, PurchaseItem } from "../api/purchases.api.ts";
 import { useCancelPurchase, usePurchase } from "../hooks/use-purchases.ts";
@@ -228,7 +229,7 @@ export function PurchaseDetailPage({
                   <td>PKR {item.itemDiscountAmount}</td>
                   <td>PKR {item.lineTotal}</td>
                   <td>PKR {item.allocatedExtraCost}</td>
-                  <td>PKR {itemLandedCost(item)}</td>
+                  <td>{formatMoney(itemLandedCost(item))}</td>
                   {isConfirmed ? (
                     <td>
                       <Link

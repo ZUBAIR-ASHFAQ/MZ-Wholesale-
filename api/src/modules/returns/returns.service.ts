@@ -61,6 +61,7 @@ import type {
 } from "./returns.schema.js";
 
 const MONEY_SCALE = 2;
+const COST_SCALE = 14;
 const QUANTITY_SCALE = 3;
 
 /** Contains one validated Sales Return item before any database side effects are created. */
@@ -349,10 +350,11 @@ function calculatePurchaseReturnLineTotal(
   landedUnitCost: string,
 ): string {
   const baseQuantityUnits = decimalToScaledInteger(baseQuantity, QUANTITY_SCALE);
-  const landedUnitCostCents = decimalToScaledInteger(landedUnitCost, MONEY_SCALE);
-  const divisor = 10n ** BigInt(QUANTITY_SCALE);
+  const landedUnitCostValue = decimalToScaledInteger(landedUnitCost, COST_SCALE);
+  const divisor =
+    10n ** BigInt(QUANTITY_SCALE + COST_SCALE - MONEY_SCALE);
   const lineTotalCents = divideAndRound(
-    baseQuantityUnits * landedUnitCostCents,
+    baseQuantityUnits * landedUnitCostValue,
     divisor,
   );
 

@@ -492,6 +492,16 @@ export async function findEmployeeLeaveById(
   return rows[0] ?? null;
 }
 
+/** Serializes approved-leave overlap checks for one employee inside a transaction. */
+export async function lockEmployeeLeaveApprovalScope(
+  database: EmployeesDatabase,
+  employeeId: string,
+): Promise<void> {
+  await database.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${`employee_leave:${employeeId}`}, 0))`,
+  );
+}
+
 /** Finds an approved leave whose date range overlaps the proposed range. */
 export async function findApprovedLeaveOverlap(
   database: EmployeesDatabase,

@@ -47,7 +47,7 @@ test("revoking the current session is detected so browser cookies can be cleared
   assert.match(service, /currentSessionRevoked: revokedSession\.id === currentSessionId/);
   assert.match(
     routes,
-    /handleRevokeSession[\s\S]*if \(result\.currentSessionRevoked\)[\s\S]*clearSessionCookies\(reply, secureCookies\)/,
+    /handleRevokeSession[\s\S]*if \(result\.currentSessionRevoked\)[\s\S]*clearSessionCookies\(reply, secureCookies, csrfCookieDomain\)/,
   );
 });
 
@@ -91,7 +91,7 @@ test("logout-all clears the current browser cookies and remains CSRF-protected",
     routes,
     /"\/auth\/logout-all"[\s\S]*preHandler: app\.authenticate[\s\S]*security: openApiMutationSecurity/,
   );
-  assert.match(routes, /handleLogoutAll[\s\S]*clearSessionCookies\(reply, secureCookies\)/);
+  assert.match(routes, /handleLogoutAll[\s\S]*clearSessionCookies\(reply, secureCookies, csrfCookieDomain\)/);
 });
 
 test("session security actions are audited without exposing refresh-token material", async () => {

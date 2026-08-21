@@ -176,6 +176,13 @@
       "when": 1787276400000,
       "tag": "0024_module_16_employee_infrastructure",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1787317200000,
+      "tag": "0025_inventory_cost_precision",
+      "breakpoints": true
     }
   ]
 }

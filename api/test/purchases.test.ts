@@ -46,17 +46,37 @@ test("calculates purchase totals and landed unit cost without floating-point dri
         lineTotal: "220.00",
         invoiceDiscountShare: "22.00",
         allocatedExtraCost: "19.80",
-        landedUnitCost: "9.08",
+        landedUnitCost: "9.07500000000000",
       },
       {
         baseQuantity: "5.000",
         lineTotal: "100.00",
         invoiceDiscountShare: "10.00",
         allocatedExtraCost: "9.00",
-        landedUnitCost: "19.80",
+        landedUnitCost: "19.80000000000000",
       },
     ],
   );
+});
+
+/** Verifies cent-exact extra cost is not lost when spread across many base units. */
+test("preserves sub-cent landed unit cost for inventory valuation", () => {
+  const result = calculatePurchase(
+    [
+      {
+        quantity: "1000.000",
+        conversionToBase: "1.000",
+        unitCost: "1.00",
+        itemDiscountAmount: "0.00",
+      },
+    ],
+    "0.00",
+    "1.00",
+  );
+
+  assert.equal(result.totalAmount, "1001.00");
+  assert.equal(result.items[0].allocatedExtraCost, "1.00");
+  assert.equal(result.items[0].landedUnitCost, "1.00100000000000");
 });
 
 /** Verifies item discounts cannot reduce a purchase line below zero. */

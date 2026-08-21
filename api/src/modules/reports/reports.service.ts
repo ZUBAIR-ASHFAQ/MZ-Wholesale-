@@ -71,6 +71,8 @@ import {
 } from "./reports.repository.js";
 
 const MONEY_SCALE = 2;
+const COST_SCALE = 14;
+const QUANTITY_SCALE = 3;
 
 /** Represents one detail row returned by the Sales Report service. */
 export interface SalesReportRow {
@@ -839,6 +841,7 @@ export interface ProfitSummaryReportResult {
   expenseAmount: string;
   expenseReversalAmount: string;
   netExpenseAmount: string;
+  laborCostAmount: string;
   estimatedProfitAmount: string;
 }
 
@@ -848,25 +851,34 @@ function quantityToThousandths(value: string): bigint {
   return BigInt(wholePart) * 1000n + BigInt(decimalPart.padEnd(3, "0"));
 }
 
-/** Multiplies a base quantity by a two-decimal unit cost and rounds to cents. */
-function calculateCostCents(baseQuantity: string, unitCost: string): bigint {
-  const quantity = quantityToThousandths(baseQuantity);
-  const cost = moneyToCents(unitCost);
-  const scaled = quantity * cost;
-  const wholeCents = scaled / 1000n;
-  const remainder = scaled % 1000n;
-
-  return remainder >= 500n ? wholeCents + 1n : wholeCents;
+/** Converts a high-precision internal unit cost into its fixed scaled integer form. */
+function costToScaledInteger(value: string): bigint {
+  const [wholePart, decimalPart = ""] = value.split(".");
+  const fraction = decimalPart.padEnd(COST_SCALE, "0").slice(0, COST_SCALE);
+  return BigInt(wholePart) * 10n ** BigInt(COST_SCALE) + BigInt(fraction || "0");
 }
 
-/** Builds the read-only estimated Profit Summary from immutable sales, returns, and expenses. */
+/** Multiplies a base quantity by a high-precision unit cost and rounds the line to cents. */
+function calculateCostCents(baseQuantity: string, unitCost: string): bigint {
+  const quantity = quantityToThousandths(baseQuantity);
+  const cost = costToScaledInteger(unitCost);
+  const divisor = 10n ** BigInt(QUANTITY_SCALE + COST_SCALE - MONEY_SCALE);
+  const scaled = quantity * cost;
+  const wholeCents = scaled / divisor;
+  const remainder = scaled % divisor;
+
+  return remainder * 2n >= divisor ? wholeCents + 1n : wholeCents;
+}
+
+/** Builds the read-only estimated Profit Summary from sales, returns, expenses, and confirmed payroll. */
 export async function getProfitSummaryReport(
   database: ReportsDatabase,
   query: ProfitSummaryReportQuery,
 ): Promise<ProfitSummaryReportResult> {
-  const [salesSourceRows, expenseRows] = await Promise.all([
+  const [salesSourceRows, expenseRows, laborCostRows] = await Promise.all([
     readSalesReportSourceRows(database, query),
     listExpenseReportRows(database, query),
+    readLaborCostSummaryReport(database, query),
   ]);
 
   const saleItemValues = calculateSaleItemValues(salesSourceRows.sales);
@@ -876,6 +888,7 @@ export async function getProfitSummaryReport(
   let returnedCostCents = 0n;
   let expenseCents = 0n;
   let expenseReversalCents = 0n;
+  let laborCostCents = 0n;
 
   for (const row of salesSourceRows.sales) {
     salesCents += saleItemValues.get(row.saleItemId) ?? 0n;
@@ -898,6 +911,10 @@ export async function getProfitSummaryReport(
     else expenseCents += amount;
   }
 
+  for (const row of laborCostRows) {
+    laborCostCents += moneyToCents(row.laborCostAmount);
+  }
+
   const netSalesCents = salesCents - salesReturnCents;
   const netCostCents = soldCostCents - returnedCostCents;
   const grossProfitCents = netSalesCents - netCostCents;
@@ -914,7 +931,10 @@ export async function getProfitSummaryReport(
     expenseAmount: centsToMoney(expenseCents),
     expenseReversalAmount: centsToMoney(expenseReversalCents),
     netExpenseAmount: centsToMoney(netExpenseCents),
-    estimatedProfitAmount: centsToMoney(grossProfitCents - netExpenseCents),
+    laborCostAmount: centsToMoney(laborCostCents),
+    estimatedProfitAmount: centsToMoney(
+      grossProfitCents - netExpenseCents - laborCostCents,
+    ),
   };
 }
 

@@ -136,6 +136,7 @@ test("export table preserves report totals returns reversals and historical valu
   assert.match(tableBlock, /"netExpenseAmount"/);
   assert.match(tableBlock, /"costOfGoodsSoldAmount"/);
   assert.match(tableBlock, /"returnedCostAmount"/);
+  assert.match(tableBlock, /"laborCostAmount"/);
   assert.match(tableBlock, /"estimatedProfitAmount"/);
 });
 

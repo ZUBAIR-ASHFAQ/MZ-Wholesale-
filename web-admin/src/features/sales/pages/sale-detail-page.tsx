@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { Button } from "../../../components/ui/button.tsx";
+import { formatMoney } from "../../../lib/utils.ts";
 import { useBusinessSettings } from "../../business-settings/hooks/use-business-settings.ts";
 import { useCustomer } from "../../customers/hooks/use-customers.ts";
 import type { Sale } from "../api/sales.api.ts";
@@ -174,7 +175,7 @@ export function SaleDetailPage({
                   <td>PKR {item.manualUnitPrice}</td>
                   <td>PKR {item.itemDiscountAmount}</td>
                   <td>PKR {item.lineTotal}</td>
-                  {isConfirmed ? <td>PKR {item.unitCostSnapshot ?? "0.00"}</td> : null}
+                  {isConfirmed ? <td>{formatMoney(item.unitCostSnapshot ?? "0.00")}</td> : null}
                 </tr>
               ))}
             </tbody>

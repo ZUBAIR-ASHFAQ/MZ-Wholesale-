@@ -67,22 +67,22 @@ export const inventoryBalances = pgTable(
       .default("0.000")
       .notNull(),
     weightedAverageCost: numeric("weighted_average_cost", {
-      precision: 14,
-      scale: 2,
+      precision: 30,
+      scale: 14,
     })
-      .default("0.00")
+      .default("0.00000000000000")
       .notNull(),
     damagedWeightedAverageCost: numeric("damaged_weighted_average_cost", {
-      precision: 14,
-      scale: 2,
+      precision: 30,
+      scale: 14,
     })
-      .default("0.00")
+      .default("0.00000000000000")
       .notNull(),
     expiredWeightedAverageCost: numeric("expired_weighted_average_cost", {
-      precision: 14,
-      scale: 2,
+      precision: 30,
+      scale: 14,
     })
-      .default("0.00")
+      .default("0.00000000000000")
       .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -137,7 +137,7 @@ export const stockMovements = pgTable(
     stockCondition: stockConditionEnum("stock_condition").notNull(),
     direction: stockDirectionEnum("direction").notNull(),
     quantity: numeric("quantity", { precision: 14, scale: 3 }).notNull(),
-    unitCost: numeric("unit_cost", { precision: 14, scale: 2 }).notNull(),
+    unitCost: numeric("unit_cost", { precision: 30, scale: 14 }).notNull(),
     allocatedExtraCost: numeric("allocated_extra_cost", {
       precision: 14,
       scale: 2,

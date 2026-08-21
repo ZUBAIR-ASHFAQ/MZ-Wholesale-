@@ -24,6 +24,8 @@ async function startServer(): Promise<void> {
     authSigningSecret: environment.authSigningSecret,
     secureCookies: environment.isProduction,
     webAdminUrl: environment.webAdminUrl,
+    csrfCookieDomain: environment.csrfCookieDomain,
+    trustProxyHops: environment.trustProxyHops,
     logger: createLoggerOptions(),
     appVersion: environment.appVersion,
     appBuild: environment.appBuild,

@@ -5,6 +5,7 @@ import test, { after, before } from "node:test";
 import { createDatabaseClient } from "../../src/database/client.js";
 import {
   getExpenseReport,
+  getLaborCostSummaryReport,
   getProductProfitReport,
   getProfitSummaryReport,
   getSalesReport,
@@ -31,6 +32,9 @@ const fixture = {
   expenseOneId: randomUUID(),
   expenseOneReversalId: randomUUID(),
   expenseTwoId: randomUUID(),
+  employeeId: randomUUID(),
+  payrollRunId: randomUUID(),
+  payrollItemId: randomUUID(),
 };
 
 const uniqueSuffix = randomUUID().slice(0, 8);
@@ -211,9 +215,57 @@ async function seedExpenses(): Promise<void> {
   );
 }
 
+
+/** Inserts confirmed payroll whose advance recovery must not reduce labor cost. */
+async function seedPayroll(): Promise<void> {
+  if (!client) return;
+
+  await client.pool.query(
+    `insert into employees
+       (id, employee_code, name, join_date, employment_type, base_monthly_salary)
+     values ($1, $2, 'Profit Report Employee', '2099-01-01', 'FULL_TIME', 100.00)`,
+    [fixture.employeeId, `PROFIT-E-${uniqueSuffix}`],
+  );
+
+  await client.pool.query(
+    `insert into payroll_runs
+       (id, payroll_number, period_start, period_end, status, gross_total,
+        attendance_deduction_total, additions_total, deductions_total,
+        advance_recovery_total, net_total, confirmed_at)
+     values
+       ($1, $2, '2099-10-01', '2099-10-03', 'CONFIRMED', 100.00,
+        0.00, 0.00, 0.00, 20.00, 80.00, now())`,
+    [fixture.payrollRunId, `PROFIT-PR-${uniqueSuffix}`],
+  );
+
+  await client.pool.query(
+    `insert into payroll_items
+       (id, payroll_run_id, employee_id, employee_code_snapshot,
+        employee_name_snapshot, base_salary_snapshot, working_days,
+        payable_days, present_days, paid_leave_days, unpaid_leave_days,
+        absent_days, half_days, gross_salary, attendance_deduction,
+        additions_amount, deductions_amount, advance_recovery_amount,
+        net_salary, initial_paid_amount, initial_due_amount)
+     values
+       ($1, $2, $3, $4, 'Profit Report Employee', 100.00, 1.00,
+        1.00, 1.00, 0.00, 0.00, 0.00, 0.00, 100.00, 0.00,
+        0.00, 0.00, 20.00, 80.00, 0.00, 80.00)`,
+    [
+      fixture.payrollItemId,
+      fixture.payrollRunId,
+      fixture.employeeId,
+      `PROFIT-E-${uniqueSuffix}`,
+    ],
+  );
+}
+
 /** Removes only rows created by this integration-test file in foreign-key-safe order. */
 async function cleanupFixtures(): Promise<void> {
   if (!client) return;
+
+  await client.pool.query("delete from payroll_items where id = $1", [fixture.payrollItemId]);
+  await client.pool.query("delete from payroll_runs where id = $1", [fixture.payrollRunId]);
+  await client.pool.query("delete from employees where id = $1", [fixture.employeeId]);
 
   await client.pool.query("delete from expenses where id = $1", [fixture.expenseOneReversalId]);
   await client.pool.query(
@@ -248,6 +300,7 @@ before(async () => {
   await seedMasterData();
   await seedSalesAndReturn();
   await seedExpenses();
+  await seedPayroll();
 });
 
 after(async () => {
@@ -260,7 +313,7 @@ after(async () => {
   }
 });
 
-integrationTest("Profit Summary uses immutable sale/return costs and subtracts net expenses", async () => {
+integrationTest("Profit Summary subtracts net expenses and confirmed payroll labor cost", async () => {
   assert.ok(client);
 
   const result = await getProfitSummaryReport(client.database, {
@@ -279,7 +332,8 @@ integrationTest("Profit Summary uses immutable sale/return costs and subtracts n
     expenseAmount: "55.00",
     expenseReversalAmount: "30.00",
     netExpenseAmount: "25.00",
-    estimatedProfitAmount: "95.00",
+    laborCostAmount: "100.00",
+    estimatedProfitAmount: "-5.00",
   });
 });
 
@@ -381,7 +435,7 @@ integrationTest("Product Profit pagination returns stable page metadata", async 
   assert.equal(result.items.length, 1);
 });
 
-integrationTest("Profit Summary reconciles with Sales and Expense Reports for the same period", async () => {
+integrationTest("Profit Summary reconciles with Sales, Expense, and Labor Cost Reports", async () => {
   assert.ok(client);
 
   const query = {
@@ -389,10 +443,11 @@ integrationTest("Profit Summary reconciles with Sales and Expense Reports for th
     endDate: "2099-10-03",
   };
 
-  const [profit, sales, expenses] = await Promise.all([
+  const [profit, sales, expenses, laborCost] = await Promise.all([
     getProfitSummaryReport(client.database, query),
     getSalesReport(client.database, query),
     getExpenseReport(client.database, query),
+    getLaborCostSummaryReport(client.database, query),
   ]);
 
   assert.equal(profit.salesAmount, sales.totals.salesAmount);
@@ -401,6 +456,7 @@ integrationTest("Profit Summary reconciles with Sales and Expense Reports for th
   assert.equal(profit.expenseAmount, expenses.totals.expenseAmount);
   assert.equal(profit.expenseReversalAmount, expenses.totals.reversalAmount);
   assert.equal(profit.netExpenseAmount, expenses.totals.netExpenseAmount);
+  assert.equal(profit.laborCostAmount, laborCost.laborCostAmount);
 });
 
 integrationTest("Product Profit totals reconcile with Profit Summary sales and cost values", async () => {

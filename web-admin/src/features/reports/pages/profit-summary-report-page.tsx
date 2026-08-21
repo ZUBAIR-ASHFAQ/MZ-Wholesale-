@@ -78,7 +78,7 @@ export function ProfitSummaryReportPage(): React.JSX.Element {
           <h1>Profit summary</h1>
           <p>
             Review estimated profit from confirmed sales, historical cost
-            snapshots, returns, and expenses.
+            snapshots, returns, expenses, and payroll labor cost.
           </p>
         </div>
       </div>
@@ -140,6 +140,10 @@ export function ProfitSummaryReportPage(): React.JSX.Element {
             <article className="summary-card">
               <span>Net expenses</span>
               <strong>PKR {report.netExpenseAmount}</strong>
+            </article>
+            <article className="summary-card">
+              <span>Labor cost</span>
+              <strong>PKR {report.laborCostAmount}</strong>
             </article>
             <article className="summary-card">
               <span>Estimated profit</span>
