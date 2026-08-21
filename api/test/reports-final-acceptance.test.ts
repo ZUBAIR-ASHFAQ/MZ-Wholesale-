@@ -32,6 +32,12 @@ function reportPaths(source: string): string[] {
 const expectedReportPaths = [
   "/reports/cash-bank",
   "/reports/customers/outstanding",
+  "/reports/employees/advance-outstanding",
+  "/reports/employees/attendance",
+  "/reports/employees/labor-cost",
+  "/reports/employees/payroll",
+  "/reports/employees/register",
+  "/reports/employees/salary-payable",
   "/reports/expenses",
   "/reports/inventory",
   "/reports/inventory-valuation",
@@ -45,15 +51,21 @@ const expectedReportPaths = [
 ].sort();
 
 const expectedPageFiles = [
+  "attendance-summary-report-page.tsx",
   "cash-bank-report-page.tsx",
   "customer-aging-report-page.tsx",
   "customer-outstanding-report-page.tsx",
+  "employee-advance-outstanding-report-page.tsx",
+  "employee-register-report-page.tsx",
   "expense-report-page.tsx",
   "inventory-report-page.tsx",
   "inventory-valuation-report-page.tsx",
+  "labor-cost-summary-report-page.tsx",
+  "payroll-register-report-page.tsx",
   "product-profit-report-page.tsx",
   "profit-summary-report-page.tsx",
   "purchases-report-page.tsx",
+  "salary-payable-report-page.tsx",
   "sales-report-page.tsx",
   "supplier-aging-report-page.tsx",
   "supplier-payable-report-page.tsx",
@@ -76,15 +88,15 @@ test("final acceptance keeps the approved Reports production structure", async (
   assert.deepEqual(await listNames(frontendPagesDirectory), expectedPageFiles);
 });
 
-test("final acceptance exposes exactly the twelve approved authenticated GET routes", async () => {
+test("final acceptance exposes exactly the eighteen approved authenticated GET routes", async () => {
   const routes = await readSource(
     new URL("../src/modules/reports/reports.routes.ts", import.meta.url),
   );
   const paths = reportPaths(routes).sort();
 
-  assert.equal((routes.match(/app\.get\(/g) ?? []).length, 12);
+  assert.equal((routes.match(/app\.get\(/g) ?? []).length, 18);
   assert.equal(/app\.(post|put|patch|delete)\(/.test(routes), false);
-  assert.equal((routes.match(/privateReportRoute\(app,/g) ?? []).length, 12);
+  assert.equal((routes.match(/privateReportRoute\(app,/g) ?? []).length, 18);
   assert.deepEqual(paths, expectedReportPaths);
   assert.match(routes, /app\.authenticate/);
   assert.match(routes, /INVALID_DATE_RANGE/);
@@ -112,7 +124,7 @@ test("final acceptance keeps Reports repository read-only and historical rules i
   assert.equal(/weightedAverageCost/.test(service), false);
 });
 
-test("final acceptance keeps all twelve frontend API loaders and TanStack query hooks", async () => {
+test("final acceptance keeps all eighteen frontend API loaders and TanStack query hooks", async () => {
   const [api, hooks] = await Promise.all([
     readSource(
       new URL(
@@ -141,6 +153,12 @@ test("final acceptance keeps all twelve frontend API loaders and TanStack query 
     "loadExpenseReport",
     "loadProfitSummaryReport",
     "loadProductProfitReport",
+    "loadEmployeeRegisterReport",
+    "loadAttendanceSummaryReport",
+    "loadPayrollRegisterReport",
+    "loadSalaryPayableReport",
+    "loadEmployeeAdvanceOutstandingReport",
+    "loadLaborCostSummaryReport",
   ];
   const queryHooks = [
     "useSalesReport",
@@ -155,6 +173,12 @@ test("final acceptance keeps all twelve frontend API loaders and TanStack query 
     "useExpenseReport",
     "useProfitSummaryReport",
     "useProductProfitReport",
+    "useEmployeeRegisterReport",
+    "useAttendanceSummaryReport",
+    "usePayrollRegisterReport",
+    "useSalaryPayableReport",
+    "useEmployeeAdvanceOutstandingReport",
+    "useLaborCostSummaryReport",
   ];
 
   for (const loader of loaders) {
@@ -164,7 +188,7 @@ test("final acceptance keeps all twelve frontend API loaders and TanStack query 
     assert.match(hooks, new RegExp(`export function ${hook}\\(`));
   }
 
-  assert.equal((hooks.match(/return useQuery\(/g) ?? []).length, 12);
+  assert.equal((hooks.match(/return useQuery\(/g) ?? []).length, 18);
   assert.equal(/useMutation/.test(hooks), false);
   for (const path of expectedReportPaths) {
     assert.ok(api.includes(`\`${path}\${`), `${path} loader must call the approved endpoint`);

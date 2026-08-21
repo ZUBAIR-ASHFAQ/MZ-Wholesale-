@@ -24,6 +24,10 @@ import {
   customerPaymentAllocations,
   customerPayments,
   customers,
+  attendanceRecords,
+  employeeAdvanceRecoveries,
+  employeeAdvances,
+  employees,
   expenseCategories,
   expenses,
   inventoryBalances,
@@ -34,6 +38,10 @@ import {
   purchases,
   purchaseReturnItems,
   purchaseReturns,
+  payrollItems,
+  payrollRuns,
+  salaryPaymentAllocations,
+  salaryPayments,
   salesInvoiceItems,
   salesInvoices,
   salesReturnItems,
@@ -45,12 +53,18 @@ import {
   suppliers,
 } from "../../database/schema/index.js";
 import type {
+  AttendanceSummaryReportQuery,
   CashBankReportQuery,
   CustomerOutstandingReportQuery,
+  EmployeeAdvanceOutstandingReportQuery,
+  EmployeeRegisterReportQuery,
   ExpenseReportQuery,
   InventoryReportQuery,
+  LaborCostSummaryReportQuery,
+  PayrollRegisterReportQuery,
   ProductProfitReportQuery,
   PurchasesReportQuery,
+  SalaryPayableReportQuery,
   SalesReportQuery,
   SupplierPayableReportQuery,
 } from "./reports.schema.js";
@@ -1798,3 +1812,452 @@ export async function listSupplierAging(
   };
 }
 
+/** Contains one Employee Register row with current derived financial balances. */
+export interface EmployeeRegisterReportRow {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  phone: string | null;
+  jobTitle: string | null;
+  department: string | null;
+  employmentType: string;
+  joinDate: string;
+  leaveDate: string | null;
+  isActive: boolean;
+  baseMonthlySalary: string;
+  salaryPayable: string;
+  advanceOutstanding: string;
+}
+
+/** Contains one paginated Employee Register source page. */
+export interface EmployeeRegisterReportPage {
+  items: EmployeeRegisterReportRow[];
+  total: number;
+}
+
+/** Contains one employee's Attendance Summary counts for a selected date range. */
+export interface AttendanceSummaryReportRow {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  presentDays: number;
+  absentDays: number;
+  halfDays: number;
+  leaveDays: number;
+  holidayDays: number;
+  weeklyOffDays: number;
+  workedHours: string;
+}
+
+/** Contains one immutable confirmed payroll item in the Payroll Register. */
+export interface PayrollRegisterReportRow {
+  payrollRunId: string;
+  payrollItemId: string;
+  payrollNumber: string;
+  periodStart: string;
+  periodEnd: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  jobTitle: string | null;
+  baseSalary: string;
+  grossSalary: string;
+  attendanceDeduction: string;
+  additionsAmount: string;
+  deductionsAmount: string;
+  advanceRecoveryAmount: string;
+  netSalary: string;
+}
+
+/** Contains one employee's current Salary Payable source amounts. */
+export interface SalaryPayableReportRow {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  jobTitle: string | null;
+  salaryDueAmount: string;
+  salaryPaidAmount: string;
+  salaryPayable: string;
+}
+
+/** Contains one paginated Salary Payable source page. */
+export interface SalaryPayableReportPage {
+  items: SalaryPayableReportRow[];
+  total: number;
+}
+
+/** Contains one employee's current Employee Advance Outstanding source amounts. */
+export interface EmployeeAdvanceOutstandingReportRow {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  advanceOriginalAmount: string;
+  advanceRecoveredAmount: string;
+  advanceOutstanding: string;
+}
+
+/** Contains one paginated Employee Advance Outstanding source page. */
+export interface EmployeeAdvanceOutstandingReportPage {
+  items: EmployeeAdvanceOutstandingReportRow[];
+  total: number;
+}
+
+/** Contains one confirmed Payroll Run's labor-cost components. */
+export interface LaborCostSummaryReportRow {
+  payrollRunId: string;
+  payrollNumber: string;
+  periodStart: string;
+  periodEnd: string;
+  employeeCount: number;
+  netSalaryAmount: string;
+  advanceRecoveryAmount: string;
+  laborCostAmount: string;
+}
+
+/** Builds a reusable employee search predicate for Employee reports. */
+function employeeReportSearch(search: string | undefined): SQL | undefined {
+  if (!search) return undefined;
+
+  const pattern = `%${search}%`;
+  return or(
+    ilike(employees.employeeCode, pattern),
+    ilike(employees.name, pattern),
+    ilike(employees.phone, pattern),
+    ilike(employees.referenceId, pattern),
+    ilike(employees.jobTitle, pattern),
+    ilike(employees.department, pattern),
+  );
+}
+
+/** Returns confirmed payroll salary due totals grouped by employee. */
+function employeeSalaryDueTotals(database: ReportsDatabase) {
+  return database
+    .select({
+      employeeId: payrollItems.employeeId,
+      amount: sql<string>`coalesce(sum(${payrollItems.initialDueAmount}), 0)::text`.as(
+        "salary_due_amount",
+      ),
+    })
+    .from(payrollItems)
+    .innerJoin(payrollRuns, eq(payrollRuns.id, payrollItems.payrollRunId))
+    .where(eq(payrollRuns.status, "CONFIRMED"))
+    .groupBy(payrollItems.employeeId)
+    .as("employee_report_salary_due");
+}
+
+/** Returns non-reversed confirmed salary-payment allocations grouped by employee. */
+function employeeSalaryPaidTotals(database: ReportsDatabase) {
+  return database
+    .select({
+      employeeId: payrollItems.employeeId,
+      amount: sql<string>`coalesce(sum(${salaryPaymentAllocations.amount}), 0)::text`.as(
+        "salary_paid_amount",
+      ),
+    })
+    .from(salaryPaymentAllocations)
+    .innerJoin(
+      payrollItems,
+      eq(payrollItems.id, salaryPaymentAllocations.payrollItemId),
+    )
+    .innerJoin(
+      salaryPayments,
+      eq(salaryPayments.id, salaryPaymentAllocations.salaryPaymentId),
+    )
+    .where(
+      and(
+        eq(salaryPayments.status, "CONFIRMED"),
+        isNull(salaryPayments.reversalOfPaymentId),
+      ),
+    )
+    .groupBy(payrollItems.employeeId)
+    .as("employee_report_salary_paid");
+}
+
+/** Returns original confirmed Employee Advance totals grouped by employee. */
+function employeeAdvanceOriginalTotals(database: ReportsDatabase) {
+  return database
+    .select({
+      employeeId: employeeAdvances.employeeId,
+      amount: sql<string>`coalesce(sum(${employeeAdvances.originalAmount}), 0)::text`.as(
+        "advance_original_amount",
+      ),
+    })
+    .from(employeeAdvances)
+    .groupBy(employeeAdvances.employeeId)
+    .as("employee_report_advance_original");
+}
+
+/** Returns immutable Employee Advance recovery totals grouped by employee. */
+function employeeAdvanceRecoveredTotals(database: ReportsDatabase) {
+  return database
+    .select({
+      employeeId: employeeAdvances.employeeId,
+      amount: sql<string>`coalesce(sum(${employeeAdvanceRecoveries.amount}), 0)::text`.as(
+        "advance_recovered_amount",
+      ),
+    })
+    .from(employeeAdvanceRecoveries)
+    .innerJoin(
+      employeeAdvances,
+      eq(employeeAdvances.id, employeeAdvanceRecoveries.employeeAdvanceId),
+    )
+    .groupBy(employeeAdvances.employeeId)
+    .as("employee_report_advance_recovered");
+}
+
+/** Reads one Employee Register page using the same derived balance sources as Employee List. */
+export async function readEmployeeRegisterReportPage(
+  database: ReportsDatabase,
+  query: EmployeeRegisterReportQuery,
+): Promise<EmployeeRegisterReportPage> {
+  const salaryDue = employeeSalaryDueTotals(database);
+  const salaryPaid = employeeSalaryPaidTotals(database);
+  const advanceOriginal = employeeAdvanceOriginalTotals(database);
+  const advanceRecovered = employeeAdvanceRecoveredTotals(database);
+  const salaryPayable = sql<string>`(coalesce(${salaryDue.amount}, 0) - coalesce(${salaryPaid.amount}, 0))::text`;
+  const advanceOutstanding = sql<string>`(coalesce(${advanceOriginal.amount}, 0) - coalesce(${advanceRecovered.amount}, 0))::text`;
+  const search = employeeReportSearch(query.search);
+
+  const [items, totalRows] = await Promise.all([
+    database
+      .select({
+        employeeId: employees.id,
+        employeeCode: employees.employeeCode,
+        employeeName: employees.name,
+        phone: employees.phone,
+        jobTitle: employees.jobTitle,
+        department: employees.department,
+        employmentType: employees.employmentType,
+        joinDate: employees.joinDate,
+        leaveDate: employees.leaveDate,
+        isActive: employees.isActive,
+        baseMonthlySalary: employees.baseMonthlySalary,
+        salaryPayable: salaryPayable.as("salary_payable"),
+        advanceOutstanding: advanceOutstanding.as("advance_outstanding"),
+      })
+      .from(employees)
+      .leftJoin(salaryDue, eq(salaryDue.employeeId, employees.id))
+      .leftJoin(salaryPaid, eq(salaryPaid.employeeId, employees.id))
+      .leftJoin(advanceOriginal, eq(advanceOriginal.employeeId, employees.id))
+      .leftJoin(advanceRecovered, eq(advanceRecovered.employeeId, employees.id))
+      .where(search)
+      .orderBy(asc(employees.name), asc(employees.employeeCode), asc(employees.id))
+      .limit(query.pageSize)
+      .offset(getReportOffset(query)),
+    database.select({ total: count() }).from(employees).where(search),
+  ]);
+
+  return { items, total: totalRows[0]?.total ?? 0 };
+}
+
+/** Reads Attendance Summary counts grouped by employee for one business-date range. */
+export async function readAttendanceSummaryReport(
+  database: ReportsDatabase,
+  query: AttendanceSummaryReportQuery,
+): Promise<AttendanceSummaryReportRow[]> {
+  return database
+    .select({
+      employeeId: employees.id,
+      employeeCode: employees.employeeCode,
+      employeeName: employees.name,
+      presentDays: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'PRESENT')::int`,
+      absentDays: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'ABSENT')::int`,
+      halfDays: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'HALF_DAY')::int`,
+      leaveDays: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'LEAVE')::int`,
+      holidayDays: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'HOLIDAY')::int`,
+      weeklyOffDays: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'WEEKLY_OFF')::int`,
+      workedHours: sql<string>`coalesce(sum(${attendanceRecords.workedHours}), 0)::text`,
+    })
+    .from(attendanceRecords)
+    .innerJoin(employees, eq(employees.id, attendanceRecords.employeeId))
+    .where(
+      and(
+        gte(attendanceRecords.attendanceDate, query.startDate),
+        lte(attendanceRecords.attendanceDate, query.endDate),
+      ),
+    )
+    .groupBy(employees.id, employees.employeeCode, employees.name)
+    .orderBy(asc(employees.name), asc(employees.employeeCode), asc(employees.id));
+}
+
+/** Reads immutable confirmed Payroll Items for the selected Payroll Register range. */
+export async function readPayrollRegisterReport(
+  database: ReportsDatabase,
+  query: PayrollRegisterReportQuery,
+): Promise<PayrollRegisterReportRow[]> {
+  return database
+    .select({
+      payrollRunId: payrollRuns.id,
+      payrollItemId: payrollItems.id,
+      payrollNumber: payrollRuns.payrollNumber,
+      periodStart: payrollRuns.periodStart,
+      periodEnd: payrollRuns.periodEnd,
+      employeeId: payrollItems.employeeId,
+      employeeCode: payrollItems.employeeCodeSnapshot,
+      employeeName: payrollItems.employeeNameSnapshot,
+      jobTitle: payrollItems.jobTitleSnapshot,
+      baseSalary: payrollItems.baseSalarySnapshot,
+      grossSalary: payrollItems.grossSalary,
+      attendanceDeduction: payrollItems.attendanceDeduction,
+      additionsAmount: payrollItems.additionsAmount,
+      deductionsAmount: payrollItems.deductionsAmount,
+      advanceRecoveryAmount: payrollItems.advanceRecoveryAmount,
+      netSalary: payrollItems.netSalary,
+    })
+    .from(payrollItems)
+    .innerJoin(payrollRuns, eq(payrollRuns.id, payrollItems.payrollRunId))
+    .where(
+      and(
+        eq(payrollRuns.status, "CONFIRMED"),
+        gte(payrollRuns.periodEnd, query.startDate),
+        lte(payrollRuns.periodEnd, query.endDate),
+      ),
+    )
+    .orderBy(
+      asc(payrollRuns.periodEnd),
+      asc(payrollRuns.payrollNumber),
+      asc(payrollItems.employeeNameSnapshot),
+      asc(payrollItems.id),
+    );
+}
+
+/** Builds one current Salary Payable source query, preserving the Employee List formula. */
+function currentSalaryPayableRows(
+  database: ReportsDatabase,
+  query: SalaryPayableReportQuery,
+) {
+  const salaryDue = employeeSalaryDueTotals(database);
+  const salaryPaid = employeeSalaryPaidTotals(database);
+  const salaryPayable = sql<string>`(coalesce(${salaryDue.amount}, 0) - coalesce(${salaryPaid.amount}, 0))::text`;
+  const search = employeeReportSearch(query.search);
+
+  return database
+    .select({
+      employeeId: employees.id,
+      employeeCode: employees.employeeCode,
+      employeeName: employees.name,
+      jobTitle: employees.jobTitle,
+      salaryDueAmount: sql<string>`coalesce(${salaryDue.amount}, 0)::text`.as(
+        "salary_due_amount",
+      ),
+      salaryPaidAmount: sql<string>`coalesce(${salaryPaid.amount}, 0)::text`.as(
+        "salary_paid_amount",
+      ),
+      salaryPayable: salaryPayable.as("salary_payable"),
+    })
+    .from(employees)
+    .leftJoin(salaryDue, eq(salaryDue.employeeId, employees.id))
+    .leftJoin(salaryPaid, eq(salaryPaid.employeeId, employees.id))
+    .where(and(search, gt(salaryPayable, "0")));
+}
+
+/** Reads one current positive Salary Payable page plus its filtered count. */
+export async function readSalaryPayableReportPage(
+  database: ReportsDatabase,
+  query: SalaryPayableReportQuery,
+): Promise<SalaryPayableReportPage> {
+  const source = currentSalaryPayableRows(database, query).as("salary_payable_rows");
+  const [items, totalRows] = await Promise.all([
+    database
+      .select()
+      .from(source)
+      .orderBy(desc(source.salaryPayable), asc(source.employeeName), asc(source.employeeId))
+      .limit(query.pageSize)
+      .offset(getReportOffset(query)),
+    database.select({ total: count() }).from(source),
+  ]);
+
+  return { items, total: totalRows[0]?.total ?? 0 };
+}
+
+/** Builds one current Employee Advance Outstanding source query. */
+function currentEmployeeAdvanceOutstandingRows(
+  database: ReportsDatabase,
+  query: EmployeeAdvanceOutstandingReportQuery,
+) {
+  const advanceOriginal = employeeAdvanceOriginalTotals(database);
+  const advanceRecovered = employeeAdvanceRecoveredTotals(database);
+  const advanceOutstanding = sql<string>`(coalesce(${advanceOriginal.amount}, 0) - coalesce(${advanceRecovered.amount}, 0))::text`;
+  const search = employeeReportSearch(query.search);
+
+  return database
+    .select({
+      employeeId: employees.id,
+      employeeCode: employees.employeeCode,
+      employeeName: employees.name,
+      advanceOriginalAmount: sql<string>`coalesce(${advanceOriginal.amount}, 0)::text`.as(
+        "advance_original_amount",
+      ),
+      advanceRecoveredAmount: sql<string>`coalesce(${advanceRecovered.amount}, 0)::text`.as(
+        "advance_recovered_amount",
+      ),
+      advanceOutstanding: advanceOutstanding.as("advance_outstanding"),
+    })
+    .from(employees)
+    .leftJoin(advanceOriginal, eq(advanceOriginal.employeeId, employees.id))
+    .leftJoin(advanceRecovered, eq(advanceRecovered.employeeId, employees.id))
+    .where(and(search, gt(advanceOutstanding, "0")));
+}
+
+/** Reads one current positive Employee Advance Outstanding page plus its filtered count. */
+export async function readEmployeeAdvanceOutstandingReportPage(
+  database: ReportsDatabase,
+  query: EmployeeAdvanceOutstandingReportQuery,
+): Promise<EmployeeAdvanceOutstandingReportPage> {
+  const source = currentEmployeeAdvanceOutstandingRows(database, query).as(
+    "employee_advance_outstanding_rows",
+  );
+  const [items, totalRows] = await Promise.all([
+    database
+      .select()
+      .from(source)
+      .orderBy(
+        desc(source.advanceOutstanding),
+        asc(source.employeeName),
+        asc(source.employeeId),
+      )
+      .limit(query.pageSize)
+      .offset(getReportOffset(query)),
+    database.select({ total: count() }).from(source),
+  ]);
+
+  return { items, total: totalRows[0]?.total ?? 0 };
+}
+
+/** Reads confirmed Payroll Run labor cost while excluding advance recovery from cost. */
+export async function readLaborCostSummaryReport(
+  database: ReportsDatabase,
+  query: LaborCostSummaryReportQuery,
+): Promise<LaborCostSummaryReportRow[]> {
+  const netSalaryAmount = sql<string>`coalesce(sum(${payrollItems.netSalary}), 0)::text`;
+  const advanceRecoveryAmount = sql<string>`coalesce(sum(${payrollItems.advanceRecoveryAmount}), 0)::text`;
+  const laborCostAmount = sql<string>`(coalesce(sum(${payrollItems.netSalary}), 0) + coalesce(sum(${payrollItems.advanceRecoveryAmount}), 0))::text`;
+
+  return database
+    .select({
+      payrollRunId: payrollRuns.id,
+      payrollNumber: payrollRuns.payrollNumber,
+      periodStart: payrollRuns.periodStart,
+      periodEnd: payrollRuns.periodEnd,
+      employeeCount: sql<number>`count(${payrollItems.id})::int`,
+      netSalaryAmount: netSalaryAmount.as("net_salary_amount"),
+      advanceRecoveryAmount: advanceRecoveryAmount.as("advance_recovery_amount"),
+      laborCostAmount: laborCostAmount.as("labor_cost_amount"),
+    })
+    .from(payrollRuns)
+    .innerJoin(payrollItems, eq(payrollItems.payrollRunId, payrollRuns.id))
+    .where(
+      and(
+        eq(payrollRuns.status, "CONFIRMED"),
+        gte(payrollRuns.periodEnd, query.startDate),
+        lte(payrollRuns.periodEnd, query.endDate),
+      ),
+    )
+    .groupBy(
+      payrollRuns.id,
+      payrollRuns.payrollNumber,
+      payrollRuns.periodStart,
+      payrollRuns.periodEnd,
+    )
+    .orderBy(asc(payrollRuns.periodEnd), asc(payrollRuns.payrollNumber));
+}

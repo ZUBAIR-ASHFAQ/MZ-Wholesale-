@@ -14,6 +14,7 @@ test("all business modules are registered in the approved dependency order", asy
     "productsModule",
     "customersModule",
     "suppliersModule",
+    "employeesModule",
     "inventoryModule",
     "ledgersModule",
     "paymentsModule",

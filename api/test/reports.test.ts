@@ -424,7 +424,7 @@ test("inventory valuation service maps approved filters and stays read-only", as
   assert.doesNotMatch(source, /getInventoryValuationReport[\s\S]*?\.insert\s*\(/);
 });
 
-test("reports routes register exactly twelve authenticated GET endpoints", async () => {
+test("reports routes register exactly eighteen authenticated GET endpoints", async () => {
   const source = await readSource(reportsRoutesPath);
   const routeRegistrations = source.match(/app\.get\s*\(/g) ?? [];
   const approvedPaths = [
@@ -440,9 +440,15 @@ test("reports routes register exactly twelve authenticated GET endpoints", async
     "/reports/expenses",
     "/reports/profit-summary",
     "/reports/product-profit",
+    "/reports/employees/register",
+    "/reports/employees/attendance",
+    "/reports/employees/payroll",
+    "/reports/employees/salary-payable",
+    "/reports/employees/advance-outstanding",
+    "/reports/employees/labor-cost",
   ];
 
-  assert.equal(routeRegistrations.length, 12);
+  assert.equal(routeRegistrations.length, 18);
   assert.match(source, /preHandler: app\.authenticate/);
   for (const path of approvedPaths) assert.match(source, new RegExp(`"${path}"`));
   assert.doesNotMatch(source, /app\.(post|put|patch|delete)\s*\(/);

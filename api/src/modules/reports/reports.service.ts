@@ -1,21 +1,33 @@
 import { AppError } from "../../shared/errors/app-error.js";
 
 import type {
+  AttendanceSummaryReportQuery,
   CashBankReportQuery,
   CustomerAgingReportQuery,
   CustomerOutstandingReportQuery,
+  EmployeeAdvanceOutstandingReportQuery,
+  EmployeeRegisterReportQuery,
   ExpenseReportQuery,
   InventoryReportQuery,
   InventoryValuationReportQuery,
+  LaborCostSummaryReportQuery,
+  PayrollRegisterReportQuery,
   ProductProfitReportQuery,
   ProfitSummaryReportQuery,
   PurchasesReportQuery,
+  SalaryPayableReportQuery,
   SalesReportQuery,
   SupplierAgingReportQuery,
   SupplierPayableReportQuery,
 } from "./reports.schema.js";
 import {
+  readAttendanceSummaryReport,
   readCashBankReportSourceRows,
+  readEmployeeAdvanceOutstandingReportPage,
+  readEmployeeRegisterReportPage,
+  readLaborCostSummaryReport,
+  readPayrollRegisterReport,
+  readSalaryPayableReportPage,
   reportAccountExists,
   reportCustomerExists,
   reportExpenseCategoryExists,
@@ -42,9 +54,15 @@ import {
   type CustomerAgingTotals,
   type InventoryValuationRow,
   type InventoryValuationTotals,
+  type AttendanceSummaryReportRow,
+  type EmployeeAdvanceOutstandingReportRow,
+  type EmployeeRegisterReportRow,
+  type LaborCostSummaryReportRow,
+  type PayrollRegisterReportRow,
   type PurchasesReportPurchaseRow,
   type PurchasesReportReturnRow,
   type ReportsDatabase,
+  type SalaryPayableReportRow,
   type SalesReportReturnRow,
   type SalesReportSaleRow,
   type SupplierAgingRow,
@@ -1060,6 +1078,137 @@ export async function getProductProfitReport(
   };
 }
 
+/** Contains one paginated Employee Register response. */
+export interface EmployeeRegisterReportResult {
+  items: EmployeeRegisterReportRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Contains the Attendance Summary rows for one selected business-date range. */
+export interface AttendanceSummaryReportResult {
+  startDate: string;
+  endDate: string;
+  rows: AttendanceSummaryReportRow[];
+}
+
+/** Contains immutable confirmed Payroll Register rows for one selected period-end range. */
+export interface PayrollRegisterReportResult {
+  startDate: string;
+  endDate: string;
+  rows: PayrollRegisterReportRow[];
+}
+
+/** Contains one paginated current Salary Payable response. */
+export interface SalaryPayableReportResult {
+  items: SalaryPayableReportRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Contains one paginated current Employee Advance Outstanding response. */
+export interface EmployeeAdvanceOutstandingReportResult {
+  items: EmployeeAdvanceOutstandingReportRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Contains confirmed Payroll labor cost with advance recovery excluded from labor expense. */
+export interface LaborCostSummaryReportResult {
+  startDate: string;
+  endDate: string;
+  payrollRunCount: number;
+  employeeCount: number;
+  netSalaryAmount: string;
+  advanceRecoveryAmount: string;
+  laborCostAmount: string;
+  rows: LaborCostSummaryReportRow[];
+}
+
+/** Returns the current Employee Register with derived balances and stable pagination. */
+export async function getEmployeeRegisterReport(
+  database: ReportsDatabase,
+  query: EmployeeRegisterReportQuery,
+): Promise<EmployeeRegisterReportResult> {
+  const page = await readEmployeeRegisterReportPage(database, query);
+  return { ...page, page: query.page, pageSize: query.pageSize };
+}
+
+/** Returns attendance status counts grouped by employee for the selected date range. */
+export async function getAttendanceSummaryReport(
+  database: ReportsDatabase,
+  query: AttendanceSummaryReportQuery,
+): Promise<AttendanceSummaryReportResult> {
+  return {
+    startDate: query.startDate,
+    endDate: query.endDate,
+    rows: await readAttendanceSummaryReport(database, query),
+  };
+}
+
+/** Returns immutable confirmed Payroll Items for the selected period-end range. */
+export async function getPayrollRegisterReport(
+  database: ReportsDatabase,
+  query: PayrollRegisterReportQuery,
+): Promise<PayrollRegisterReportResult> {
+  return {
+    startDate: query.startDate,
+    endDate: query.endDate,
+    rows: await readPayrollRegisterReport(database, query),
+  };
+}
+
+/** Returns employees with a positive current salary payable. */
+export async function getSalaryPayableReport(
+  database: ReportsDatabase,
+  query: SalaryPayableReportQuery,
+): Promise<SalaryPayableReportResult> {
+  const page = await readSalaryPayableReportPage(database, query);
+  return { ...page, page: query.page, pageSize: query.pageSize };
+}
+
+/** Returns employees with a positive current advance outstanding. */
+export async function getEmployeeAdvanceOutstandingReport(
+  database: ReportsDatabase,
+  query: EmployeeAdvanceOutstandingReportQuery,
+): Promise<EmployeeAdvanceOutstandingReportResult> {
+  const page = await readEmployeeAdvanceOutstandingReportPage(database, query);
+  return { ...page, page: query.page, pageSize: query.pageSize };
+}
+
+/** Returns confirmed payroll labor cost without treating advance repayment as a cost reduction. */
+export async function getLaborCostSummaryReport(
+  database: ReportsDatabase,
+  query: LaborCostSummaryReportQuery,
+): Promise<LaborCostSummaryReportResult> {
+  const rows = await readLaborCostSummaryReport(database, query);
+  let employeeCount = 0;
+  let netSalaryCents = 0n;
+  let advanceRecoveryCents = 0n;
+  let laborCostCents = 0n;
+
+  for (const row of rows) {
+    employeeCount += row.employeeCount;
+    netSalaryCents += moneyToCents(row.netSalaryAmount);
+    advanceRecoveryCents += moneyToCents(row.advanceRecoveryAmount);
+    laborCostCents += moneyToCents(row.laborCostAmount);
+  }
+
+  return {
+    startDate: query.startDate,
+    endDate: query.endDate,
+    payrollRunCount: rows.length,
+    employeeCount,
+    netSalaryAmount: centsToMoney(netSalaryCents),
+    advanceRecoveryAmount: centsToMoney(advanceRecoveryCents),
+    laborCostAmount: centsToMoney(laborCostCents),
+    rows,
+  };
+}
+
 /** Exposes the approved read-only reports through one small service used by the routes layer. */
 export interface ReportsService {
   getSalesReport(query: SalesReportQuery): Promise<SalesReportResult>;
@@ -1088,6 +1237,24 @@ export interface ReportsService {
   getProductProfitReport(
     query: ProductProfitReportQuery,
   ): Promise<ProductProfitReportResult>;
+  getEmployeeRegisterReport(
+    query: EmployeeRegisterReportQuery,
+  ): Promise<EmployeeRegisterReportResult>;
+  getAttendanceSummaryReport(
+    query: AttendanceSummaryReportQuery,
+  ): Promise<AttendanceSummaryReportResult>;
+  getPayrollRegisterReport(
+    query: PayrollRegisterReportQuery,
+  ): Promise<PayrollRegisterReportResult>;
+  getSalaryPayableReport(
+    query: SalaryPayableReportQuery,
+  ): Promise<SalaryPayableReportResult>;
+  getEmployeeAdvanceOutstandingReport(
+    query: EmployeeAdvanceOutstandingReportQuery,
+  ): Promise<EmployeeAdvanceOutstandingReportResult>;
+  getLaborCostSummaryReport(
+    query: LaborCostSummaryReportQuery,
+  ): Promise<LaborCostSummaryReportResult>;
 }
 
 /** Throws the stable report-filter error used when a selected entity does not exist. */
@@ -1196,5 +1363,17 @@ export function createReportsService(database: ReportsDatabase): ReportsService 
       await validateProductFilter(database, query.productId);
       return getProductProfitReport(database, query);
     },
+    getEmployeeRegisterReport: (query) =>
+      getEmployeeRegisterReport(database, query),
+    getAttendanceSummaryReport: (query) =>
+      getAttendanceSummaryReport(database, query),
+    getPayrollRegisterReport: (query) =>
+      getPayrollRegisterReport(database, query),
+    getSalaryPayableReport: (query) =>
+      getSalaryPayableReport(database, query),
+    getEmployeeAdvanceOutstandingReport: (query) =>
+      getEmployeeAdvanceOutstandingReport(database, query),
+    getLaborCostSummaryReport: (query) =>
+      getLaborCostSummaryReport(database, query),
   };
 }

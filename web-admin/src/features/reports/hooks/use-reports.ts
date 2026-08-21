@@ -1,28 +1,40 @@
 import { useQuery } from "@tanstack/react-query";
 
 import {
+  loadAttendanceSummaryReport,
   loadCashBankReport,
   loadCustomerAgingReport,
   loadCustomerOutstandingReport,
+  loadEmployeeAdvanceOutstandingReport,
+  loadEmployeeRegisterReport,
   loadExpenseReport,
   loadInventoryReport,
   loadInventoryValuationReport,
+  loadLaborCostSummaryReport,
+  loadPayrollRegisterReport,
   loadProductProfitReport,
   loadProfitSummaryReport,
   loadPurchasesReport,
   loadSalesReport,
+  loadSalaryPayableReport,
   loadSupplierAgingReport,
   loadSupplierPayableReport,
+  type AttendanceSummaryReportFilters,
   type CashBankReportFilters,
   type CustomerAgingReportFilters,
   type CustomerOutstandingReportFilters,
+  type EmployeeAdvanceOutstandingReportFilters,
+  type EmployeeRegisterReportFilters,
   type ExpenseReportFilters,
   type InventoryReportFilters,
   type InventoryValuationReportFilters,
+  type LaborCostSummaryReportFilters,
+  type PayrollRegisterReportFilters,
   type ProductProfitReportFilters,
   type ProfitSummaryReportFilters,
   type PurchasesReportFilters,
   type SalesReportFilters,
+  type SalaryPayableReportFilters,
   type SupplierAgingReportFilters,
   type SupplierPayableReportFilters,
 } from "../api/reports.api.ts";
@@ -30,6 +42,8 @@ import {
 /** Stable cache keys used by every Reports screen. */
 export const reportQueryKeys = {
   all: ["reports"] as const,
+  cashBankAll: ["reports", "cash-bank"] as const,
+  employeeAll: ["reports", "employees"] as const,
   sales: (filters: SalesReportFilters) =>
     ["reports", "sales", filters] as const,
   purchases: (filters: PurchasesReportFilters) =>
@@ -54,6 +68,18 @@ export const reportQueryKeys = {
     ["reports", "profit-summary", filters] as const,
   productProfit: (filters: ProductProfitReportFilters) =>
     ["reports", "product-profit", filters] as const,
+  employeeRegister: (filters: EmployeeRegisterReportFilters) =>
+    ["reports", "employees", "register", filters] as const,
+  attendanceSummary: (filters: AttendanceSummaryReportFilters) =>
+    ["reports", "employees", "attendance", filters] as const,
+  payrollRegister: (filters: PayrollRegisterReportFilters) =>
+    ["reports", "employees", "payroll", filters] as const,
+  salaryPayable: (filters: SalaryPayableReportFilters) =>
+    ["reports", "employees", "salary-payable", filters] as const,
+  employeeAdvanceOutstanding: (filters: EmployeeAdvanceOutstandingReportFilters) =>
+    ["reports", "employees", "advance-outstanding", filters] as const,
+  laborCostSummary: (filters: LaborCostSummaryReportFilters) =>
+    ["reports", "employees", "labor-cost", filters] as const,
 };
 
 /** Loads the Sales Report for the selected filters. */
@@ -155,5 +181,57 @@ export function useProductProfitReport(filters: ProductProfitReportFilters) {
   return useQuery({
     queryKey: reportQueryKeys.productProfit(filters),
     queryFn: () => loadProductProfitReport(filters),
+  });
+}
+
+/** Loads the paginated Employee Register. */
+export function useEmployeeRegisterReport(
+  filters: EmployeeRegisterReportFilters = {},
+) {
+  return useQuery({
+    queryKey: reportQueryKeys.employeeRegister(filters),
+    queryFn: () => loadEmployeeRegisterReport(filters),
+  });
+}
+
+/** Loads the Employee Attendance Summary for the selected date range. */
+export function useAttendanceSummaryReport(filters: AttendanceSummaryReportFilters) {
+  return useQuery({
+    queryKey: reportQueryKeys.attendanceSummary(filters),
+    queryFn: () => loadAttendanceSummaryReport(filters),
+  });
+}
+
+/** Loads the confirmed Employee Payroll Register for the selected date range. */
+export function usePayrollRegisterReport(filters: PayrollRegisterReportFilters) {
+  return useQuery({
+    queryKey: reportQueryKeys.payrollRegister(filters),
+    queryFn: () => loadPayrollRegisterReport(filters),
+  });
+}
+
+/** Loads the current positive Employee Salary Payable report. */
+export function useSalaryPayableReport(filters: SalaryPayableReportFilters = {}) {
+  return useQuery({
+    queryKey: reportQueryKeys.salaryPayable(filters),
+    queryFn: () => loadSalaryPayableReport(filters),
+  });
+}
+
+/** Loads the current positive Employee Advance Outstanding report. */
+export function useEmployeeAdvanceOutstandingReport(
+  filters: EmployeeAdvanceOutstandingReportFilters = {},
+) {
+  return useQuery({
+    queryKey: reportQueryKeys.employeeAdvanceOutstanding(filters),
+    queryFn: () => loadEmployeeAdvanceOutstandingReport(filters),
+  });
+}
+
+/** Loads the confirmed Employee Labor Cost Summary for the selected date range. */
+export function useLaborCostSummaryReport(filters: LaborCostSummaryReportFilters) {
+  return useQuery({
+    queryKey: reportQueryKeys.laborCostSummary(filters),
+    queryFn: () => loadLaborCostSummaryReport(filters),
   });
 }

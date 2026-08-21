@@ -10,16 +10,22 @@ import {
 } from "../../shared/http/openapi.js";
 import { createDataResponse } from "../../shared/http/response.js";
 import {
+  attendanceSummaryReportQuerySchema,
   cashBankReportQuerySchema,
   customerAgingReportQuerySchema,
   customerOutstandingReportQuerySchema,
+  employeeAdvanceOutstandingReportQuerySchema,
+  employeeRegisterReportQuerySchema,
   expenseReportQuerySchema,
   inventoryReportQuerySchema,
   inventoryValuationReportQuerySchema,
+  laborCostSummaryReportQuerySchema,
+  payrollRegisterReportQuerySchema,
   productProfitReportQuerySchema,
   profitSummaryReportQuerySchema,
   purchasesReportQuerySchema,
   salesReportQuerySchema,
+  salaryPayableReportQuerySchema,
   supplierAgingReportQuerySchema,
   supplierPayableReportQuerySchema,
 } from "./reports.schema.js";
@@ -187,6 +193,77 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     reply.send(createDataResponse(await reportsService.getProductProfitReport(query)));
   }
 
+  /** Returns the current Employee Register with derived salary/advance balances. */
+  async function handleEmployeeRegisterReport(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const query = parseReportQuery(employeeRegisterReportQuerySchema, request.query);
+    reply.send(
+      createDataResponse(await reportsService.getEmployeeRegisterReport(query)),
+    );
+  }
+
+  /** Returns attendance status counts grouped by employee for one date range. */
+  async function handleAttendanceSummaryReport(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const query = parseReportQuery(attendanceSummaryReportQuerySchema, request.query);
+    reply.send(
+      createDataResponse(await reportsService.getAttendanceSummaryReport(query)),
+    );
+  }
+
+  /** Returns immutable confirmed Payroll Items for the selected period-end range. */
+  async function handlePayrollRegisterReport(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const query = parseReportQuery(payrollRegisterReportQuerySchema, request.query);
+    reply.send(
+      createDataResponse(await reportsService.getPayrollRegisterReport(query)),
+    );
+  }
+
+  /** Returns employees with a positive current salary payable. */
+  async function handleSalaryPayableReport(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const query = parseReportQuery(salaryPayableReportQuerySchema, request.query);
+    reply.send(
+      createDataResponse(await reportsService.getSalaryPayableReport(query)),
+    );
+  }
+
+  /** Returns employees with a positive current advance outstanding. */
+  async function handleEmployeeAdvanceOutstandingReport(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const query = parseReportQuery(
+      employeeAdvanceOutstandingReportQuerySchema,
+      request.query,
+    );
+    reply.send(
+      createDataResponse(
+        await reportsService.getEmployeeAdvanceOutstandingReport(query),
+      ),
+    );
+  }
+
+  /** Returns confirmed payroll labor cost without treating advance repayment as labor expense. */
+  async function handleLaborCostSummaryReport(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const query = parseReportQuery(laborCostSummaryReportQuerySchema, request.query);
+    reply.send(
+      createDataResponse(await reportsService.getLaborCostSummaryReport(query)),
+    );
+  }
+
   app.get(
     "/reports/sales",
     privateReportRoute(app, "Sales report"),
@@ -246,5 +323,35 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     "/reports/product-profit",
     privateReportRoute(app, "Product profit report"),
     handleProductProfitReport,
+  );
+  app.get(
+    "/reports/employees/register",
+    privateReportRoute(app, "Employee register"),
+    handleEmployeeRegisterReport,
+  );
+  app.get(
+    "/reports/employees/attendance",
+    privateReportRoute(app, "Employee attendance summary"),
+    handleAttendanceSummaryReport,
+  );
+  app.get(
+    "/reports/employees/payroll",
+    privateReportRoute(app, "Employee payroll register"),
+    handlePayrollRegisterReport,
+  );
+  app.get(
+    "/reports/employees/salary-payable",
+    privateReportRoute(app, "Employee salary payable"),
+    handleSalaryPayableReport,
+  );
+  app.get(
+    "/reports/employees/advance-outstanding",
+    privateReportRoute(app, "Employee advance outstanding"),
+    handleEmployeeAdvanceOutstandingReport,
+  );
+  app.get(
+    "/reports/employees/labor-cost",
+    privateReportRoute(app, "Employee labor cost summary"),
+    handleLaborCostSummaryReport,
   );
 }

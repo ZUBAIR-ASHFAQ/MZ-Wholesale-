@@ -28,8 +28,13 @@ Do not edit a migration after it has been applied to a shared database. Create a
 | `0017_module_15_validated_import_snapshot.sql` | Stores the validated import snapshot used by the later confirmation request |
 | `0018_module_15_audit_logs.sql` | Read-only audit-log persistence for important admin/business actions |
 | `0019_module_15_failed_login_audit.sql` | Allows failed-login audit rows that cannot reference an authenticated admin user |
+| `0020_remove_supplier_tax_id.sql` | Removes the retired Supplier Tax ID column |
+| `0021_remove_customer_tax_id.sql` | Removes the retired Customer Tax ID column |
+| `0022_inventory_condition_weighted_costs.sql` | Preserves condition-specific inventory weighted costs |
+| `0023_module_16_employee_foundation.sql` | Employee, attendance, leave, advance, payroll, salary-payment, and employee-ledger foundation |
+| `0024_module_16_employee_infrastructure.sql` | Employee document sequences and cash/bank movement source registrations |
 
-Modules 13 (Reports) and 14 (Dashboard) are read-only and therefore add no database tables or migrations.
+Modules 13 (Reports) and 14 (Dashboard) are read-only and therefore add no database tables or migrations. Module 16 adds the Employee Management foundation and its minimum shared financial infrastructure.
 
 ## Review checklist
 

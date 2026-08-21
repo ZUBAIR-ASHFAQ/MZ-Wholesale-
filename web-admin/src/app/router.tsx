@@ -28,8 +28,13 @@ import { ExpenseDetailPage } from "../features/expenses/pages/expense-detail-pag
 import { ExpenseFormPage } from "../features/expenses/pages/expense-form-page.tsx";
 import { ExpenseListPage } from "../features/expenses/pages/expense-list-page.tsx";
 import { EmployeeDetailPage } from "../features/employees/pages/employee-detail-page.tsx";
+import { AdvancesPage } from "../features/employees/pages/advances-page.tsx";
 import { AttendancePage } from "../features/employees/pages/attendance-page.tsx";
 import { EmployeeListPage } from "../features/employees/pages/employee-list-page.tsx";
+import { LeavePage } from "../features/employees/pages/leave-page.tsx";
+import { PayrollDetailPage } from "../features/employees/pages/payroll-detail-page.tsx";
+import { PayrollNewPage } from "../features/employees/pages/payroll-new-page.tsx";
+import { PayrollPage } from "../features/employees/pages/payroll-page.tsx";
 import { CustomerOutstandingPage } from "../features/ledgers/pages/customer-outstanding-page.tsx";
 import { CustomerStatementPage } from "../features/ledgers/pages/customer-statement-page.tsx";
 import { SupplierPayablesPage } from "../features/ledgers/pages/supplier-payables-page.tsx";
@@ -67,15 +72,21 @@ import { PurchaseReturnFormPage } from "../features/returns/pages/purchase-retur
 import { PurchaseReturnDetailPage } from "../features/returns/pages/purchase-return-detail-page.tsx";
 import { DashboardPage } from "../features/dashboard/pages/dashboard-page.tsx";
 import { CashBankReportPage } from "../features/reports/pages/cash-bank-report-page.tsx";
+import { AttendanceSummaryReportPage } from "../features/reports/pages/attendance-summary-report-page.tsx";
 import { CustomerAgingReportPage } from "../features/reports/pages/customer-aging-report-page.tsx";
 import { CustomerOutstandingReportPage } from "../features/reports/pages/customer-outstanding-report-page.tsx";
+import { EmployeeAdvanceOutstandingReportPage } from "../features/reports/pages/employee-advance-outstanding-report-page.tsx";
+import { EmployeeRegisterReportPage } from "../features/reports/pages/employee-register-report-page.tsx";
 import { ExpenseReportPage } from "../features/reports/pages/expense-report-page.tsx";
 import { InventoryReportPage } from "../features/reports/pages/inventory-report-page.tsx";
 import { InventoryValuationReportPage } from "../features/reports/pages/inventory-valuation-report-page.tsx";
+import { LaborCostSummaryReportPage } from "../features/reports/pages/labor-cost-summary-report-page.tsx";
+import { PayrollRegisterReportPage } from "../features/reports/pages/payroll-register-report-page.tsx";
 import { ProductProfitReportPage } from "../features/reports/pages/product-profit-report-page.tsx";
 import { ProfitSummaryReportPage } from "../features/reports/pages/profit-summary-report-page.tsx";
 import { PurchasesReportPage } from "../features/reports/pages/purchases-report-page.tsx";
 import { SalesReportPage } from "../features/reports/pages/sales-report-page.tsx";
+import { SalaryPayableReportPage } from "../features/reports/pages/salary-payable-report-page.tsx";
 import { SupplierAgingReportPage } from "../features/reports/pages/supplier-aging-report-page.tsx";
 import { SupplierPayableReportPage } from "../features/reports/pages/supplier-payable-report-page.tsx";
 import { AuditLogsPage } from "../features/system/pages/audit-logs-page.tsx";
@@ -200,6 +211,12 @@ function SupplierEditRoutePage(): React.JSX.Element {
 function SupplierDetailRoutePage(): React.JSX.Element {
   const { supplierId } = supplierDetailRoute.useParams();
   return <SupplierDetailPage supplierId={supplierId} />;
+}
+
+/** Reads the Payroll Run ID from the detail route and renders the full payroll page. */
+function PayrollDetailRoutePage(): React.JSX.Element {
+  const { payrollRunId } = employeePayrollDetailRoute.useParams();
+  return <PayrollDetailPage payrollRunId={payrollRunId} />;
 }
 
 /** Reads the employee ID from the detail route and renders the profile page. */
@@ -636,6 +653,36 @@ const employeeAttendanceRoute = createRoute({
   component: AttendancePage,
 });
 
+const employeeLeaveRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/employees/leave",
+  component: LeavePage,
+});
+
+const employeeAdvancesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/employees/advances",
+  component: AdvancesPage,
+});
+
+const employeePayrollRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/employees/payroll",
+  component: PayrollPage,
+});
+
+const employeePayrollNewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/employees/payroll/new",
+  component: PayrollNewPage,
+});
+
+const employeePayrollDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/employees/payroll/$payrollRunId",
+  component: PayrollDetailRoutePage,
+});
+
 const employeeDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/employees/$employeeId",
@@ -739,6 +786,42 @@ const productProfitReportRoute = createRoute({
   component: ProductProfitReportPage,
 });
 
+const employeeRegisterReportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reports/employees/register",
+  component: EmployeeRegisterReportPage,
+});
+
+const attendanceSummaryReportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reports/employees/attendance",
+  component: AttendanceSummaryReportPage,
+});
+
+const payrollRegisterReportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reports/employees/payroll",
+  component: PayrollRegisterReportPage,
+});
+
+const salaryPayableReportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reports/employees/salary-payable",
+  component: SalaryPayableReportPage,
+});
+
+const employeeAdvanceOutstandingReportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reports/employees/advance-outstanding",
+  component: EmployeeAdvanceOutstandingReportPage,
+});
+
+const laborCostSummaryReportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reports/employees/labor-cost",
+  component: LaborCostSummaryReportPage,
+});
+
 const systemImportsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/system/imports",
@@ -835,6 +918,12 @@ const routeTree = rootRoute.addChildren([
   expenseReportRoute,
   profitSummaryReportRoute,
   productProfitReportRoute,
+  employeeRegisterReportRoute,
+  attendanceSummaryReportRoute,
+  payrollRegisterReportRoute,
+  salaryPayableReportRoute,
+  employeeAdvanceOutstandingReportRoute,
+  laborCostSummaryReportRoute,
   systemImportsRoute,
   systemAuditLogsRoute,
   systemExportsRoute,
@@ -858,6 +947,11 @@ const routeTree = rootRoute.addChildren([
   supplierDetailRoute,
   employeesRoute,
   employeeAttendanceRoute,
+  employeeLeaveRoute,
+  employeeAdvancesRoute,
+  employeePayrollRoute,
+  employeePayrollNewRoute,
+  employeePayrollDetailRoute,
   employeeDetailRoute,
   customersRoute,
   newCustomerRoute,

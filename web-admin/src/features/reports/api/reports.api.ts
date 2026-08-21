@@ -418,6 +418,171 @@ export interface ProductProfitReport {
   pageSize: number;
 }
 
+
+/** Filters accepted by GET /reports/employees/register. */
+export interface EmployeeRegisterReportFilters {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** One row in the Employee Register. */
+export interface EmployeeRegisterReportRow {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  phone: string | null;
+  jobTitle: string | null;
+  department: string | null;
+  employmentType: string;
+  joinDate: string;
+  leaveDate: string | null;
+  isActive: boolean;
+  baseMonthlySalary: string;
+  salaryPayable: string;
+  advanceOutstanding: string;
+}
+
+/** Paginated Employee Register response. */
+export interface EmployeeRegisterReport {
+  items: EmployeeRegisterReportRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Filters accepted by GET /reports/employees/attendance. */
+export type AttendanceSummaryReportFilters = ReportDateRangeFilters;
+
+/** One employee's Attendance Summary counts. */
+export interface AttendanceSummaryReportRow {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  presentDays: number;
+  absentDays: number;
+  halfDays: number;
+  leaveDays: number;
+  holidayDays: number;
+  weeklyOffDays: number;
+  workedHours: string;
+}
+
+/** Attendance Summary response for one date range. */
+export interface AttendanceSummaryReport {
+  startDate: string;
+  endDate: string;
+  rows: AttendanceSummaryReportRow[];
+}
+
+/** Filters accepted by GET /reports/employees/payroll. */
+export type PayrollRegisterReportFilters = ReportDateRangeFilters;
+
+/** One immutable confirmed Payroll Item in the Payroll Register. */
+export interface PayrollRegisterReportRow {
+  payrollRunId: string;
+  payrollItemId: string;
+  payrollNumber: string;
+  periodStart: string;
+  periodEnd: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  jobTitle: string | null;
+  baseSalary: string;
+  grossSalary: string;
+  attendanceDeduction: string;
+  additionsAmount: string;
+  deductionsAmount: string;
+  advanceRecoveryAmount: string;
+  netSalary: string;
+}
+
+/** Payroll Register response for one date range. */
+export interface PayrollRegisterReport {
+  startDate: string;
+  endDate: string;
+  rows: PayrollRegisterReportRow[];
+}
+
+/** Filters accepted by GET /reports/employees/salary-payable. */
+export interface SalaryPayableReportFilters {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** One employee's current Salary Payable. */
+export interface SalaryPayableReportRow {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  jobTitle: string | null;
+  salaryDueAmount: string;
+  salaryPaidAmount: string;
+  salaryPayable: string;
+}
+
+/** Paginated current Salary Payable response. */
+export interface SalaryPayableReport {
+  items: SalaryPayableReportRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Filters accepted by GET /reports/employees/advance-outstanding. */
+export interface EmployeeAdvanceOutstandingReportFilters {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** One employee's current Employee Advance Outstanding. */
+export interface EmployeeAdvanceOutstandingReportRow {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  advanceOriginalAmount: string;
+  advanceRecoveredAmount: string;
+  advanceOutstanding: string;
+}
+
+/** Paginated current Employee Advance Outstanding response. */
+export interface EmployeeAdvanceOutstandingReport {
+  items: EmployeeAdvanceOutstandingReportRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Filters accepted by GET /reports/employees/labor-cost. */
+export type LaborCostSummaryReportFilters = ReportDateRangeFilters;
+
+/** One confirmed Payroll Run in the Labor Cost Summary. */
+export interface LaborCostSummaryReportRow {
+  payrollRunId: string;
+  payrollNumber: string;
+  periodStart: string;
+  periodEnd: string;
+  employeeCount: number;
+  netSalaryAmount: string;
+  advanceRecoveryAmount: string;
+  laborCostAmount: string;
+}
+
+/** Labor Cost Summary response for one date range. */
+export interface LaborCostSummaryReport {
+  startDate: string;
+  endDate: string;
+  payrollRunCount: number;
+  employeeCount: number;
+  netSalaryAmount: string;
+  advanceRecoveryAmount: string;
+  laborCostAmount: string;
+  rows: LaborCostSummaryReportRow[];
+}
+
 /** Adds one optional text value to a report query string. */
 function addTextFilter(
   params: URLSearchParams,
@@ -585,6 +750,24 @@ function buildProductProfitReportQuery(
   return createQueryString(params);
 }
 
+
+/** Builds a search/pagination query used by current Employee balance reports. */
+function buildEmployeeSearchReportQuery(
+  filters: { search?: string; page?: number; pageSize?: number },
+): string {
+  const params = new URLSearchParams();
+  addTextFilter(params, "search", filters.search);
+  addPagination(params, filters);
+  return createQueryString(params);
+}
+
+/** Builds one Employee date-range report query. */
+function buildEmployeeDateReportQuery(filters: ReportDateRangeFilters): string {
+  const params = new URLSearchParams();
+  addDateRange(params, filters);
+  return createQueryString(params);
+}
+
 /** Loads the read-only Sales Report. */
 export function loadSalesReport(
   filters: SalesReportFilters,
@@ -690,5 +873,59 @@ export function loadProductProfitReport(
 ): Promise<ApiSuccess<ProductProfitReport>> {
   return requestApi<ApiSuccess<ProductProfitReport>>(
     `/reports/product-profit${buildProductProfitReportQuery(filters)}`,
+  );
+}
+
+/** Loads the paginated Employee Register. */
+export function loadEmployeeRegisterReport(
+  filters: EmployeeRegisterReportFilters = {},
+): Promise<ApiSuccess<EmployeeRegisterReport>> {
+  return requestApi<ApiSuccess<EmployeeRegisterReport>>(
+    `/reports/employees/register${buildEmployeeSearchReportQuery(filters)}`,
+  );
+}
+
+/** Loads the Employee Attendance Summary. */
+export function loadAttendanceSummaryReport(
+  filters: AttendanceSummaryReportFilters,
+): Promise<ApiSuccess<AttendanceSummaryReport>> {
+  return requestApi<ApiSuccess<AttendanceSummaryReport>>(
+    `/reports/employees/attendance${buildEmployeeDateReportQuery(filters)}`,
+  );
+}
+
+/** Loads the confirmed Employee Payroll Register. */
+export function loadPayrollRegisterReport(
+  filters: PayrollRegisterReportFilters,
+): Promise<ApiSuccess<PayrollRegisterReport>> {
+  return requestApi<ApiSuccess<PayrollRegisterReport>>(
+    `/reports/employees/payroll${buildEmployeeDateReportQuery(filters)}`,
+  );
+}
+
+/** Loads the paginated current Employee Salary Payable report. */
+export function loadSalaryPayableReport(
+  filters: SalaryPayableReportFilters = {},
+): Promise<ApiSuccess<SalaryPayableReport>> {
+  return requestApi<ApiSuccess<SalaryPayableReport>>(
+    `/reports/employees/salary-payable${buildEmployeeSearchReportQuery(filters)}`,
+  );
+}
+
+/** Loads the paginated current Employee Advance Outstanding report. */
+export function loadEmployeeAdvanceOutstandingReport(
+  filters: EmployeeAdvanceOutstandingReportFilters = {},
+): Promise<ApiSuccess<EmployeeAdvanceOutstandingReport>> {
+  return requestApi<ApiSuccess<EmployeeAdvanceOutstandingReport>>(
+    `/reports/employees/advance-outstanding${buildEmployeeSearchReportQuery(filters)}`,
+  );
+}
+
+/** Loads the confirmed Employee Labor Cost Summary. */
+export function loadLaborCostSummaryReport(
+  filters: LaborCostSummaryReportFilters,
+): Promise<ApiSuccess<LaborCostSummaryReport>> {
+  return requestApi<ApiSuccess<LaborCostSummaryReport>>(
+    `/reports/employees/labor-cost${buildEmployeeDateReportQuery(filters)}`,
   );
 }

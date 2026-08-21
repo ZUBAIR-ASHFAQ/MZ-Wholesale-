@@ -53,6 +53,21 @@ function createOverview(
       netCostAmount: "0.00",
       grossProfitAmount: "0.00",
     },
+    employees: {
+      activeEmployeeCount: 0,
+      attendanceRecordedCount: 0,
+      presentCount: 0,
+      absentCount: 0,
+      halfDayCount: 0,
+      leaveCount: 0,
+      holidayCount: 0,
+      weeklyOffCount: 0,
+      currentMonthPayrollRunCount: 0,
+      currentMonthPayrollAmount: "0.00",
+      salaryPaidAmount: "0.00",
+      salaryPayableAmount: "0.00",
+      advanceOutstandingAmount: "0.00",
+    },
     recentSales: [],
     recentPurchases: [],
     lowStock: {
@@ -150,6 +165,21 @@ describe("DashboardPage", () => {
           netCostAmount: "1500.00",
           grossProfitAmount: "1000.00",
         },
+        employees: {
+          activeEmployeeCount: 4,
+          attendanceRecordedCount: 4,
+          presentCount: 3,
+          absentCount: 1,
+          halfDayCount: 0,
+          leaveCount: 0,
+          holidayCount: 0,
+          weeklyOffCount: 0,
+          currentMonthPayrollRunCount: 1,
+          currentMonthPayrollAmount: "4000.00",
+          salaryPaidAmount: "2500.00",
+          salaryPayableAmount: "1500.00",
+          advanceOutstandingAmount: "700.00",
+        },
         recentSales: [
           {
             id: "sale-1",
@@ -211,6 +241,11 @@ describe("DashboardPage", () => {
     expect(html).toContain("Low stock");
     expect(html).toContain("Out Of Stock Product");
     expect(html).toContain("Out of stock");
+    expect(html).toContain("4");
+    expect(html).toContain("3 present");
+    expect(html).toContain("PKR 4,000.00");
+    expect(html).toContain("PKR 1,500.00");
+    expect(html).toContain("PKR 700.00");
   });
 
   it("requests the default Dashboard overview without inventing a business date", () => {

@@ -15,6 +15,7 @@ const approvedBackendModules = [
   "business-settings",
   "customers",
   "dashboard",
+  "employees",
   "expenses",
   "inventory",
   "ledgers",
@@ -34,6 +35,7 @@ const approvedFrontendFeatures = [
   "business-settings",
   "customers",
   "dashboard",
+  "employees",
   "expenses",
   "inventory",
   "ledgers",
@@ -100,7 +102,7 @@ function expectedModuleFiles(moduleName: string): string[] {
   ].sort();
 }
 
-test("backend contains exactly the approved 15 business modules plus Production Operations", async () => {
+test("backend contains exactly the approved 16 business modules plus Production Operations", async () => {
   assert.deepEqual(
     await listDirectories(modulesRoot),
     [...approvedBackendModules].sort(),

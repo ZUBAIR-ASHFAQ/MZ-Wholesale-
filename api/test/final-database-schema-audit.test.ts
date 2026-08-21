@@ -34,6 +34,7 @@ test("database keeps the approved schema-file set", async () => {
     "auth.schema.ts",
     "business-settings.schema.ts",
     "customer.schema.ts",
+    "employee.schema.ts",
     "expense.schema.ts",
     "index.ts",
     "inventory.schema.ts",
@@ -210,8 +211,6 @@ test("database schema contains no excluded version-one business areas", async ()
     "warehouses",
     "roles",
     "permissions",
-    "payroll",
-    "attendance",
     "crm_leads",
     "cheques",
   ]) {
@@ -219,7 +218,7 @@ test("database schema contains no excluded version-one business areas", async ()
   }
 });
 
-test("migration journal and SQL files are complete through Module 15", async () => {
+test("migration journal and SQL files are complete through Employee Module 16", async () => {
   const sqlFiles = (await listNames(drizzleDirectory)).filter((name) =>
     /^\d{4}_.+\.sql$/.test(name),
   );
@@ -227,10 +226,10 @@ test("migration journal and SQL files are complete through Module 15", async () 
     entries: Array<{ idx: number; tag: string }>;
   };
 
-  assert.equal(sqlFiles.length, 20);
-  assert.equal(journal.entries.length, 20);
+  assert.equal(sqlFiles.length, 25);
+  assert.equal(journal.entries.length, 25);
 
-  for (let index = 0; index < 20; index += 1) {
+  for (let index = 0; index < 25; index += 1) {
     const prefix = String(index).padStart(4, "0");
     assert.equal(sqlFiles[index]?.startsWith(prefix), true);
     assert.equal(journal.entries[index]?.idx, index);
@@ -241,7 +240,7 @@ test("migration journal and SQL files are complete through Module 15", async () 
 test("migration documentation lists the complete current migration chain", async () => {
   const readme = await readSource(new URL("../drizzle/README.md", import.meta.url));
 
-  for (let index = 0; index < 20; index += 1) {
+  for (let index = 0; index < 25; index += 1) {
     const prefix = String(index).padStart(4, "0");
     assert.equal(readme.includes("`" + prefix + "_"), true);
   }

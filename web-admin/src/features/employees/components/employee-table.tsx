@@ -30,6 +30,8 @@ export function EmployeeTable({ employees }: EmployeeTableProps): React.JSX.Elem
             <th>Department</th>
             <th>Phone</th>
             <th>Base salary</th>
+            <th>Salary payable</th>
+            <th>Advance outstanding</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
@@ -43,6 +45,8 @@ export function EmployeeTable({ employees }: EmployeeTableProps): React.JSX.Elem
               <td>{displayValue(employee.department)}</td>
               <td>{displayValue(employee.phone)}</td>
               <td>{formatMoney(employee.baseMonthlySalary)}</td>
+              <td>{formatMoney(employee.salaryPayable ?? "0.00")}</td>
+              <td>{formatMoney(employee.advanceOutstanding ?? "0.00")}</td>
               <td><StatusBadge status={employee.isActive ? "ACTIVE" : "INACTIVE"} /></td>
               <td>
                 <Link

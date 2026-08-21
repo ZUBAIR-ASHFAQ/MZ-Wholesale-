@@ -58,6 +58,23 @@ export interface DashboardGrossProfitSummary {
   grossProfitAmount: string;
 }
 
+/** Employee Management totals displayed on the Dashboard. */
+export interface DashboardEmployeeSummary {
+  activeEmployeeCount: number;
+  attendanceRecordedCount: number;
+  presentCount: number;
+  absentCount: number;
+  halfDayCount: number;
+  leaveCount: number;
+  holidayCount: number;
+  weeklyOffCount: number;
+  currentMonthPayrollRunCount: number;
+  currentMonthPayrollAmount: string;
+  salaryPaidAmount: string;
+  salaryPayableAmount: string;
+  advanceOutstandingAmount: string;
+}
+
 /** One recent confirmed sale shown on the Dashboard. */
 export interface DashboardRecentSale {
   id: string;
@@ -107,6 +124,7 @@ export interface DashboardOverview {
   cashBank: DashboardCashBankSummary;
   expenses: DashboardExpenseSummary;
   estimatedGrossProfit: DashboardGrossProfitSummary;
+  employees: DashboardEmployeeSummary;
   recentSales: DashboardRecentSale[];
   recentPurchases: DashboardRecentPurchase[];
   lowStock: DashboardLowStockPage;

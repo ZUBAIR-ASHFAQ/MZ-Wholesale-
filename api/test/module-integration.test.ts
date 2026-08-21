@@ -1671,6 +1671,7 @@ test("all backend modules use only the approved five production files", async ()
     "products",
     "customers",
     "suppliers",
+    "employees",
     "inventory",
     "ledgers",
     "payments",
@@ -1722,13 +1723,14 @@ test("all backend modules use only the approved five production files", async ()
 });
 
 /** Verifies every frontend business feature keeps the approved api/components/hooks/pages layout. */
-test("all 15 frontend features keep the approved four-folder structure", async () => {
+test("all 16 frontend features keep the approved four-folder structure", async () => {
   const featureNames = [
     "auth",
     "business-settings",
     "products",
     "customers",
     "suppliers",
+    "employees",
     "inventory",
     "ledgers",
     "payments",

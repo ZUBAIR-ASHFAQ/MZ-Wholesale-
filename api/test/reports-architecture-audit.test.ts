@@ -55,7 +55,7 @@ test("routes stay thin and repository stays read-only", async () => {
     readSource(repositoryPath),
   ]);
 
-  assert.equal((routes.match(/app\.get\(/g) ?? []).length, 12);
+  assert.equal((routes.match(/app\.get\(/g) ?? []).length, 18);
   assert.equal(/app\.(post|put|patch|delete)\(/.test(routes), false);
   assert.equal(/\.select\(|\.execute\(/.test(routes), false);
   assert.equal(/\.(insert|update|delete)\(/.test(repository), false);

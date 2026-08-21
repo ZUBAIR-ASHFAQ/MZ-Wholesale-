@@ -1,14 +1,22 @@
-import { and, asc, count, desc, eq, gt, lte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, isNull, lte, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import {
+  attendanceRecords,
   cashBankMovements,
   customerLedgerEntries,
   customers,
+  employeeAdvanceRecoveries,
+  employeeAdvances,
+  employees,
   expenses,
   inventoryBalances,
   products,
   purchases,
+  payrollItems,
+  payrollRuns,
+  salaryPaymentAllocations,
+  salaryPayments,
   salesInvoiceItems,
   salesInvoices,
   salesReturnItems,
@@ -516,3 +524,126 @@ export async function getDashboardEstimatedGrossProfit(
   };
 }
 
+/** Contains Employee Management values displayed on the Dashboard overview. */
+export interface DashboardEmployeeSummary {
+  activeEmployeeCount: number;
+  attendanceRecordedCount: number;
+  presentCount: number;
+  absentCount: number;
+  halfDayCount: number;
+  leaveCount: number;
+  holidayCount: number;
+  weeklyOffCount: number;
+  currentMonthPayrollRunCount: number;
+  currentMonthPayrollAmount: string;
+  salaryPaidAmount: string;
+  salaryPayableAmount: string;
+  advanceOutstandingAmount: string;
+}
+
+/** Reads current Employee Management Dashboard metrics from immutable source records. */
+export async function getDashboardEmployeeSummary(
+  database: DashboardDatabase,
+  businessDate: string,
+): Promise<DashboardEmployeeSummary> {
+  const monthStart = `${businessDate.slice(0, 7)}-01`;
+  const [
+    activeRows,
+    attendanceRows,
+    payrollRows,
+    salaryDueRows,
+    salaryPaidRows,
+    advanceRows,
+    recoveryRows,
+  ] = await Promise.all([
+    database
+      .select({ total: count(employees.id) })
+      .from(employees)
+      .where(eq(employees.isActive, true)),
+    database
+      .select({
+        recordedCount: count(attendanceRecords.id),
+        presentCount: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'PRESENT')::int`,
+        absentCount: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'ABSENT')::int`,
+        halfDayCount: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'HALF_DAY')::int`,
+        leaveCount: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'LEAVE')::int`,
+        holidayCount: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'HOLIDAY')::int`,
+        weeklyOffCount: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'WEEKLY_OFF')::int`,
+      })
+      .from(attendanceRecords)
+      .where(eq(attendanceRecords.attendanceDate, businessDate)),
+    database
+      .select({
+        payrollRunCount: count(payrollRuns.id),
+        netAmount: sql<string>`coalesce(sum(${payrollRuns.netTotal}), 0)::text`,
+      })
+      .from(payrollRuns)
+      .where(
+        and(
+          eq(payrollRuns.status, "CONFIRMED"),
+          gte(payrollRuns.periodEnd, monthStart),
+          lte(payrollRuns.periodEnd, businessDate),
+        ),
+      ),
+    database
+      .select({
+        amount: sql<string>`coalesce(sum(${payrollItems.initialDueAmount}), 0)::text`,
+      })
+      .from(payrollItems)
+      .innerJoin(payrollRuns, eq(payrollRuns.id, payrollItems.payrollRunId))
+      .where(eq(payrollRuns.status, "CONFIRMED")),
+    database
+      .select({
+        currentPaidAmount: sql<string>`coalesce(sum(${salaryPaymentAllocations.amount}), 0)::text`,
+        monthPaidAmount: sql<string>`coalesce(sum(${salaryPaymentAllocations.amount}) filter (where ${salaryPayments.paymentDate} >= ${monthStart} and ${salaryPayments.paymentDate} <= ${businessDate}), 0)::text`,
+      })
+      .from(salaryPaymentAllocations)
+      .innerJoin(
+        salaryPayments,
+        eq(salaryPayments.id, salaryPaymentAllocations.salaryPaymentId),
+      )
+      .where(
+        and(
+          eq(salaryPayments.status, "CONFIRMED"),
+          isNull(salaryPayments.reversalOfPaymentId),
+        ),
+      ),
+    database
+      .select({
+        amount: sql<string>`coalesce(sum(${employeeAdvances.originalAmount}), 0)::text`,
+      })
+      .from(employeeAdvances),
+    database
+      .select({
+        amount: sql<string>`coalesce(sum(${employeeAdvanceRecoveries.amount}), 0)::text`,
+      })
+      .from(employeeAdvanceRecoveries),
+  ]);
+
+  const salaryPayableCents =
+    dashboardMoneyToCents(salaryDueRows[0]?.amount ?? "0.00") -
+    dashboardMoneyToCents(salaryPaidRows[0]?.currentPaidAmount ?? "0.00");
+  const advanceOutstandingCents =
+    dashboardMoneyToCents(advanceRows[0]?.amount ?? "0.00") -
+    dashboardMoneyToCents(recoveryRows[0]?.amount ?? "0.00");
+
+  return {
+    activeEmployeeCount: Number(activeRows[0]?.total ?? 0),
+    attendanceRecordedCount: Number(attendanceRows[0]?.recordedCount ?? 0),
+    presentCount: Number(attendanceRows[0]?.presentCount ?? 0),
+    absentCount: Number(attendanceRows[0]?.absentCount ?? 0),
+    halfDayCount: Number(attendanceRows[0]?.halfDayCount ?? 0),
+    leaveCount: Number(attendanceRows[0]?.leaveCount ?? 0),
+    holidayCount: Number(attendanceRows[0]?.holidayCount ?? 0),
+    weeklyOffCount: Number(attendanceRows[0]?.weeklyOffCount ?? 0),
+    currentMonthPayrollRunCount: Number(payrollRows[0]?.payrollRunCount ?? 0),
+    currentMonthPayrollAmount: dashboardCentsToMoney(
+      dashboardMoneyToCents(payrollRows[0]?.netAmount ?? "0.00"),
+    ),
+    salaryPaidAmount: dashboardCentsToMoney(
+      dashboardMoneyToCents(salaryPaidRows[0]?.monthPaidAmount ?? "0.00"),
+    ),
+    salaryPayableAmount: dashboardCentsToMoney(salaryPayableCents),
+    advanceOutstandingAmount: dashboardCentsToMoney(advanceOutstandingCents),
+  };
+}

@@ -3270,3 +3270,76 @@ h3 {
     flex-direction: column;
   }
 }
+
+/* Payroll completion keeps draft/detail full-page and salary payment popups within Employee UX rules. */
+.payroll-draft-form,
+.payroll-summary-card,
+.payroll-period-card,
+.payroll-items-card,
+.payroll-payments-card {
+  margin-top: 24px;
+}
+
+.payroll-list-table {
+  min-width: 1120px;
+}
+
+.payroll-summary-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.payroll-summary-grid > div {
+  display: grid;
+  gap: 6px;
+}
+
+.payroll-summary-grid span {
+  color: var(--erp-ink-600);
+  font-size: 0.85rem;
+}
+
+.payroll-items-table {
+  min-width: 1680px;
+}
+
+.payroll-items-table input {
+  min-width: 120px;
+}
+
+.payroll-adjustment-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.salary-payment-form .payment-split-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.salary-payment-form .payment-split-remove {
+  align-self: end;
+}
+
+.ui-dialog:has(.salary-payment-detail) {
+  width: min(980px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  overflow-x: hidden;
+}
+
+.salary-payment-detail {
+  display: grid;
+  gap: 20px;
+}
+
+.salary-payment-reversal {
+  display: grid;
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .payroll-summary-grid,
+  .salary-payment-form .payment-split-row {
+    grid-template-columns: 1fr;
+  }
+}

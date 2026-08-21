@@ -7,6 +7,7 @@ import {
   getDashboardCustomerOutstandingSummary,
   getDashboardEstimatedGrossProfit,
   getDashboardExpenseSummary,
+  getDashboardEmployeeSummary,
   getDashboardInventorySummary,
   getDashboardLowStock as readDashboardLowStock,
   getDashboardPurchaseSummary,
@@ -17,6 +18,7 @@ import {
   type DashboardCashBankSummary,
   type DashboardCustomerOutstandingSummary,
   type DashboardDatabase,
+  type DashboardEmployeeSummary,
   type DashboardExpenseSummary,
   type DashboardGrossProfitSummary,
   type DashboardInventorySummary,
@@ -41,6 +43,7 @@ export interface DashboardOverviewResult {
   cashBank: DashboardCashBankSummary;
   expenses: DashboardExpenseSummary;
   estimatedGrossProfit: DashboardGrossProfitSummary;
+  employees: DashboardEmployeeSummary;
   recentSales: DashboardRecentSale[];
   recentPurchases: DashboardRecentPurchase[];
   lowStock: DashboardLowStockPage;
@@ -82,6 +85,7 @@ export async function getDashboardOverview(
     cashBank,
     expenses,
     estimatedGrossProfit,
+    employees,
     recentSales,
     recentPurchases,
     lowStock,
@@ -94,6 +98,7 @@ export async function getDashboardOverview(
     getDashboardCashBankSummary(database),
     getDashboardExpenseSummary(database, businessDate),
     getDashboardEstimatedGrossProfit(database, businessDate),
+    getDashboardEmployeeSummary(database, businessDate),
     getDashboardRecentSales(database, businessDate, DASHBOARD_RECENT_RECORD_LIMIT),
     getDashboardRecentPurchases(
       database,
@@ -113,6 +118,7 @@ export async function getDashboardOverview(
     cashBank,
     expenses,
     estimatedGrossProfit,
+    employees,
     recentSales,
     recentPurchases,
     lowStock,

@@ -60,6 +60,45 @@ export function DashboardSummaryCards({
         <strong>{money(overview.estimatedGrossProfit.grossProfitAmount)}</strong>
         <small>Based on sale cost snapshots</small>
       </article>
+
+
+      <article className="summary-card">
+        <span>Active employees</span>
+        <strong>{overview.employees.activeEmployeeCount}</strong>
+        <small>Current active employee master records</small>
+      </article>
+
+      <article className="summary-card">
+        <span>Today's attendance</span>
+        <strong>{overview.employees.presentCount} present</strong>
+        <small>
+          {overview.employees.attendanceRecordedCount} recorded · {overview.employees.absentCount} absent · {overview.employees.halfDayCount} half day
+        </small>
+      </article>
+
+      <article className="summary-card">
+        <span>Current-month payroll</span>
+        <strong>{money(overview.employees.currentMonthPayrollAmount)}</strong>
+        <small>{overview.employees.currentMonthPayrollRunCount} confirmed payroll runs</small>
+      </article>
+
+      <article className="summary-card">
+        <span>Salary paid</span>
+        <strong>{money(overview.employees.salaryPaidAmount)}</strong>
+        <small>Current month, excluding reversed payments</small>
+      </article>
+
+      <article className="summary-card">
+        <span>Salary payable</span>
+        <strong>{money(overview.employees.salaryPayableAmount)}</strong>
+        <small>Current confirmed salary due</small>
+      </article>
+
+      <article className="summary-card">
+        <span>Advance outstanding</span>
+        <strong>{money(overview.employees.advanceOutstandingAmount)}</strong>
+        <small>Current employee advance balance</small>
+      </article>
     </div>
   );
 }

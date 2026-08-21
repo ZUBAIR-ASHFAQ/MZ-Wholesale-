@@ -20,13 +20,13 @@ async function readSource(path: URL): Promise<string> {
   return readFile(path, "utf8");
 }
 
-test("reports remain read-only and expose exactly twelve GET endpoints", async () => {
+test("reports remain read-only and expose exactly eighteen GET endpoints", async () => {
   const [repository, routes] = await Promise.all([
     readSource(repositoryPath),
     readSource(routesPath),
   ]);
 
-  assert.equal((routes.match(/app\.get\(/g) ?? []).length, 12);
+  assert.equal((routes.match(/app\.get\(/g) ?? []).length, 18);
   assert.equal(/app\.(post|put|patch|delete)\(/.test(routes), false);
   assert.equal(/\.(insert|update|delete)\(/.test(repository), false);
 });

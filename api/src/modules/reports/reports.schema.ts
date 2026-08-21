@@ -172,6 +172,61 @@ export const productProfitReportQuerySchema = z
   .strict()
   .superRefine(validateDateRange);
 
+
+/** Validates search and pagination for the Employee Register. */
+export const employeeRegisterReportQuerySchema = z
+  .object({
+    search: searchSchema.optional(),
+    page: pageSchema,
+    pageSize: pageSizeSchema,
+  })
+  .strict();
+
+/** Validates the date range used by the Attendance Summary. */
+export const attendanceSummaryReportQuerySchema = z
+  .object({
+    startDate: dateSchema,
+    endDate: dateSchema,
+  })
+  .strict()
+  .superRefine(validateDateRange);
+
+/** Validates the date range used by the confirmed Payroll Register. */
+export const payrollRegisterReportQuerySchema = z
+  .object({
+    startDate: dateSchema,
+    endDate: dateSchema,
+  })
+  .strict()
+  .superRefine(validateDateRange);
+
+/** Validates search and pagination for current Salary Payable. */
+export const salaryPayableReportQuerySchema = z
+  .object({
+    search: searchSchema.optional(),
+    page: pageSchema,
+    pageSize: pageSizeSchema,
+  })
+  .strict();
+
+/** Validates search and pagination for Employee Advance Outstanding. */
+export const employeeAdvanceOutstandingReportQuerySchema = z
+  .object({
+    search: searchSchema.optional(),
+    page: pageSchema,
+    pageSize: pageSizeSchema,
+  })
+  .strict();
+
+/** Validates the date range used by the Labor Cost Summary. */
+export const laborCostSummaryReportQuerySchema = z
+  .object({
+    startDate: dateSchema,
+    endDate: dateSchema,
+  })
+  .strict()
+  .superRefine(validateDateRange);
+
 export type SalesReportQuery = z.infer<typeof salesReportQuerySchema>;
 export type PurchasesReportQuery = z.infer<typeof purchasesReportQuerySchema>;
 export type InventoryReportQuery = z.infer<typeof inventoryReportQuerySchema>;
@@ -197,4 +252,22 @@ export type ProfitSummaryReportQuery = z.infer<
 >;
 export type ProductProfitReportQuery = z.infer<
   typeof productProfitReportQuerySchema
+>;
+export type EmployeeRegisterReportQuery = z.infer<
+  typeof employeeRegisterReportQuerySchema
+>;
+export type AttendanceSummaryReportQuery = z.infer<
+  typeof attendanceSummaryReportQuerySchema
+>;
+export type PayrollRegisterReportQuery = z.infer<
+  typeof payrollRegisterReportQuerySchema
+>;
+export type SalaryPayableReportQuery = z.infer<
+  typeof salaryPayableReportQuerySchema
+>;
+export type EmployeeAdvanceOutstandingReportQuery = z.infer<
+  typeof employeeAdvanceOutstandingReportQuerySchema
+>;
+export type LaborCostSummaryReportQuery = z.infer<
+  typeof laborCostSummaryReportQuerySchema
 >;

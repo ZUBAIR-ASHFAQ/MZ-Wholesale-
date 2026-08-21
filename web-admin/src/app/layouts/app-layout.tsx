@@ -222,6 +222,15 @@ export function AppLayout({
                 <Link className={linkClass(currentPath === "/employees/attendance")} to="/employees/attendance">
                   Attendance
                 </Link>
+                <Link className={linkClass(currentPath === "/employees/leave")} to="/employees/leave">
+                  Leave
+                </Link>
+                <Link className={linkClass(currentPath === "/employees/advances")} to="/employees/advances">
+                  Advances
+                </Link>
+                <Link className={linkClass(currentPath.startsWith("/employees/payroll"))} to="/employees/payroll">
+                  Payroll
+                </Link>
               </div>
             </details>
           </div>
@@ -345,6 +354,24 @@ export function AppLayout({
                 </Link>
                 <Link className={linkClass(currentPath === "/reports/product-profit")} to="/reports/product-profit">
                   Product profit
+                </Link>
+                <Link className={linkClass(currentPath === "/reports/employees/register")} to="/reports/employees/register">
+                  Employee register
+                </Link>
+                <Link className={linkClass(currentPath === "/reports/employees/attendance")} to="/reports/employees/attendance">
+                  Attendance summary
+                </Link>
+                <Link className={linkClass(currentPath === "/reports/employees/payroll")} to="/reports/employees/payroll">
+                  Payroll register
+                </Link>
+                <Link className={linkClass(currentPath === "/reports/employees/salary-payable")} to="/reports/employees/salary-payable">
+                  Salary payable
+                </Link>
+                <Link className={linkClass(currentPath === "/reports/employees/advance-outstanding")} to="/reports/employees/advance-outstanding">
+                  Employee advance outstanding
+                </Link>
+                <Link className={linkClass(currentPath === "/reports/employees/labor-cost")} to="/reports/employees/labor-cost">
+                  Labor cost summary
                 </Link>
               </div>
             </details>

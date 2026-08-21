@@ -58,6 +58,8 @@ export function EmployeeDetailPage({ employeeId }: EmployeeDetailPageProps): Rea
             <div><dt>Join date</dt><dd>{formatBusinessDate(employee.joinDate)}</dd></div>
             <div><dt>Leave date</dt><dd>{formatBusinessDate(employee.leaveDate)}</dd></div>
             <div><dt>Base monthly salary</dt><dd>{formatMoney(employee.baseMonthlySalary)}</dd></div>
+            <div><dt>Salary payable</dt><dd>{formatMoney(employee.salaryPayable ?? "0.00")}</dd></div>
+            <div><dt>Advance outstanding</dt><dd>{formatMoney(employee.advanceOutstanding ?? "0.00")}</dd></div>
           </dl>
         </section>
 
