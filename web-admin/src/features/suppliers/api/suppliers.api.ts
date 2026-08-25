@@ -55,6 +55,7 @@ export interface SupplierProfile {
 /** Filters accepted by GET /suppliers. */
 export interface SupplierListFilters {
   search?: string;
+  namePrefix?: string;
   active?: boolean;
   page?: number;
   pageSize?: number;
@@ -122,6 +123,7 @@ function buildSupplierListQuery(filters: SupplierListFilters): string {
   const params = new URLSearchParams();
 
   addTextFilter(params, "search", filters.search);
+  addTextFilter(params, "namePrefix", filters.namePrefix);
 
   if (filters.active !== undefined) {
     params.set("active", String(filters.active));

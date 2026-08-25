@@ -56,6 +56,7 @@ export interface CustomerProfile {
 /** Filters accepted by GET /customers. */
 export interface CustomerListFilters {
   search?: string;
+  namePrefix?: string;
   active?: boolean;
   page?: number;
   pageSize?: number;
@@ -125,6 +126,7 @@ function buildCustomerListQuery(filters: CustomerListFilters): string {
   const params = new URLSearchParams();
 
   addTextFilter(params, "search", filters.search);
+  addTextFilter(params, "namePrefix", filters.namePrefix);
 
   if (filters.active !== undefined) {
     params.set("active", String(filters.active));

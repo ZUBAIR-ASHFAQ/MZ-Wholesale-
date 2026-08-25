@@ -69,6 +69,10 @@ function buildCustomerFilters(query: ListCustomersQuery): SQL[] {
     filters.push(eq(customers.isActive, query.active));
   }
 
+  if (query.namePrefix) {
+    filters.push(ilike(customers.name, `${query.namePrefix}%`));
+  }
+
   if (query.search) {
     const searchPattern = `%${query.search}%`;
     const searchFilter = or(

@@ -18,6 +18,9 @@ type PurchaseStatusFilter = PurchaseStatus | "ALL";
 export function PurchaseListPage(): React.JSX.Element {
   const navigate = useNavigate();
   const [supplierId, setSupplierId] = useState("");
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [selectedSupplierLabel, setSelectedSupplierLabel] = useState("");
+  const [supplierMenuOpen, setSupplierMenuOpen] = useState(false);
   const [status, setStatus] = useState<PurchaseStatusFilter>("ALL");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -27,21 +30,81 @@ export function PurchaseListPage(): React.JSX.Element {
   });
 
   const suppliersQuery = useSuppliers({ page: 1, pageSize: 100 });
+  const supplierOptionsQuery = useSuppliers({
+    namePrefix: supplierId ? undefined : supplierSearch || undefined,
+    page: 1,
+    pageSize: 100,
+  });
   const purchasesQuery = usePurchases(appliedFilters);
   const suppliers = suppliersQuery.data?.data.items ?? [];
+  const supplierOptions = supplierOptionsQuery.data?.data.items ?? [];
   const result = purchasesQuery.data?.data;
   const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / pageSize));
 
-  const supplierNames = useMemo(
-    () =>
-      new Map(
-        suppliers.map((supplier) => [
-          supplier.id,
-          `${supplier.code} - ${supplier.name}`,
-        ]),
-      ),
-    [suppliers],
-  );
+  const supplierNames = useMemo(() => {
+    const names = new Map(
+      suppliers.map((supplier) => [
+        supplier.id,
+        `${supplier.code} - ${supplier.name}`,
+      ]),
+    );
+
+    if (supplierId && selectedSupplierLabel) {
+      names.set(supplierId, selectedSupplierLabel);
+    }
+
+    return names;
+  }, [selectedSupplierLabel, supplierId, suppliers]);
+
+  /** Updates the typed supplier-name prefix and clears any previous selection. */
+  function changeSupplierSearch(value: string): void {
+    setSupplierSearch(value);
+    setSupplierId("");
+    setSelectedSupplierLabel("");
+    setSupplierMenuOpen(true);
+  }
+
+  /** Selects one supplier from the searchable dropdown. */
+  function selectSupplier(supplierIdValue: string, label: string): void {
+    setSupplierId(supplierIdValue);
+    setSupplierSearch(label);
+    setSelectedSupplierLabel(label);
+    setSupplierMenuOpen(false);
+  }
+
+  /** Clears only the supplier selection while keeping the dropdown available. */
+  function selectAllSuppliers(): void {
+    setSupplierId("");
+    setSupplierSearch("");
+    setSelectedSupplierLabel("");
+    setSupplierMenuOpen(false);
+  }
+
+  /** Handles the minimal keyboard behavior expected from the supplier combobox. */
+  function handleSupplierKeyDown(
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ): void {
+    if (event.key === "Escape") {
+      setSupplierMenuOpen(false);
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSupplierMenuOpen(true);
+    }
+  }
+
+  /** Closes the supplier dropdown only when focus leaves the whole combobox. */
+  function handleSupplierBlur(event: React.FocusEvent<HTMLDivElement>): void {
+    const nextTarget = event.relatedTarget;
+
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setSupplierMenuOpen(false);
+  }
 
   /** Opens the Purchase create form. */
   function openNewPurchase(): void {
@@ -63,6 +126,9 @@ export function PurchaseListPage(): React.JSX.Element {
   /** Clears every Purchase filter and returns to the first page. */
   function clearFilters(): void {
     setSupplierId("");
+    setSupplierSearch("");
+    setSelectedSupplierLabel("");
+    setSupplierMenuOpen(false);
     setStatus("ALL");
     setStartDate("");
     setEndDate("");
@@ -87,21 +153,69 @@ export function PurchaseListPage(): React.JSX.Element {
 
       <section className="management-card">
         <div className="payment-filter-grid">
-          <label className="ui-field">
+          <div className="ui-field">
             <span>Supplier</span>
-            <select
-              disabled={suppliersQuery.isPending}
-              value={supplierId}
-              onChange={(event) => setSupplierId(event.target.value)}
+            <div
+              className="purchase-supplier-combobox"
+              onBlur={handleSupplierBlur}
             >
-              <option value="">All suppliers</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.code} - {supplier.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <input
+                aria-autocomplete="list"
+                aria-expanded={supplierMenuOpen}
+                aria-haspopup="listbox"
+                autoComplete="off"
+                disabled={suppliersQuery.isPending}
+                placeholder="All suppliers"
+                role="combobox"
+                value={supplierSearch}
+                onChange={(event) => changeSupplierSearch(event.target.value)}
+                onClick={() => setSupplierMenuOpen(true)}
+                onFocus={(event) => {
+                  setSupplierMenuOpen(true);
+
+                  if (supplierId) {
+                    event.currentTarget.select();
+                  }
+                }}
+                onKeyDown={handleSupplierKeyDown}
+              />
+
+              {supplierMenuOpen ? (
+                <div className="purchase-supplier-options" role="listbox">
+                  <button
+                    className="purchase-supplier-option"
+                    type="button"
+                    onClick={selectAllSuppliers}
+                  >
+                    All suppliers
+                  </button>
+
+                  {supplierOptions.map((supplier) => {
+                    const label = `${supplier.code} - ${supplier.name}`;
+
+                    return (
+                      <button
+                        className="purchase-supplier-option"
+                        aria-selected={supplier.id === supplierId}
+                        key={supplier.id}
+                        role="option"
+                        type="button"
+                        onClick={() => selectSupplier(supplier.id, label)}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+
+                  {supplierSearch &&
+                  !supplierOptionsQuery.isPending &&
+                  supplierOptions.length === 0 ? (
+                    <p className="purchase-supplier-empty">No suppliers found.</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
 
           <label className="ui-field">
             <span>Status</span>

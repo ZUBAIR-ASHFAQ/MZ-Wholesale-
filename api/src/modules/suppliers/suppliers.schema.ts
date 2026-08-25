@@ -57,6 +57,7 @@ function hasAtLeastOneField(input: Record<string, unknown>): boolean {
 export const listSuppliersQuerySchema = z
   .object({
     search: z.string().trim().max(200).optional(),
+    namePrefix: z.string().trim().max(160).optional(),
     active: z
       .enum(["true", "false"])
       .transform(parseBooleanQueryValue)

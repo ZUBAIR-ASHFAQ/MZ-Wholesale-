@@ -65,6 +65,10 @@ function buildSupplierFilters(query: ListSuppliersQuery): SQL[] {
     filters.push(eq(suppliers.isActive, query.active));
   }
 
+  if (query.namePrefix) {
+    filters.push(ilike(suppliers.name, `${query.namePrefix}%`));
+  }
+
   if (query.search) {
     const searchPattern = `%${query.search}%`;
     const searchFilter = or(

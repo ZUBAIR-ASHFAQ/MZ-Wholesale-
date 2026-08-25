@@ -12,6 +12,9 @@ const pageSize = 20;
 /** Shows the filtered and paginated Sales Return list. */
 export function SalesReturnListPage(): React.JSX.Element {
   const [customerId, setCustomerId] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [selectedCustomerLabel, setSelectedCustomerLabel] = useState("");
+  const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [appliedFilters, setAppliedFilters] = useState<SalesReturnListFilters>({
@@ -20,21 +23,81 @@ export function SalesReturnListPage(): React.JSX.Element {
   });
 
   const customersQuery = useCustomers({ page: 1, pageSize: 100 });
+  const customerOptionsQuery = useCustomers({
+    namePrefix: customerId ? undefined : customerSearch || undefined,
+    page: 1,
+    pageSize: 100,
+  });
   const salesReturnsQuery = useSalesReturns(appliedFilters);
   const customers = customersQuery.data?.data.items ?? [];
+  const customerOptions = customerOptionsQuery.data?.data.items ?? [];
   const result = salesReturnsQuery.data?.data;
   const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / pageSize));
 
-  const customerNames = useMemo(
-    () =>
-      new Map(
-        customers.map((customer) => [
-          customer.id,
-          `${customer.code} - ${customer.name}`,
-        ]),
-      ),
-    [customers],
-  );
+  const customerNames = useMemo(() => {
+    const names = new Map(
+      customers.map((customer) => [
+        customer.id,
+        `${customer.code} - ${customer.name}`,
+      ]),
+    );
+
+    if (customerId && selectedCustomerLabel) {
+      names.set(customerId, selectedCustomerLabel);
+    }
+
+    return names;
+  }, [customerId, customers, selectedCustomerLabel]);
+
+  /** Updates the typed customer-name prefix and clears any previous selection. */
+  function changeCustomerSearch(value: string): void {
+    setCustomerSearch(value);
+    setCustomerId("");
+    setSelectedCustomerLabel("");
+    setCustomerMenuOpen(true);
+  }
+
+  /** Selects one customer from the searchable dropdown. */
+  function selectCustomer(customerIdValue: string, label: string): void {
+    setCustomerId(customerIdValue);
+    setCustomerSearch(label);
+    setSelectedCustomerLabel(label);
+    setCustomerMenuOpen(false);
+  }
+
+  /** Clears only the customer selection while keeping the dropdown available. */
+  function selectAllCustomers(): void {
+    setCustomerId("");
+    setCustomerSearch("");
+    setSelectedCustomerLabel("");
+    setCustomerMenuOpen(false);
+  }
+
+  /** Handles the minimal keyboard behavior expected from the customer combobox. */
+  function handleCustomerKeyDown(
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ): void {
+    if (event.key === "Escape") {
+      setCustomerMenuOpen(false);
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setCustomerMenuOpen(true);
+    }
+  }
+
+  /** Closes the customer dropdown only when focus leaves the whole combobox. */
+  function handleCustomerBlur(event: React.FocusEvent<HTMLDivElement>): void {
+    const nextTarget = event.relatedTarget;
+
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setCustomerMenuOpen(false);
+  }
 
   /** Applies the visible Sales Return filters and returns to the first page. */
   function applyFilters(): void {
@@ -50,6 +113,9 @@ export function SalesReturnListPage(): React.JSX.Element {
   /** Clears every Sales Return filter and returns to the first page. */
   function clearFilters(): void {
     setCustomerId("");
+    setCustomerSearch("");
+    setSelectedCustomerLabel("");
+    setCustomerMenuOpen(false);
     setStartDate("");
     setEndDate("");
     setAppliedFilters({ page: 1, pageSize });
@@ -80,21 +146,69 @@ export function SalesReturnListPage(): React.JSX.Element {
 
       <section className="management-card">
         <div className="payment-filter-grid">
-          <label className="ui-field">
+          <div className="ui-field">
             <span>Customer</span>
-            <select
-              disabled={customersQuery.isPending}
-              value={customerId}
-              onChange={(event) => setCustomerId(event.target.value)}
+            <div
+              className="sale-customer-combobox"
+              onBlur={handleCustomerBlur}
             >
-              <option value="">All customers</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.code} - {customer.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <input
+                aria-autocomplete="list"
+                aria-expanded={customerMenuOpen}
+                aria-haspopup="listbox"
+                autoComplete="off"
+                disabled={customersQuery.isPending}
+                placeholder="All customers"
+                role="combobox"
+                value={customerSearch}
+                onChange={(event) => changeCustomerSearch(event.target.value)}
+                onClick={() => setCustomerMenuOpen(true)}
+                onFocus={(event) => {
+                  setCustomerMenuOpen(true);
+
+                  if (customerId) {
+                    event.currentTarget.select();
+                  }
+                }}
+                onKeyDown={handleCustomerKeyDown}
+              />
+
+              {customerMenuOpen ? (
+                <div className="sale-customer-options" role="listbox">
+                  <button
+                    className="sale-customer-option"
+                    type="button"
+                    onClick={selectAllCustomers}
+                  >
+                    All customers
+                  </button>
+
+                  {customerOptions.map((customer) => {
+                    const label = `${customer.code} - ${customer.name}`;
+
+                    return (
+                      <button
+                        className="sale-customer-option"
+                        aria-selected={customer.id === customerId}
+                        key={customer.id}
+                        role="option"
+                        type="button"
+                        onClick={() => selectCustomer(customer.id, label)}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+
+                  {customerSearch &&
+                  !customerOptionsQuery.isPending &&
+                  customerOptions.length === 0 ? (
+                    <p className="sale-customer-empty">No customers found.</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
 
           <label className="ui-field">
             <span>Start date</span>

@@ -1098,6 +1098,69 @@ input {
   padding: 0.6rem 0.75rem;
 }
 
+/* Keeps the Sales customer filter visually aligned with the existing select while allowing typing in the same field. */
+.sale-customer-combobox {
+  position: relative;
+}
+
+.sale-customer-combobox::after {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 0;
+  height: 0;
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+  border-top: 5px solid #475569;
+  content: "";
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.ui-field .sale-customer-combobox > input {
+  min-height: 2.75rem;
+  padding: 0.6rem 2rem 0.6rem 0.75rem;
+}
+
+.sale-customer-options {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgb(15 23 42 / 12%);
+}
+
+.sale-customer-option {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 0;
+  background: #ffffff;
+  color: var(--erp-ink-950);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+}
+
+.sale-customer-option:hover,
+.sale-customer-option:focus-visible {
+  background: var(--erp-surface-3);
+  outline: none;
+}
+
+.sale-customer-empty {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  color: var(--erp-ink-600);
+  font-size: 12px;
+}
+
 .table-scroll {
   overflow-x: auto;
   width: 100%;
@@ -3346,4 +3409,67 @@ h3 {
   .salary-payment-form .payment-split-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* Keeps the Purchase supplier filter visually aligned with the existing select while allowing typing in the same field. */
+.purchase-supplier-combobox {
+  position: relative;
+}
+
+.purchase-supplier-combobox::after {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 0;
+  height: 0;
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+  border-top: 5px solid #475569;
+  content: "";
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.ui-field .purchase-supplier-combobox > input {
+  min-height: 2.75rem;
+  padding: 0.6rem 2rem 0.6rem 0.75rem;
+}
+
+.purchase-supplier-options {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgb(15 23 42 / 12%);
+}
+
+.purchase-supplier-option {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 0;
+  background: #ffffff;
+  color: var(--erp-ink-950);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+}
+
+.purchase-supplier-option:hover,
+.purchase-supplier-option:focus-visible {
+  background: var(--erp-surface-3);
+  outline: none;
+}
+
+.purchase-supplier-empty {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  color: var(--erp-ink-600);
+  font-size: 12px;
 }
