@@ -106,6 +106,10 @@ export const employees = pgTable(
       sql`${table.leaveDate} is null or ${table.leaveDate} >= ${table.joinDate}`,
     ),
     check(
+      "employees_active_leave_date_check",
+      sql`${table.isActive} = false or ${table.leaveDate} is null`,
+    ),
+    check(
       "employees_reference_id_not_blank_check",
       sql`${table.referenceId} is null or length(trim(${table.referenceId})) > 0`,
     ),
@@ -213,6 +217,10 @@ export const employeeLeaves = pgTable(
       table.toDate,
     ),
     check("employee_leaves_days_positive_check", sql`${table.days} > 0`),
+    check(
+      "employee_leaves_days_match_range_check",
+      sql`${table.days} = (${table.toDate} - ${table.fromDate} + 1)`,
+    ),
     check(
       "employee_leaves_date_range_check",
       sql`${table.toDate} >= ${table.fromDate}`,

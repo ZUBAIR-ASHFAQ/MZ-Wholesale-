@@ -62,9 +62,6 @@ export function InventoryListPage(): React.JSX.Element {
           <p>Review sellable, damaged, and expired stock in base units.</p>
         </div>
         <div className="form-actions">
-          <Link className="secondary-link" to="/inventory/counts">
-            Stock counts
-          </Link>
           <Button label="Opening stock" onClick={() => setOpeningStockOpen(true)} />
           <Link className="primary-link" to="/inventory/adjustments">
             New adjustment

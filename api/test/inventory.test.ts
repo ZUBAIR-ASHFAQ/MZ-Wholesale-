@@ -25,14 +25,6 @@ const inventoryRoutesPath = new URL(
   import.meta.url,
 );
 
-const stockCountDetailPagePath = new URL(
-  "../../web-admin/src/features/inventory/pages/stock-count-detail-page.tsx",
-  import.meta.url,
-);
-const stockCountItemsTablePath = new URL(
-  "../../web-admin/src/features/inventory/components/stock-count-items-table.tsx",
-  import.meta.url,
-);
 const inventoryApiPath = new URL(
   "../../web-admin/src/features/inventory/api/inventory.api.ts",
   import.meta.url,
@@ -323,19 +315,6 @@ test("stock-count items include product display fields", async () => {
   assert.match(source, /innerJoin\(\s*productUnits/);
 });
 
-/** Verifies that stock-count details do not load a limited product page. */
-test("stock-count detail uses item product data directly", async () => {
-  const pageSource = await readSource(stockCountDetailPagePath);
-  const tableSource = await readSource(stockCountItemsTablePath);
-
-  assert.doesNotMatch(pageSource, /useProducts/);
-  assert.doesNotMatch(pageSource, /pageSize:\s*100/);
-  assert.match(tableSource, /item\.productSku/);
-  assert.match(tableSource, /item\.productName/);
-  assert.match(tableSource, /item\.baseUnitName/);
-});
-
-
 /** Verifies that manual adjustments use the approved reason values. */
 test("adjustment reasons are standardized", async () => {
   const source = await readSource(inventoryValidationPath);
@@ -455,8 +434,6 @@ test("Inventory retries preserve one idempotency key per user operation", async 
   const adjustmentForm = await readSource(
     new URL("../../web-admin/src/features/inventory/components/inventory-adjustment-form.tsx", import.meta.url),
   );
-  const countPage = await readSource(stockCountDetailPagePath);
-
   assert.match(apiClient, /result = await sendRequest\(path, options\)/);
   assert.equal(countOccurrences(apiClient, "sendRequest(path, options)"), 4);
   assert.match(inventoryApi, /"Idempotency-Key": idempotencyKey/);
@@ -464,18 +441,6 @@ test("Inventory retries preserve one idempotency key per user operation", async 
   assert.match(openingForm, /useRef\(crypto\.randomUUID\(\)\)/);
   assert.match(openingForm, /idempotencyKey: idempotencyKey\.current/);
   assert.match(adjustmentForm, /idempotencyKey: idempotencyKey\.current/);
-  assert.match(countPage, /idempotencyKey: confirmationKey\.current/);
-});
-
-/** Verifies stock-count product names come from joined item data without a page-size limit. */
-test("large stock counts do not depend on a limited product list", async () => {
-  const repositorySource = await readSource(inventoryRepositoryPath);
-  const pageSource = await readSource(stockCountDetailPagePath);
-
-  assert.match(repositorySource, /productSku: products\.sku/);
-  assert.match(repositorySource, /productName: products\.name/);
-  assert.doesNotMatch(pageSource, /pageSize:\s*100/);
-  assert.doesNotMatch(pageSource, /useProducts/);
 });
 
 /** Verifies positive count differences use the saved cost for their stock condition. */

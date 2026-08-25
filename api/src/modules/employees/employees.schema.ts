@@ -30,6 +30,16 @@ const businessDateSchema = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD format.")
   .refine(isValidBusinessDate, "Date is invalid.");
 
+const attendanceDateSchema = businessDateSchema.refine(
+  isBusinessDateNotFuture,
+  "Attendance date cannot be in the future.",
+);
+
+const payrollPeriodDateSchema = businessDateSchema.refine(
+  isBusinessDateNotFuture,
+  "Payroll period cannot be in the future.",
+);
+
 const employeeCodeSchema = z
   .string()
   .trim()
@@ -184,7 +194,7 @@ const employeeAdvancePaymentMethodSchema = z.enum(["CASH", "BANK_TRANSFER"]);
 const attendanceEntrySchema = z
   .object({
     employeeId: uuidSchema,
-    attendanceDate: businessDateSchema,
+    attendanceDate: attendanceDateSchema,
     status: attendanceStatusSchema,
     checkIn: attendanceTimeSchema.nullable().optional(),
     checkOut: attendanceTimeSchema.nullable().optional(),
@@ -230,6 +240,13 @@ export const listEmployeesQuerySchema = z
 
 /** Validates an employee UUID from the employee-detail route. */
 export const employeeIdParamsSchema = z
+  .object({
+    id: uuidSchema,
+  })
+  .strict();
+
+/** Validates an Attendance UUID from the correction route. */
+export const attendanceIdParamsSchema = z
   .object({
     id: uuidSchema,
   })
@@ -513,8 +530,8 @@ export const listPayrollRunsQuerySchema = z
 /** Validates the period and optional notes used to create one draft Payroll Run. */
 export const createPayrollRunSchema = z
   .object({
-    periodStart: businessDateSchema,
-    periodEnd: businessDateSchema,
+    periodStart: payrollPeriodDateSchema,
+    periodEnd: payrollPeriodDateSchema,
     notes: payrollNotesSchema.nullable().optional(),
   })
   .strict()
@@ -541,8 +558,8 @@ const updatePayrollItemSchema = z
 /** Validates editable fields for a DRAFT Payroll Run. */
 export const updatePayrollRunSchema = z
   .object({
-    periodStart: businessDateSchema.optional(),
-    periodEnd: businessDateSchema.optional(),
+    periodStart: payrollPeriodDateSchema.optional(),
+    periodEnd: payrollPeriodDateSchema.optional(),
     notes: payrollNotesSchema.nullable().optional(),
     items: z.array(updatePayrollItemSchema).max(1000).optional(),
   })
@@ -730,6 +747,12 @@ export const reverseSalaryPaymentSchema = z
 /** Validates one manually entered attendance record. */
 export const createAttendanceSchema = attendanceEntrySchema;
 
+/** Validates editable attendance fields while keeping employee/date identity immutable. */
+export const updateAttendanceSchema = attendanceEntrySchema
+  .omit({ employeeId: true, attendanceDate: true })
+  .partial()
+  .refine(hasAtLeastOneField, "At least one attendance field must be provided.");
+
 /** Validates an atomic bulk attendance request and rejects duplicate employee/date rows. */
 export const createAttendanceBulkSchema = z
   .object({
@@ -759,6 +782,7 @@ export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 export type ListEmployeeAttendanceQuery = z.infer<typeof listEmployeeAttendanceQuerySchema>;
 export type CreateAttendanceInput = z.infer<typeof createAttendanceSchema>;
+export type UpdateAttendanceInput = z.infer<typeof updateAttendanceSchema>;
 export type CreateAttendanceBulkInput = z.infer<typeof createAttendanceBulkSchema>;
 export type CreateLeaveTypeInput = z.infer<typeof createLeaveTypeSchema>;
 export type UpdateLeaveTypeInput = z.infer<typeof updateLeaveTypeSchema>;

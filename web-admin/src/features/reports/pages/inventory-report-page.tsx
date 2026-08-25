@@ -80,8 +80,6 @@ function movementSource(sourceType: string | null, sourceId: string | null): Rea
       return <Link className="table-link" params={{ salesReturnId: sourceId }} to="/returns/sales/$salesReturnId">{label}</Link>;
     case "PURCHASE_RETURN":
       return <Link className="table-link" params={{ purchaseReturnId: sourceId }} to="/returns/purchases/$purchaseReturnId">{label}</Link>;
-    case "STOCK_COUNT":
-      return <Link className="table-link" params={{ countId: sourceId }} to="/inventory/counts/$countId">{label}</Link>;
     default:
       return label;
   }
@@ -92,12 +90,18 @@ export function InventoryReportPage(): React.JSX.Element {
   const [draftDates, setDraftDates] =
     useState<ReportDateRangeFilterValues>(defaultDates);
   const [draftProductId, setDraftProductId] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [productMenuOpen, setProductMenuOpen] = useState(false);
   const [draftLowStock, setDraftLowStock] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<InventoryReportFilters>(
     () => createInventoryFilters(defaultDates, "", false),
   );
 
-  const productsQuery = useProducts({ page: 1, pageSize: 100 });
+  const productsQuery = useProducts({
+    namePrefix: draftProductId ? undefined : productSearch || undefined,
+    page: 1,
+    pageSize: 100,
+  });
   const inventoryReportQuery = useInventoryReport(appliedFilters);
 
   const products = productsQuery.data?.data.items ?? [];
@@ -110,6 +114,53 @@ export function InventoryReportPage(): React.JSX.Element {
         .sort((left, right) => left.name.localeCompare(right.name)),
     [products],
   );
+
+  /** Updates the typed product-name prefix and clears any previous product selection. */
+  function changeProductSearch(value: string): void {
+    setProductSearch(value);
+    setDraftProductId("");
+    setProductMenuOpen(true);
+  }
+
+  /** Selects one product from the searchable Inventory Report dropdown. */
+  function selectProduct(productId: string, label: string): void {
+    setDraftProductId(productId);
+    setProductSearch(label);
+    setProductMenuOpen(false);
+  }
+
+  /** Clears the Inventory Report product filter selection. */
+  function selectAllProducts(): void {
+    setDraftProductId("");
+    setProductSearch("");
+    setProductMenuOpen(false);
+  }
+
+  /** Keeps the product dropdown keyboard behavior aligned with the other report dropdowns. */
+  function handleProductKeyDown(
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ): void {
+    if (event.key === "Escape") {
+      setProductMenuOpen(false);
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setProductMenuOpen(true);
+    }
+  }
+
+  /** Closes the product dropdown when focus leaves its combobox. */
+  function handleProductBlur(event: React.FocusEvent<HTMLDivElement>): void {
+    const nextTarget = event.relatedTarget;
+
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setProductMenuOpen(false);
+  }
 
   /** Applies the selected date range, product, and low-stock option. */
   function applyFilters(): void {
@@ -127,6 +178,8 @@ export function InventoryReportPage(): React.JSX.Element {
 
     setDraftDates(nextDates);
     setDraftProductId("");
+    setProductSearch("");
+    setProductMenuOpen(false);
     setDraftLowStock(false);
     setAppliedFilters(createInventoryFilters(nextDates, "", false));
   }
@@ -154,21 +207,70 @@ export function InventoryReportPage(): React.JSX.Element {
         />
 
         <div className="payment-filter-grid">
-          <label className="ui-field">
+          <div className="ui-field">
             <span>Product</span>
-            <select
-              disabled={productsQuery.isPending || inventoryReportQuery.isFetching}
-              onChange={(event) => setDraftProductId(event.target.value)}
-              value={draftProductId}
+            <div
+              className="sale-customer-combobox"
+              onBlur={handleProductBlur}
             >
-              <option value="">All products</option>
-              {productOptions.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.sku} - {product.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <input
+                aria-autocomplete="list"
+                aria-expanded={productMenuOpen}
+                aria-haspopup="listbox"
+                autoComplete="off"
+                disabled={inventoryReportQuery.isFetching}
+                placeholder="All products"
+                role="combobox"
+                value={productSearch}
+                onChange={(event) => changeProductSearch(event.target.value)}
+                onClick={() => setProductMenuOpen(true)}
+                onFocus={(event) => {
+                  setProductMenuOpen(true);
+
+                  if (draftProductId) {
+                    event.currentTarget.select();
+                  }
+                }}
+                onKeyDown={handleProductKeyDown}
+              />
+
+              {productMenuOpen ? (
+                <div className="sale-customer-options" role="listbox">
+                  <button
+                    aria-selected={!draftProductId}
+                    className="sale-customer-option"
+                    onClick={selectAllProducts}
+                    role="option"
+                    type="button"
+                  >
+                    All products
+                  </button>
+                  {productOptions.map((product) => (
+                    <button
+                      aria-selected={draftProductId === product.id}
+                      className="sale-customer-option"
+                      key={product.id}
+                      onClick={() =>
+                        selectProduct(
+                          product.id,
+                          `${product.sku} - ${product.name}`,
+                        )
+                      }
+                      role="option"
+                      type="button"
+                    >
+                      {product.sku} - {product.name}
+                    </button>
+                  ))}
+                  {productSearch &&
+                  !productsQuery.isPending &&
+                  productOptions.length === 0 ? (
+                    <p className="sale-customer-empty">No products found.</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
 
           <label className="ui-field">
             <span>Stock filter</span>

@@ -321,7 +321,7 @@ describe("final frontend acceptance", () => {
     expect(movementPage).toContain('to="/sales/$saleId"');
     expect(movementPage).toContain('to="/returns/sales/$salesReturnId"');
     expect(movementPage).toContain('to="/returns/purchases/$purchaseReturnId"');
-    expect(movementPage).toContain('to="/inventory/counts/$countId"');
+    expect(movementPage).not.toContain('to="/inventory/counts/$countId"');
   });
 
   test("return detail pages display readable settlement and complete stock effects", async () => {
@@ -408,7 +408,7 @@ describe("final frontend acceptance", () => {
     expect(inventoryReport).toContain('to="/purchases/$purchaseId"');
     expect(inventoryReport).toContain('to="/returns/sales/$salesReturnId"');
     expect(inventoryReport).toContain('to="/returns/purchases/$purchaseReturnId"');
-    expect(inventoryReport).toContain('to="/inventory/counts/$countId"');
+    expect(inventoryReport).not.toContain('to="/inventory/counts/$countId"');
 
     expect(cashBankReport).toContain("movementDocument(movement.sourceType, movement.sourceId");
     expect(cashBankReport).toContain('to="/payments/customer-receipts/$receiptId"');
@@ -811,7 +811,6 @@ describe("final frontend acceptance", () => {
       "features/suppliers/components/supplier-table.tsx",
       "features/suppliers/components/supplier-summary.tsx",
       "features/inventory/components/inventory-table.tsx",
-      "features/inventory/components/stock-count-table.tsx",
       "features/payments/components/accounts-table.tsx",
       "features/expenses/components/expense-category-table.tsx",
       "features/sales/components/sale-table.tsx",

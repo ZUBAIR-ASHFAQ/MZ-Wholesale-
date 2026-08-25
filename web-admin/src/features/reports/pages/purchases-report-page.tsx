@@ -54,13 +54,25 @@ export function PurchasesReportPage(): React.JSX.Element {
   const [draftDates, setDraftDates] =
     useState<ReportDateRangeFilterValues>(defaultDates);
   const [draftSupplierId, setDraftSupplierId] = useState("");
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [supplierMenuOpen, setSupplierMenuOpen] = useState(false);
   const [draftProductId, setDraftProductId] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [productMenuOpen, setProductMenuOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<PurchasesReportFilters>(
     () => createPurchasesFilters(defaultDates, "", ""),
   );
 
-  const suppliersQuery = useSuppliers({ page: 1, pageSize: 100 });
-  const productsQuery = useProducts({ page: 1, pageSize: 100 });
+  const suppliersQuery = useSuppliers({
+    namePrefix: draftSupplierId ? undefined : supplierSearch || undefined,
+    page: 1,
+    pageSize: 100,
+  });
+  const productsQuery = useProducts({
+    namePrefix: draftProductId ? undefined : productSearch || undefined,
+    page: 1,
+    pageSize: 100,
+  });
   const purchasesReportQuery = usePurchasesReport(appliedFilters);
 
   const suppliers = suppliersQuery.data?.data.items ?? [];
@@ -82,6 +94,100 @@ export function PurchasesReportPage(): React.JSX.Element {
     [products],
   );
 
+  /** Updates the typed supplier-name prefix and clears any previous supplier selection. */
+  function changeSupplierSearch(value: string): void {
+    setSupplierSearch(value);
+    setDraftSupplierId("");
+    setSupplierMenuOpen(true);
+  }
+
+  /** Selects one supplier from the searchable report dropdown. */
+  function selectSupplier(supplierId: string, label: string): void {
+    setDraftSupplierId(supplierId);
+    setSupplierSearch(label);
+    setSupplierMenuOpen(false);
+  }
+
+  /** Clears the supplier report filter selection. */
+  function selectAllSuppliers(): void {
+    setDraftSupplierId("");
+    setSupplierSearch("");
+    setSupplierMenuOpen(false);
+  }
+
+  /** Keeps the supplier dropdown keyboard behavior aligned with the Sales Report. */
+  function handleSupplierKeyDown(
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ): void {
+    if (event.key === "Escape") {
+      setSupplierMenuOpen(false);
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSupplierMenuOpen(true);
+    }
+  }
+
+  /** Closes the supplier dropdown when focus leaves its combobox. */
+  function handleSupplierBlur(event: React.FocusEvent<HTMLDivElement>): void {
+    const nextTarget = event.relatedTarget;
+
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setSupplierMenuOpen(false);
+  }
+
+  /** Updates the typed product-name prefix and clears any previous product selection. */
+  function changeProductSearch(value: string): void {
+    setProductSearch(value);
+    setDraftProductId("");
+    setProductMenuOpen(true);
+  }
+
+  /** Selects one product from the searchable report dropdown. */
+  function selectProduct(productId: string, label: string): void {
+    setDraftProductId(productId);
+    setProductSearch(label);
+    setProductMenuOpen(false);
+  }
+
+  /** Clears the product report filter selection. */
+  function selectAllProducts(): void {
+    setDraftProductId("");
+    setProductSearch("");
+    setProductMenuOpen(false);
+  }
+
+  /** Keeps the product dropdown keyboard behavior aligned with the Sales Report. */
+  function handleProductKeyDown(
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ): void {
+    if (event.key === "Escape") {
+      setProductMenuOpen(false);
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setProductMenuOpen(true);
+    }
+  }
+
+  /** Closes the product dropdown when focus leaves its combobox. */
+  function handleProductBlur(event: React.FocusEvent<HTMLDivElement>): void {
+    const nextTarget = event.relatedTarget;
+
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setProductMenuOpen(false);
+  }
+
   /** Applies the selected dates, supplier, and product to the report query. */
   function applyFilters(): void {
     setAppliedFilters(
@@ -98,7 +204,11 @@ export function PurchasesReportPage(): React.JSX.Element {
 
     setDraftDates(nextDates);
     setDraftSupplierId("");
+    setSupplierSearch("");
+    setSupplierMenuOpen(false);
     setDraftProductId("");
+    setProductSearch("");
+    setProductMenuOpen(false);
     setAppliedFilters(createPurchasesFilters(nextDates, "", ""));
   }
 
@@ -125,37 +235,135 @@ export function PurchasesReportPage(): React.JSX.Element {
         />
 
         <div className="payment-filter-grid">
-          <label className="ui-field">
+          <div className="ui-field">
             <span>Supplier</span>
-            <select
-              disabled={suppliersQuery.isPending || purchasesReportQuery.isFetching}
-              onChange={(event) => setDraftSupplierId(event.target.value)}
-              value={draftSupplierId}
+            <div
+              className="sale-customer-combobox"
+              onBlur={handleSupplierBlur}
             >
-              <option value="">All suppliers</option>
-              {supplierOptions.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.code} - {supplier.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <input
+                aria-autocomplete="list"
+                aria-expanded={supplierMenuOpen}
+                aria-haspopup="listbox"
+                autoComplete="off"
+                disabled={purchasesReportQuery.isFetching}
+                placeholder="All suppliers"
+                role="combobox"
+                value={supplierSearch}
+                onChange={(event) => changeSupplierSearch(event.target.value)}
+                onClick={() => setSupplierMenuOpen(true)}
+                onFocus={(event) => {
+                  setSupplierMenuOpen(true);
 
-          <label className="ui-field">
+                  if (draftSupplierId) {
+                    event.currentTarget.select();
+                  }
+                }}
+                onKeyDown={handleSupplierKeyDown}
+              />
+
+              {supplierMenuOpen ? (
+                <div className="sale-customer-options" role="listbox">
+                  <button
+                    aria-selected={!draftSupplierId}
+                    className="sale-customer-option"
+                    onClick={selectAllSuppliers}
+                    role="option"
+                    type="button"
+                  >
+                    All suppliers
+                  </button>
+                  {supplierOptions.map((supplier) => (
+                    <button
+                      aria-selected={draftSupplierId === supplier.id}
+                      className="sale-customer-option"
+                      key={supplier.id}
+                      onClick={() =>
+                        selectSupplier(
+                          supplier.id,
+                          `${supplier.code} - ${supplier.name}`,
+                        )
+                      }
+                      role="option"
+                      type="button"
+                    >
+                      {supplier.code} - {supplier.name}
+                    </button>
+                  ))}
+                  {supplierSearch &&
+                  !suppliersQuery.isPending &&
+                  supplierOptions.length === 0 ? (
+                    <p className="sale-customer-empty">No suppliers found.</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="ui-field">
             <span>Product</span>
-            <select
-              disabled={productsQuery.isPending || purchasesReportQuery.isFetching}
-              onChange={(event) => setDraftProductId(event.target.value)}
-              value={draftProductId}
+            <div
+              className="sale-customer-combobox"
+              onBlur={handleProductBlur}
             >
-              <option value="">All products</option>
-              {productOptions.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.sku} - {product.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <input
+                aria-autocomplete="list"
+                aria-expanded={productMenuOpen}
+                aria-haspopup="listbox"
+                autoComplete="off"
+                disabled={purchasesReportQuery.isFetching}
+                placeholder="All products"
+                role="combobox"
+                value={productSearch}
+                onChange={(event) => changeProductSearch(event.target.value)}
+                onClick={() => setProductMenuOpen(true)}
+                onFocus={(event) => {
+                  setProductMenuOpen(true);
+
+                  if (draftProductId) {
+                    event.currentTarget.select();
+                  }
+                }}
+                onKeyDown={handleProductKeyDown}
+              />
+
+              {productMenuOpen ? (
+                <div className="sale-customer-options" role="listbox">
+                  <button
+                    aria-selected={!draftProductId}
+                    className="sale-customer-option"
+                    onClick={selectAllProducts}
+                    role="option"
+                    type="button"
+                  >
+                    All products
+                  </button>
+                  {productOptions.map((product) => (
+                    <button
+                      aria-selected={draftProductId === product.id}
+                      className="sale-customer-option"
+                      key={product.id}
+                      onClick={() =>
+                        selectProduct(
+                          product.id,
+                          `${product.sku} - ${product.name}`,
+                        )
+                      }
+                      role="option"
+                      type="button"
+                    >
+                      {product.sku} - {product.name}
+                    </button>
+                  ))}
+                  {productSearch &&
+                  !productsQuery.isPending &&
+                  productOptions.length === 0 ? (
+                    <p className="sale-customer-empty">No products found.</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         {suppliersQuery.isError ? (

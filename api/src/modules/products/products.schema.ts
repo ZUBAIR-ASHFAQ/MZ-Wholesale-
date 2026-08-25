@@ -67,6 +67,7 @@ const moneyDecimalSchema = z
 export const listProductsQuerySchema = z
   .object({
     search: z.string().trim().max(200).optional(),
+    namePrefix: z.string().trim().max(200).optional(),
     barcode: barcodeSchema.optional(),
     categoryId: uuidSchema.optional(),
     active: z

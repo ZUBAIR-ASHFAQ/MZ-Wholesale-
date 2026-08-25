@@ -1,4 +1,3 @@
-import { trimDecimalZeros } from "../../../lib/utils.ts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -54,6 +53,22 @@ function readLeaveError(error: unknown): string {
     : "The employee leave could not be saved.";
 }
 
+/** Calculates the inclusive Leave day count from two valid YYYY-MM-DD dates. */
+function calculateLeaveDays(fromDate: string, toDate: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fromDate) || !/^\d{4}-\d{2}-\d{2}$/.test(toDate) || toDate < fromDate) {
+    return "";
+  }
+
+  const from = Date.parse(`${fromDate}T00:00:00Z`);
+  const to = Date.parse(`${toDate}T00:00:00Z`);
+
+  if (!Number.isFinite(from) || !Number.isFinite(to)) {
+    return "";
+  }
+
+  return String(Math.floor((to - from) / 86_400_000) + 1);
+}
+
 /** Builds stable form values for a new or existing Employee Leave row. */
 function leaveFormValues(leave?: EmployeeLeave | null): LeaveFormValues {
   return {
@@ -61,7 +76,7 @@ function leaveFormValues(leave?: EmployeeLeave | null): LeaveFormValues {
     leaveTypeId: leave?.leaveTypeId ?? "",
     fromDate: leave?.fromDate ?? "",
     toDate: leave?.toDate ?? "",
-    days: leave?.days ? trimDecimalZeros(leave.days) : "1",
+    days: leave ? calculateLeaveDays(leave.fromDate, leave.toDate) : "",
     reason: leave?.reason ?? "",
     status: leave?.status ?? "PENDING",
     notes: leave?.notes ?? "",
@@ -84,10 +99,17 @@ export function LeaveForm({
     defaultValues: leaveFormValues(leave),
   });
   const reset = form.reset;
+  const setValue = form.setValue;
+  const fromDate = form.watch("fromDate");
+  const toDate = form.watch("toDate");
 
   useEffect(() => {
     reset(leaveFormValues(leave));
   }, [leave, reset]);
+
+  useEffect(() => {
+    setValue("days", calculateLeaveDays(fromDate, toDate), { shouldValidate: true });
+  }, [fromDate, setValue, toDate]);
 
   const availableLeaveTypes = leaveTypes.filter(
     (leaveType) => leaveType.isActive || leaveType.id === leave?.leaveTypeId,
@@ -163,7 +185,7 @@ export function LeaveForm({
 
         <label className="ui-field">
           <span>Days</span>
-          <input inputMode="decimal" {...form.register("days")} />
+          <input readOnly {...form.register("days")} />
           {form.formState.errors.days ? <small>{form.formState.errors.days.message}</small> : null}
         </label>
 

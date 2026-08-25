@@ -34,6 +34,8 @@ Do not edit a migration after it has been applied to a shared database. Create a
 | `0023_module_16_employee_foundation.sql` | Employee, attendance, leave, advance, payroll, salary-payment, and employee-ledger foundation |
 | `0024_module_16_employee_infrastructure.sql` | Employee document sequences and cash/bank movement source registrations |
 | `0025_inventory_cost_precision.sql` | Preserves fractional per-unit inventory valuation costs until monetary totals are finalized |
+| `0026_employee_active_leave_date_consistency.sql` | Clears stale leave dates from active employees and prevents active/leave-date contradictions |
+| `0027_employee_leave_days_match_date_range.sql` | Normalizes Employee Leave days to the inclusive date range and enforces that invariant |
 
 Modules 13 (Reports) and 14 (Dashboard) are read-only and therefore add no database tables or migrations. Module 16 adds the Employee Management foundation and its minimum shared financial infrastructure.
 

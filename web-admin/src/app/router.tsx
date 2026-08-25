@@ -18,11 +18,7 @@ import { CustomerFormPage } from "../features/customers/pages/customer-form-page
 import { CustomerListPage } from "../features/customers/pages/customer-list-page.tsx";
 import { InventoryAdjustmentPage } from "../features/inventory/pages/inventory-adjustment-page.tsx";
 import { InventoryListPage } from "../features/inventory/pages/inventory-list-page.tsx";
-import { OpeningStockPage } from "../features/inventory/pages/opening-stock-page.tsx";
 import { ProductMovementsPage } from "../features/inventory/pages/product-movements-page.tsx";
-import { StockCountDetailPage } from "../features/inventory/pages/stock-count-detail-page.tsx";
-import { StockCountFormPage } from "../features/inventory/pages/stock-count-form-page.tsx";
-import { StockCountListPage } from "../features/inventory/pages/stock-count-list-page.tsx";
 import { ExpenseCategoriesPage } from "../features/expenses/pages/expense-categories-page.tsx";
 import { ExpenseDetailPage } from "../features/expenses/pages/expense-detail-page.tsx";
 import { ExpenseFormPage } from "../features/expenses/pages/expense-form-page.tsx";
@@ -91,7 +87,6 @@ import { SupplierPayableReportPage } from "../features/reports/pages/supplier-pa
 import { AuditLogsPage } from "../features/system/pages/audit-logs-page.tsx";
 import { ExportsPage } from "../features/system/pages/exports-page.tsx";
 import { ImportsPage } from "../features/system/pages/imports-page.tsx";
-import { WireframePage } from "../features/system/pages/wireframe-page.tsx";
 import { AppLayout } from "./layouts/app-layout.tsx";
 import { AuthLayout } from "./layouts/auth-layout.tsx";
 
@@ -180,18 +175,6 @@ function CustomerStatementRoutePage(): React.JSX.Element {
 function SupplierStatementRoutePage(): React.JSX.Element {
   const { supplierId } = supplierStatementRoute.useParams();
   return <SupplierStatementPage supplierId={supplierId} />;
-}
-
-/** Reads the stock-count ID from the detail route. */
-function StockCountDetailRoutePage(): React.JSX.Element {
-  const { countId } = stockCountDetailRoute.useParams();
-  return <StockCountDetailPage stockCountId={countId} />;
-}
-
-/** Reads the stock-count ID from the edit route. */
-function StockCountEditRoutePage(): React.JSX.Element {
-  const { countId } = stockCountEditRoute.useParams();
-  return <StockCountFormPage stockCountId={countId} />;
 }
 
 /** Reads the product ID from the Inventory movement route. */
@@ -289,12 +272,6 @@ const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/dashboard",
   component: DashboardPage,
-});
-
-const wireframeRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/system/wireframe",
-  component: WireframePage,
 });
 
 const expensesRoute = createRoute({
@@ -423,40 +400,10 @@ const inventoryRoute = createRoute({
   component: InventoryListPage,
 });
 
-const openingStockRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/inventory/opening-stock",
-  component: OpeningStockPage,
-});
-
 const inventoryAdjustmentRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/inventory/adjustments",
   component: InventoryAdjustmentPage,
-});
-
-const stockCountsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/inventory/counts",
-  component: StockCountListPage,
-});
-
-const newStockCountRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/inventory/counts/new",
-  component: StockCountFormPage,
-});
-
-const stockCountEditRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/inventory/counts/$countId/edit",
-  component: StockCountEditRoutePage,
-});
-
-const stockCountDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/inventory/counts/$countId",
-  component: StockCountDetailRoutePage,
 });
 
 const productMovementsRoute = createRoute({
@@ -694,12 +641,6 @@ const customersRoute = createRoute({
   component: CustomerListPage,
 });
 
-const newCustomerRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/customers/new",
-  component: CustomerFormPage,
-});
-
 const customerEditRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/customers/$customerId/edit",
@@ -876,7 +817,6 @@ const routeTree = rootRoute.addChildren([
   sessionsRoute,
   settingsRoute,
   dashboardRoute,
-  wireframeRoute,
   expensesRoute,
   newExpenseRoute,
   expenseCategoriesRoute,
@@ -898,12 +838,7 @@ const routeTree = rootRoute.addChildren([
   customerStatementRoute,
   supplierStatementRoute,
   inventoryRoute,
-  openingStockRoute,
   inventoryAdjustmentRoute,
-  stockCountsRoute,
-  newStockCountRoute,
-  stockCountEditRoute,
-  stockCountDetailRoute,
   productMovementsRoute,
   salesReportRoute,
   purchasesReportRoute,
@@ -953,7 +888,6 @@ const routeTree = rootRoute.addChildren([
   employeePayrollDetailRoute,
   employeeDetailRoute,
   customersRoute,
-  newCustomerRoute,
   customerEditRoute,
   customerDetailRoute,
   productsRoute,

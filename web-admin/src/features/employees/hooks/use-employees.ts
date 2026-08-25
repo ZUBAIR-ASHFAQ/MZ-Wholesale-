@@ -25,6 +25,7 @@ import {
   loadSalaryPayments,
   recoverEmployeeAdvance,
   reverseSalaryPayment,
+  updateAttendance,
   updateEmployee,
   updateEmployeeLeave,
   updateLeaveType,
@@ -42,6 +43,7 @@ import {
   type PayrollRunListFilters,
   type RecoverEmployeeAdvanceInput,
   type SalaryPaymentListFilters,
+  type UpdateAttendanceInput,
   type UpdateEmployeeInput,
   type UpdateEmployeeLeaveInput,
   type UpdateLeaveTypeInput,
@@ -181,6 +183,27 @@ export function useAttendanceForEmployees(employeeIds: string[], attendanceDate:
       }),
       enabled: employeeId.length > 0 && attendanceDate.length > 0,
     })),
+  });
+}
+
+interface UpdateAttendanceVariables {
+  attendanceId: string;
+  input: UpdateAttendanceInput;
+}
+
+/** Corrects one saved attendance row and refreshes attendance-derived read models. */
+export function useUpdateAttendance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ attendanceId, input }: UpdateAttendanceVariables) =>
+      updateAttendance(attendanceId, input),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: employeeQueryKeys.attendance() }),
+        invalidateEmployeeReadModels(queryClient),
+      ]);
+    },
   });
 }
 

@@ -486,13 +486,16 @@ test("business modules contain no unnecessary architecture files", async () => {
 });
 
 
-/** Verifies all approved Inventory pages use TanStack Router navigation. */
-test("Inventory frontend routes and navigation are fully registered", async () => {
+/** Verifies Inventory exposes only the requested overview/adjustment pages while preserving drill-down movements and the Opening Stock popup. */
+test("Inventory frontend keeps only overview and adjustment as standalone Inventory pages", async () => {
   const routerSource = await readProjectFile(
     "../../web-admin/src/app/router.tsx",
   );
   const layoutSource = await readProjectFile(
     "../../web-admin/src/app/layouts/app-layout.tsx",
+  );
+  const inventoryListSource = await readProjectFile(
+    "../../web-admin/src/features/inventory/pages/inventory-list-page.tsx",
   );
   const inventoryPages = await Promise.all([
     readProjectFile(
@@ -502,32 +505,22 @@ test("Inventory frontend routes and navigation are fully registered", async () =
       "../../web-admin/src/features/inventory/pages/product-movements-page.tsx",
     ),
     readProjectFile(
-      "../../web-admin/src/features/inventory/pages/opening-stock-page.tsx",
-    ),
-    readProjectFile(
       "../../web-admin/src/features/inventory/pages/inventory-adjustment-page.tsx",
-    ),
-    readProjectFile(
-      "../../web-admin/src/features/inventory/pages/stock-count-list-page.tsx",
-    ),
-    readProjectFile(
-      "../../web-admin/src/features/inventory/pages/stock-count-form-page.tsx",
-    ),
-    readProjectFile(
-      "../../web-admin/src/features/inventory/pages/stock-count-detail-page.tsx",
     ),
   ]);
   const inventorySource = inventoryPages.join("\n");
 
   assert.match(routerSource, /path: "\/inventory"/);
   assert.match(routerSource, /path: "\/inventory\/products\/\$productId\/movements"/);
-  assert.match(routerSource, /path: "\/inventory\/opening-stock"/);
   assert.match(routerSource, /path: "\/inventory\/adjustments"/);
-  assert.match(routerSource, /path: "\/inventory\/counts"/);
-  assert.match(routerSource, /path: "\/inventory\/counts\/new"/);
-  assert.match(routerSource, /path: "\/inventory\/counts\/\$countId"/);
-  assert.match(routerSource, /path: "\/inventory\/counts\/\$countId\/edit"/);
+  assert.doesNotMatch(routerSource, /path: "\/inventory\/opening-stock"/);
+  assert.doesNotMatch(routerSource, /path: "\/inventory\/counts/);
   assert.match(layoutSource, /to="\/inventory"/);
+  assert.match(layoutSource, /to="\/inventory\/adjustments"/);
+  assert.doesNotMatch(layoutSource, /to="\/inventory\/counts/);
+  assert.match(inventoryListSource, /<OpeningStockForm/);
+  assert.match(inventoryListSource, /title="Opening stock"/);
+  assert.doesNotMatch(inventoryListSource, /to="\/inventory\/counts/);
   assert.doesNotMatch(routerSource, /window\.location/);
   assert.doesNotMatch(inventorySource, /window\.location/);
   assert.doesNotMatch(inventorySource, /<a\s+[^>]*href=/);

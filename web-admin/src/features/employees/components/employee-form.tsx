@@ -107,6 +107,7 @@ export function EmployeeForm({
     handleSubmit,
     reset,
     setError,
+    watch,
     formState: { errors },
   } = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeFormSchema),
@@ -116,6 +117,8 @@ export function EmployeeForm({
   useEffect(() => {
     reset(createDefaultValues(employee));
   }, [employee, reset]);
+
+  const isActive = watch("isActive");
 
   /** Copies API validation errors into matching form fields. */
   function applyApiError(error: unknown): void {
@@ -148,7 +151,7 @@ export function EmployeeForm({
       jobTitle: optionalText(values.jobTitle),
       department: optionalText(values.department),
       joinDate: values.joinDate,
-      leaveDate: values.leaveDate || null,
+      leaveDate: values.isActive ? null : values.leaveDate || null,
       employmentType: values.employmentType.trim(),
       baseMonthlySalary: values.baseMonthlySalary.trim(),
     };
@@ -238,11 +241,13 @@ export function EmployeeForm({
           {errors.joinDate ? <small className="error-message">{errors.joinDate.message}</small> : null}
         </label>
 
-        <label className="ui-field">
-          <span>Leave date</span>
-          <input type="date" {...register("leaveDate")} />
-          {errors.leaveDate ? <small className="error-message">{errors.leaveDate.message}</small> : null}
-        </label>
+        {!isActive ? (
+          <label className="ui-field">
+            <span>Leave date</span>
+            <input type="date" {...register("leaveDate")} />
+            {errors.leaveDate ? <small className="error-message">{errors.leaveDate.message}</small> : null}
+          </label>
+        ) : null}
 
         <label className="ui-field">
           <span>Base monthly salary</span>

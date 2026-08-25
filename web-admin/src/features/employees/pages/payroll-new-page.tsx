@@ -27,6 +27,10 @@ export function PayrollNewPage(): React.JSX.Element {
       setError("Period end cannot be before period start.");
       return;
     }
+    if (periodEnd > today) {
+      setError("Payroll period cannot end in the future.");
+      return;
+    }
 
     setError(null);
     try {
@@ -61,6 +65,7 @@ export function PayrollNewPage(): React.JSX.Element {
             <span>Period start</span>
             <input
               disabled={createPayroll.isPending}
+              max={today}
               onChange={(event) => setPeriodStart(event.target.value)}
               type="date"
               value={periodStart}
@@ -70,6 +75,7 @@ export function PayrollNewPage(): React.JSX.Element {
             <span>Period end</span>
             <input
               disabled={createPayroll.isPending}
+              max={today}
               onChange={(event) => setPeriodEnd(event.target.value)}
               type="date"
               value={periodEnd}

@@ -19,6 +19,7 @@ import {
   createSalaryPaymentSplits as insertSalaryPaymentSplits,
   deletePayrollItemsByRun,
   findApprovedLeaveOverlap,
+  findAttendanceById,
   findConfirmedPayrollRunOverlap,
   findEmployeeById,
   findEmployeeLeaveById,
@@ -54,10 +55,12 @@ import {
   lockSalaryPaymentPayrollItems,
   markSalaryPaymentReversed,
   readEmployeeAdvanceRecoveredAmount,
+  updateAttendanceRecord as saveAttendanceChanges,
   updateEmployee as saveEmployeeChanges,
   updateEmployeeLeave as saveEmployeeLeaveChanges,
   updateLeaveType as saveLeaveTypeChanges,
   updatePayrollRun as savePayrollRunChanges,
+  type AttendanceChanges,
   type AttendanceRecord,
   type EmployeeAdvanceDetailRecord,
   type EmployeeAdvanceRecord,
@@ -98,6 +101,7 @@ import type {
   ListSalaryPaymentsQuery,
   RecoverEmployeeAdvanceInput,
   ReverseSalaryPaymentInput,
+  UpdateAttendanceInput,
   UpdateEmployeeInput,
   UpdateEmployeeLeaveInput,
   UpdateLeaveTypeInput,
@@ -204,12 +208,21 @@ function isAttendanceDuplicate(error: unknown): boolean {
   );
 }
 
-/** Rejects attendance outside one employee's valid employment dates. */
+/** Rejects future attendance and dates outside one employee's valid employment dates. */
 function validateAttendanceEmploymentDate(
   employee: EmployeeRecord,
   attendanceDate: string,
   field = "attendanceDate",
 ): void {
+  if (attendanceDate > currentBusinessDate()) {
+    throw employeeError(
+      "ATTENDANCE_DATE_FUTURE",
+      "Attendance date cannot be in the future.",
+      400,
+      field,
+    );
+  }
+
   if (attendanceDate < employee.joinDate || (employee.leaveDate && attendanceDate > employee.leaveDate)) {
     throw employeeError(
       "ATTENDANCE_OUTSIDE_EMPLOYMENT_DATES",
@@ -223,6 +236,89 @@ function validateAttendanceEmploymentDate(
 /** Normalizes optional attendance text without converting numeric or time strings. */
 function normalizeAttendanceText(value: string | null | undefined): string | null {
   return normalizeOptionalText(value);
+}
+
+/** Converts one validated attendance time into seconds after midnight for safe comparisons. */
+function attendanceTimeToSeconds(value: string): number {
+  const [hours, minutes, seconds = "0"] = value.split(":");
+  return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+}
+
+/** Converts a validated two-decimal worked-hours value into exact hundredths of one hour. */
+function attendanceWorkedHourHundredths(value: string): number {
+  const [wholeHours, decimalHours = ""] = value.split(".");
+  return Number(wholeHours) * 100 + Number(decimalHours.padEnd(2, "0").slice(0, 2));
+}
+
+/** Rejects attendance details that contradict the selected attendance status. */
+function validateAttendanceFieldConsistency(
+  input: Pick<AttendanceRecord, "status" | "checkIn" | "checkOut" | "workedHours">,
+  fieldPrefix = "",
+): void {
+  /** Prefixes one validation field for bulk-record errors. */
+  const field = (name: string) => fieldPrefix ? `${fieldPrefix}.${name}` : name;
+  const isWorkingStatus = input.status === "PRESENT" || input.status === "HALF_DAY";
+
+  if (!isWorkingStatus) {
+    if (input.checkIn !== null || input.checkOut !== null || input.workedHours !== null) {
+      throw employeeError(
+        "ATTENDANCE_NON_WORK_DETAILS_NOT_ALLOWED",
+        `${input.status} attendance cannot contain check-in, check-out, or worked hours.`,
+        400,
+        field("status"),
+      );
+    }
+    return;
+  }
+
+  if (!input.checkIn) {
+    throw employeeError(
+      "ATTENDANCE_CHECK_IN_REQUIRED",
+      "Check-in time is required for present and half-day attendance.",
+      400,
+      field("checkIn"),
+    );
+  }
+
+  if (!input.checkOut) {
+    throw employeeError(
+      "ATTENDANCE_CHECK_OUT_REQUIRED",
+      "Check-out time is required for present and half-day attendance.",
+      400,
+      field("checkOut"),
+    );
+  }
+
+  if (input.workedHours === null || Number(input.workedHours) <= 0) {
+    throw employeeError(
+      "ATTENDANCE_WORKED_HOURS_REQUIRED",
+      "Worked hours must be greater than zero for present and half-day attendance.",
+      400,
+      field("workedHours"),
+    );
+  }
+
+  const checkInSeconds = attendanceTimeToSeconds(input.checkIn);
+  const checkOutSeconds = attendanceTimeToSeconds(input.checkOut);
+
+  if (checkOutSeconds <= checkInSeconds) {
+    throw employeeError(
+      "ATTENDANCE_TIME_ORDER_INVALID",
+      "Check-out time must be later than check-in time.",
+      400,
+      field("checkOut"),
+    );
+  }
+
+  const workedSeconds = attendanceWorkedHourHundredths(input.workedHours) * 36;
+  if (workedSeconds > checkOutSeconds - checkInSeconds) {
+    throw employeeError(
+      "ATTENDANCE_WORKED_HOURS_EXCEED_SPAN",
+      "Worked hours cannot exceed the time between check-in and check-out.",
+      400,
+      field("workedHours"),
+    );
+  }
 }
 
 /** Converts validated attendance input into the existing attendance table shape. */
@@ -291,6 +387,42 @@ function isLeaveTypeDuplicate(error: unknown): boolean {
     readPostgresCode(error) === "23505" &&
     readPostgresConstraint(error) === "leave_types_name_normalized_unique"
   );
+}
+
+/** Calculates the authoritative inclusive day count for one Leave date range. */
+function calculateLeaveDays(fromDate: string, toDate: string): string {
+  const from = Date.UTC(
+    Number(fromDate.slice(0, 4)),
+    Number(fromDate.slice(5, 7)) - 1,
+    Number(fromDate.slice(8, 10)),
+  );
+  const to = Date.UTC(
+    Number(toDate.slice(0, 4)),
+    Number(toDate.slice(5, 7)) - 1,
+    Number(toDate.slice(8, 10)),
+  );
+  const inclusiveDays = Math.floor((to - from) / 86_400_000) + 1;
+  return `${inclusiveDays}.00`;
+}
+
+/** Rejects a client Leave day count that disagrees with its inclusive date range. */
+function validateLeaveDays(
+  days: string,
+  fromDate: string,
+  toDate: string,
+): string {
+  const authoritativeDays = calculateLeaveDays(fromDate, toDate);
+
+  if (Number(days) !== Number(authoritativeDays)) {
+    throw employeeError(
+      "LEAVE_DAYS_DATE_RANGE_MISMATCH",
+      `Days must equal the inclusive leave date range (${Number(authoritativeDays)}).`,
+      400,
+      "days",
+    );
+  }
+
+  return authoritativeDays;
 }
 
 /** Rejects leave dates outside one employee's employment period. */
@@ -457,6 +589,15 @@ export async function createEmployee(
   database: EmployeesDatabase,
   input: CreateEmployeeInput,
 ): Promise<EmployeeRecord> {
+  if (input.leaveDate) {
+    throw employeeError(
+      "EMPLOYEE_ACTIVE_LEAVE_DATE_NOT_ALLOWED",
+      "Active employees cannot have a leave date.",
+      400,
+      "leaveDate",
+    );
+  }
+
   validateEffectiveEmploymentDates(input.joinDate, input.leaveDate ?? null);
 
   const employee = await insertEmployee(database, {
@@ -506,11 +647,21 @@ export async function updateEmployee(
 ): Promise<EmployeeRecord> {
   const existingEmployee = await requireEmployee(database, employeeId);
   const effectiveJoinDate = input.joinDate ?? existingEmployee.joinDate;
-  const effectiveLeaveDate = input.leaveDate !== undefined
+  const requestedLeaveDate = input.leaveDate !== undefined
     ? input.leaveDate
     : existingEmployee.leaveDate;
   const effectiveIsActive = input.isActive ?? existingEmployee.isActive;
 
+  if (effectiveIsActive && input.leaveDate) {
+    throw employeeError(
+      "EMPLOYEE_ACTIVE_LEAVE_DATE_NOT_ALLOWED",
+      "Active employees cannot have a leave date.",
+      400,
+      "leaveDate",
+    );
+  }
+
+  const effectiveLeaveDate = effectiveIsActive ? null : requestedLeaveDate;
   validateEffectiveEmploymentDates(effectiveJoinDate, effectiveLeaveDate);
 
   if (!effectiveIsActive && !effectiveLeaveDate) {
@@ -522,10 +673,16 @@ export async function updateEmployee(
     );
   }
 
+  const changes = readEmployeeChanges(input);
+
+  if (effectiveIsActive && existingEmployee.leaveDate !== null) {
+    changes.leaveDate = null;
+  }
+
   const updatedEmployee = await saveEmployeeChanges(
     database,
     employeeId,
-    readEmployeeChanges(input),
+    changes,
   );
 
   if (!updatedEmployee) {
@@ -537,6 +694,20 @@ export async function updateEmployee(
   }
 
   return updatedEmployee;
+}
+
+/** Loads one attendance row or throws a stable not-found error. */
+async function requireAttendanceRecord(
+  database: EmployeesDatabase,
+  attendanceId: string,
+): Promise<AttendanceRecord> {
+  const attendance = await findAttendanceById(database, attendanceId);
+
+  if (!attendance) {
+    throw employeeError("ATTENDANCE_NOT_FOUND", "Attendance record was not found.", 404);
+  }
+
+  return attendance;
 }
 
 /** Lists one employee's attendance history after confirming the employee exists. */
@@ -556,6 +727,12 @@ export async function createAttendance(
 ): Promise<AttendanceRecord> {
   const employee = await requireEmployee(database, input.employeeId);
   validateAttendanceEmploymentDate(employee, input.attendanceDate);
+  validateAttendanceFieldConsistency({
+    status: input.status,
+    checkIn: input.checkIn ?? null,
+    checkOut: input.checkOut ?? null,
+    workedHours: input.workedHours ?? null,
+  });
 
   try {
     const record = await insertAttendanceRecord(database, toAttendanceInsert(input));
@@ -577,6 +754,40 @@ export async function createAttendance(
 
     throw error;
   }
+}
+
+/** Corrects editable attendance values while preserving employee/date identity. */
+export async function updateAttendance(
+  database: EmployeesDatabase,
+  attendanceId: string,
+  input: UpdateAttendanceInput,
+): Promise<AttendanceRecord> {
+  await lockPayrollConfirmationScope(database);
+  const existingAttendance = await requireAttendanceRecord(database, attendanceId);
+  const employee = await requireEmployee(database, existingAttendance.employeeId);
+  validateAttendanceEmploymentDate(employee, existingAttendance.attendanceDate);
+  validateAttendanceFieldConsistency({
+    status: input.status ?? existingAttendance.status,
+    checkIn: input.checkIn !== undefined ? input.checkIn : existingAttendance.checkIn,
+    checkOut: input.checkOut !== undefined ? input.checkOut : existingAttendance.checkOut,
+    workedHours: input.workedHours !== undefined ? input.workedHours : existingAttendance.workedHours,
+  });
+
+  const changes: AttendanceChanges = {};
+
+  if (input.status !== undefined) changes.status = input.status;
+  if (input.checkIn !== undefined) changes.checkIn = input.checkIn;
+  if (input.checkOut !== undefined) changes.checkOut = input.checkOut;
+  if (input.workedHours !== undefined) changes.workedHours = input.workedHours;
+  if (input.notes !== undefined) changes.notes = normalizeAttendanceText(input.notes);
+
+  const attendance = await saveAttendanceChanges(database, attendanceId, changes);
+
+  if (!attendance) {
+    throw employeeError("ATTENDANCE_UPDATE_FAILED", "Attendance could not be updated.", 500);
+  }
+
+  return attendance;
 }
 
 /** Creates one attendance batch after validating every employee/date before the insert. */
@@ -601,6 +812,15 @@ export async function createAttendanceBulk(
     }
 
     validateAttendanceEmploymentDate(employee, record.attendanceDate, `records.${index}.attendanceDate`);
+    validateAttendanceFieldConsistency(
+      {
+        status: record.status,
+        checkIn: record.checkIn ?? null,
+        checkOut: record.checkOut ?? null,
+        workedHours: record.workedHours ?? null,
+      },
+      `records.${index}`,
+    );
   });
 
   try {
@@ -727,6 +947,7 @@ export async function createEmployeeLeave(
   }
 
   validateLeaveEmploymentDates(employee, input.fromDate, input.toDate);
+  const days = validateLeaveDays(input.days, input.fromDate, input.toDate);
   const status = input.status ?? "PENDING";
 
   if (status === "APPROVED") {
@@ -744,7 +965,7 @@ export async function createEmployeeLeave(
     leaveTypeId: input.leaveTypeId,
     fromDate: input.fromDate,
     toDate: input.toDate,
-    days: input.days,
+    days,
     reason: input.reason.trim(),
     status,
     notes: normalizeOptionalText(input.notes),
@@ -772,6 +993,9 @@ export async function updateEmployeeLeave(
   const employee = await requireEmployee(database, employeeId);
 
   validateLeaveEmploymentDates(employee, fromDate, toDate);
+  const days = input.days === undefined
+    ? calculateLeaveDays(fromDate, toDate)
+    : validateLeaveDays(input.days, fromDate, toDate);
 
   if (leaveTypeId !== existingLeave.leaveTypeId) {
     const leaveType = await requireLeaveType(database, leaveTypeId);
@@ -792,10 +1016,13 @@ export async function updateEmployeeLeave(
     );
   }
 
+  const changes = readEmployeeLeaveChanges(input);
+  changes.days = days;
+
   const leave = await saveEmployeeLeaveChanges(
     database,
     employeeLeaveId,
-    readEmployeeLeaveChanges(input),
+    changes,
   );
 
   if (!leave) {
@@ -1040,6 +1267,40 @@ function divideRoundHalfUp(numerator: bigint, denominator: bigint): bigint {
   return (numerator + denominator / 2n) / denominator;
 }
 
+/** Prorates one monthly salary over the calendar days covered by a payroll period. */
+function prorateMonthlySalaryCents(
+  monthlySalaryCents: bigint,
+  periodStart: string,
+  periodEnd: string,
+): bigint {
+  let currentDate = periodStart;
+  let proratedCents = 0n;
+
+  while (currentDate <= periodEnd) {
+    const year = Number(currentDate.slice(0, 4));
+    const month = Number(currentDate.slice(5, 7));
+    const currentDay = Number(currentDate.slice(8, 10));
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+    const segmentEnd = periodEnd < monthEnd ? periodEnd : monthEnd;
+    const segmentEndDay = Number(segmentEnd.slice(8, 10));
+    const coveredDays = BigInt(segmentEndDay - currentDay + 1);
+
+    proratedCents += divideRoundHalfUp(
+      monthlySalaryCents * coveredDays,
+      BigInt(daysInMonth),
+    );
+
+    if (segmentEnd === periodEnd) {
+      break;
+    }
+
+    currentDate = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+  }
+
+  return proratedCents;
+}
+
 /** Formats hundredths of one day as the decimal string used by numeric(14,2). */
 function dayUnitsToDecimal(dayUnits: bigint): string {
   return `${dayUnits / 100n}.${(dayUnits % 100n).toString().padStart(2, "0")}`;
@@ -1187,6 +1448,38 @@ function classifyPayrollLeaveDay(
   return matches[0].isPaid;
 }
 
+/** Returns the next ISO business date without depending on the server timezone. */
+function nextPayrollBusinessDate(date: string): string {
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+}
+
+/** Requires one attendance status for every employment date covered by payroll. */
+function validatePayrollAttendanceCoverage(
+  employee: EmployeeRecord,
+  periodStart: string,
+  periodEnd: string,
+  attendance: AttendanceRecord[],
+): void {
+  const coverageStart = employee.joinDate > periodStart ? employee.joinDate : periodStart;
+  const coverageEnd = employee.leaveDate && employee.leaveDate < periodEnd
+    ? employee.leaveDate
+    : periodEnd;
+  const attendanceDates = new Set(attendance.map((record) => record.attendanceDate));
+
+  for (let date = coverageStart; date <= coverageEnd; date = nextPayrollBusinessDate(date)) {
+    if (!attendanceDates.has(date)) {
+      throw employeeError(
+        "PAYROLL_ATTENDANCE_INCOMPLETE",
+        `Payroll cannot be calculated for ${employee.employeeCode} because attendance is missing for ${date}. Record attendance for every employment date, including holidays and weekly off days.`,
+        409,
+      );
+    }
+  }
+}
+
 /** Validates reasons and advance recovery before calculating one draft Payroll Item. */
 function validateDraftPayrollAdjustment(
   employee: EmployeeRecord,
@@ -1228,6 +1521,8 @@ function validateDraftPayrollAdjustment(
 /** Calculates one Payroll Item using exact cents and hundredths-of-a-day arithmetic. */
 function calculateDraftPayrollItem(
   payrollRunId: string,
+  periodStart: string,
+  periodEnd: string,
   employee: EmployeeRecord,
   attendance: AttendanceRecord[],
   leaveRanges: Array<{ fromDate: string; toDate: string; isPaid: boolean }>,
@@ -1235,6 +1530,7 @@ function calculateDraftPayrollItem(
   outstandingAdvanceCents: bigint,
 ): NewPayrollItem {
   validateDraftPayrollAdjustment(employee, adjustment, outstandingAdvanceCents);
+  validatePayrollAttendanceCoverage(employee, periodStart, periodEnd, attendance);
 
   let workingDayUnits = 0n;
   let presentDayUnits = 0n;
@@ -1245,6 +1541,8 @@ function calculateDraftPayrollItem(
   let deductionDayUnits = 0n;
 
   for (const record of attendance) {
+    validateAttendanceFieldConsistency(record);
+
     switch (record.status) {
       case "PRESENT":
         workingDayUnits += 100n;
@@ -1284,7 +1582,15 @@ function calculateDraftPayrollItem(
   }
 
   const payableDayUnits = workingDayUnits - deductionDayUnits;
-  const grossCents = moneyToCents(employee.baseMonthlySalary);
+  const salaryPeriodStart = employee.joinDate > periodStart ? employee.joinDate : periodStart;
+  const salaryPeriodEnd = employee.leaveDate && employee.leaveDate < periodEnd
+    ? employee.leaveDate
+    : periodEnd;
+  const grossCents = prorateMonthlySalaryCents(
+    moneyToCents(employee.baseMonthlySalary),
+    salaryPeriodStart,
+    salaryPeriodEnd,
+  );
   const attendanceDeductionCents = divideRoundHalfUp(
     grossCents * deductionDayUnits,
     workingDayUnits,
@@ -1346,6 +1652,15 @@ async function calculateDraftPayroll(
   adjustments: Map<string, DraftPayrollAdjustment>,
   explicitlyAdjustedEmployeeIds: Set<string>,
 ): Promise<DraftPayrollCalculation> {
+  if (periodEnd > currentBusinessDate()) {
+    throw employeeError(
+      "PAYROLL_PERIOD_FUTURE",
+      "Payroll period cannot end in the future.",
+      400,
+      "periodEnd",
+    );
+  }
+
   const employees = await findPayrollEmployeesForPeriod(database, periodStart, periodEnd);
 
   if (employees.length === 0) {
@@ -1391,6 +1706,8 @@ async function calculateDraftPayroll(
 
   const items = employees.map((employee) => calculateDraftPayrollItem(
     payrollRunId,
+    periodStart,
+    periodEnd,
     employee,
     attendanceByEmployee.get(employee.id) ?? [],
     leaveRangesByEmployee.get(employee.id) ?? [],
@@ -2002,7 +2319,13 @@ export async function createSalaryPaymentInTransaction(
     notes: payment.notes,
   });
 
-  for (const split of splits) {
+  const movementSplits = [...splits].sort((left, right) => {
+    const leftAccountId = left.cashAccountId ?? left.bankAccountId ?? "";
+    const rightAccountId = right.cashAccountId ?? right.bankAccountId ?? "";
+    return `${left.method}:${leftAccountId}`.localeCompare(`${right.method}:${rightAccountId}`);
+  });
+
+  for (const split of movementSplits) {
     const movement = {
       accountId: (split.cashAccountId ?? split.bankAccountId) as string,
       sourceType: "SALARY_PAYMENT" as const,

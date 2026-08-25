@@ -4,27 +4,26 @@ import { CustomerForm } from "../components/customer-form.tsx";
 import { useCustomer } from "../hooks/use-customers.ts";
 
 interface CustomerFormPageProps {
-  customerId?: string;
+  customerId: string;
 }
 
-/** Hosts the shared customer form for create and edit routes. */
+/** Hosts the customer form for the edit route. */
 export function CustomerFormPage({
   customerId,
 }: CustomerFormPageProps): React.JSX.Element {
   const navigate = useNavigate();
-  const isEditing = Boolean(customerId);
-  const customerQuery = useCustomer(customerId ?? "");
+  const customerQuery = useCustomer(customerId);
 
   /** Returns to the customer list without reloading the browser. */
   function returnToCustomers(): void {
     void navigate({ to: "/customers" });
   }
 
-  if (isEditing && customerQuery.isPending) {
+  if (customerQuery.isPending) {
     return <p>Loading customer...</p>;
   }
 
-  if (isEditing && (customerQuery.isError || !customerQuery.data)) {
+  if (customerQuery.isError || !customerQuery.data) {
     return <p className="error-message">Could not load this customer.</p>;
   }
 
@@ -37,12 +36,8 @@ export function CustomerFormPage({
   return (
     <section>
       <p className="eyebrow">Customer Management</p>
-      <h1>{isEditing ? "Edit customer" : "Add customer"}</h1>
-      <p>
-        {isEditing
-          ? "Update the approved customer master data."
-          : "Create a regular customer for counter sales and credit tracking."}
-      </p>
+      <h1>Edit customer</h1>
+      <p>Update the approved customer master data.</p>
 
       <section className="management-card customer-form-card">
         <CustomerForm

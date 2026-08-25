@@ -70,6 +70,7 @@ const expectedRoutes: Record<string, readonly Route[]> = {
     ["GET", "/employees"],
     ["POST", "/employees"],
     ["POST", "/employees/attendance"],
+    ["PATCH", "/employees/attendance/:id"],
     ["POST", "/employees/attendance/bulk"],
     ["GET", "/employees/:id/attendance"],
     ["GET", "/employees/:id"],

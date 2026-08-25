@@ -241,10 +241,10 @@ test("migration journal and SQL files contain the complete current chain", async
     entries: Array<{ idx: number; tag: string }>;
   };
 
-  assert.equal(sqlFiles.length, 26);
-  assert.equal(journal.entries.length, 26);
+  assert.equal(sqlFiles.length, 28);
+  assert.equal(journal.entries.length, 28);
 
-  for (let index = 0; index < 26; index += 1) {
+  for (let index = 0; index < 28; index += 1) {
     const prefix = String(index).padStart(4, "0");
     assert.equal(sqlFiles[index]?.startsWith(prefix), true);
     assert.equal(journal.entries[index]?.idx, index);
@@ -255,7 +255,7 @@ test("migration journal and SQL files contain the complete current chain", async
 test("migration documentation lists the complete current migration chain", async () => {
   const readme = await readSource(new URL("../drizzle/README.md", import.meta.url));
 
-  for (let index = 0; index < 26; index += 1) {
+  for (let index = 0; index < 28; index += 1) {
     const prefix = String(index).padStart(4, "0");
     assert.equal(readme.includes("`" + prefix + "_"), true);
   }

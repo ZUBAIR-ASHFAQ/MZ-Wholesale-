@@ -246,6 +246,15 @@ export type AttendanceRecord = typeof attendanceRecords.$inferSelect;
 /** Contains the fields needed to create one attendance row. */
 export type NewAttendanceRecord = typeof attendanceRecords.$inferInsert;
 
+/** Contains the attendance values that may be corrected without changing row identity. */
+export interface AttendanceChanges {
+  status?: AttendanceRecord["status"];
+  checkIn?: string | null;
+  checkOut?: string | null;
+  workedHours?: string | null;
+  notes?: string | null;
+}
+
 /** Contains one page of attendance rows and the matching total count. */
 export interface PaginatedAttendanceRecords {
   items: AttendanceRecord[];
@@ -265,6 +274,20 @@ export async function findEmployeesByIds(
     .select()
     .from(employees)
     .where(inArray(employees.id, employeeIds));
+}
+
+/** Loads one attendance row by its immutable identifier. */
+export async function findAttendanceById(
+  database: EmployeesDatabase,
+  attendanceId: string,
+): Promise<AttendanceRecord | null> {
+  const rows = await database
+    .select()
+    .from(attendanceRecords)
+    .where(eq(attendanceRecords.id, attendanceId))
+    .limit(1);
+
+  return rows[0] ?? null;
 }
 
 /** Lists one employee's attendance history using optional business-date filters. */
@@ -309,6 +332,21 @@ export async function createAttendanceRecord(
   input: NewAttendanceRecord,
 ): Promise<AttendanceRecord | null> {
   const rows = await database.insert(attendanceRecords).values(input).returning();
+  return rows[0] ?? null;
+}
+
+/** Saves corrected attendance values and preserves employee/date identity. */
+export async function updateAttendanceRecord(
+  database: EmployeesDatabase,
+  attendanceId: string,
+  changes: AttendanceChanges,
+): Promise<AttendanceRecord | null> {
+  const rows = await database
+    .update(attendanceRecords)
+    .set({ ...changes, updatedAt: new Date() })
+    .where(eq(attendanceRecords.id, attendanceId))
+    .returning();
+
   return rows[0] ?? null;
 }
 

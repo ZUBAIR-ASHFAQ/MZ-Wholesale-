@@ -73,16 +73,6 @@ function movementSource(
           {label}
         </Link>
       );
-    case "STOCK_COUNT":
-      return (
-        <Link
-          className="table-link"
-          params={{ countId: sourceId }}
-          to="/inventory/counts/$countId"
-        >
-          {label}
-        </Link>
-      );
     default:
       return label;
   }

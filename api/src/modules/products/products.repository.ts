@@ -139,6 +139,10 @@ function buildProductFilters(query: ListProductsQuery): SQL[] {
     }
   }
 
+  if (query.namePrefix) {
+    filters.push(ilike(products.name, `${query.namePrefix}%`));
+  }
+
   return filters;
 }
 

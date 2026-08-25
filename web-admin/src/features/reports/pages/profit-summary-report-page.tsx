@@ -1,6 +1,8 @@
 import { trimDecimalZeros } from "../../../lib/utils.ts";
 import { useState } from "react";
 
+import { formatMoney } from "../../../lib/utils.ts";
+
 import type { ProfitSummaryReportFilters } from "../api/reports.api.ts";
 import {
   ReportDateRangeFilter,
@@ -72,7 +74,7 @@ export function ProfitSummaryReportPage(): React.JSX.Element {
   }
 
   return (
-    <section>
+    <section className="profit-summary-page">
       <div className="page-heading-row">
         <div>
           <p className="eyebrow">Reports</p>
@@ -84,7 +86,7 @@ export function ProfitSummaryReportPage(): React.JSX.Element {
         </div>
       </div>
 
-      <section className="management-card">
+      <section className="management-card profit-summary-filter-card">
         <ReportDateRangeFilter
           disabled={reportQuery.isFetching}
           onApply={applyFilters}
@@ -94,63 +96,121 @@ export function ProfitSummaryReportPage(): React.JSX.Element {
         />
       </section>
 
-      <section className="management-card">
+      <section className="management-card profit-summary-result-card">
         {reportQuery.isPending ? <p>Loading profit summary...</p> : null}
         {reportQuery.isError ? (
           <p className="error-message">Could not load the profit summary.</p>
         ) : null}
 
         {report ? (
-          <div className="summary-grid">
-            <article className="summary-card">
-              <span>Sales</span>
-              <strong>PKR {trimDecimalZeros(report.salesAmount)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Sales returns</span>
-              <strong>PKR {trimDecimalZeros(report.salesReturnAmount)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Net sales</span>
-              <strong>PKR {trimDecimalZeros(report.netSalesAmount)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Cost of goods sold</span>
-              <strong>PKR {trimDecimalZeros(report.costOfGoodsSoldAmount)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Returned cost</span>
-              <strong>PKR {trimDecimalZeros(report.returnedCostAmount)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Net cost</span>
-              <strong>PKR {trimDecimalZeros(report.netCostAmount)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Gross profit</span>
-              <strong>PKR {trimDecimalZeros(report.grossProfitAmount)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Expenses</span>
-              <strong>PKR {trimDecimalZeros(report.expenseAmount)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Expense reversals</span>
-              <strong>PKR {trimDecimalZeros(report.expenseReversalAmount)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Net expenses</span>
-              <strong>PKR {trimDecimalZeros(report.netExpenseAmount)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Labor cost</span>
-              <strong>PKR {trimDecimalZeros(report.laborCostAmount)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Estimated profit</span>
-              <strong>PKR {trimDecimalZeros(report.estimatedProfitAmount)}</strong>
-            </article>
-          </div>
+          <>
+            <div className="profit-summary-result-heading">
+              <div>
+                <span>Applied period</span>
+                <h2>Profit at a glance</h2>
+                <p>
+                  {appliedFilters.startDate} <span aria-hidden="true">→</span>{" "}
+                  {appliedFilters.endDate}
+                </p>
+              </div>
+              <small>Asia/Karachi business dates</small>
+            </div>
+
+            <div className="summary-grid profit-summary-kpi-grid">
+              <article className="summary-card">
+                <span>Net sales</span>
+                <strong>{formatMoney(report.netSalesAmount)}</strong>
+                <small>Sales less confirmed returns</small>
+              </article>
+              <article className="summary-card">
+                <span>Gross profit</span>
+                <strong>{formatMoney(report.grossProfitAmount)}</strong>
+                <small>Net sales less net inventory cost</small>
+              </article>
+              <article className="summary-card profit-summary-primary-kpi">
+                <span>Estimated profit</span>
+                <strong>{formatMoney(report.estimatedProfitAmount)}</strong>
+                <small>After net expenses and labor cost</small>
+              </article>
+            </div>
+
+            <div className="profit-summary-breakdown-grid">
+              <article className="summary-card profit-summary-detail-card">
+                <div className="profit-summary-detail-heading">
+                  <span>Revenue</span>
+                  <h3>Sales</h3>
+                </div>
+                <div className="profit-summary-detail-list">
+                  <div>
+                    <span>Confirmed sales</span>
+                    <strong>{formatMoney(report.salesAmount)}</strong>
+                  </div>
+                  <div>
+                    <span>Sales returns</span>
+                    <strong>− {formatMoney(report.salesReturnAmount)}</strong>
+                  </div>
+                  <div className="profit-summary-detail-total">
+                    <span>Net sales</span>
+                    <strong>{formatMoney(report.netSalesAmount)}</strong>
+                  </div>
+                </div>
+              </article>
+
+              <article className="summary-card profit-summary-detail-card">
+                <div className="profit-summary-detail-heading">
+                  <span>Cost of sales</span>
+                  <h3>Inventory cost</h3>
+                </div>
+                <div className="profit-summary-detail-list">
+                  <div>
+                    <span>Cost of goods sold</span>
+                    <strong>{formatMoney(report.costOfGoodsSoldAmount)}</strong>
+                  </div>
+                  <div>
+                    <span>Returned cost</span>
+                    <strong>− {formatMoney(report.returnedCostAmount)}</strong>
+                  </div>
+                  <div>
+                    <span>Net cost</span>
+                    <strong>{formatMoney(report.netCostAmount)}</strong>
+                  </div>
+                  <div className="profit-summary-detail-total">
+                    <span>Gross profit</span>
+                    <strong>{formatMoney(report.grossProfitAmount)}</strong>
+                  </div>
+                </div>
+              </article>
+
+              <article className="summary-card profit-summary-detail-card">
+                <div className="profit-summary-detail-heading">
+                  <span>Operating costs</span>
+                  <h3>Expenses &amp; labor</h3>
+                </div>
+                <div className="profit-summary-detail-list">
+                  <div>
+                    <span>Expenses</span>
+                    <strong>{formatMoney(report.expenseAmount)}</strong>
+                  </div>
+                  <div>
+                    <span>Expense reversals</span>
+                    <strong>− {formatMoney(report.expenseReversalAmount)}</strong>
+                  </div>
+                  <div>
+                    <span>Net expenses</span>
+                    <strong>{formatMoney(report.netExpenseAmount)}</strong>
+                  </div>
+                  <div>
+                    <span>Labor cost</span>
+                    <strong>{formatMoney(report.laborCostAmount)}</strong>
+                  </div>
+                  <div className="profit-summary-detail-total">
+                    <span>Estimated profit</span>
+                    <strong>{formatMoney(report.estimatedProfitAmount)}</strong>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </>
         ) : null}
       </section>
     </section>

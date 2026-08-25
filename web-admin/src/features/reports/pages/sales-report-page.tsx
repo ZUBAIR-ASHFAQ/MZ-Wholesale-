@@ -54,13 +54,25 @@ export function SalesReportPage(): React.JSX.Element {
   const [draftDates, setDraftDates] =
     useState<ReportDateRangeFilterValues>(defaultDates);
   const [draftCustomerId, setDraftCustomerId] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
   const [draftProductId, setDraftProductId] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [productMenuOpen, setProductMenuOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<SalesReportFilters>(() =>
     createSalesFilters(defaultDates, "", ""),
   );
 
-  const customersQuery = useCustomers({ page: 1, pageSize: 100 });
-  const productsQuery = useProducts({ page: 1, pageSize: 100 });
+  const customersQuery = useCustomers({
+    namePrefix: draftCustomerId ? undefined : customerSearch || undefined,
+    page: 1,
+    pageSize: 100,
+  });
+  const productsQuery = useProducts({
+    namePrefix: draftProductId ? undefined : productSearch || undefined,
+    page: 1,
+    pageSize: 100,
+  });
   const salesReportQuery = useSalesReport(appliedFilters);
 
   const customers = customersQuery.data?.data.items ?? [];
@@ -82,6 +94,100 @@ export function SalesReportPage(): React.JSX.Element {
     [products],
   );
 
+  /** Updates the typed customer-name prefix and clears any previous customer selection. */
+  function changeCustomerSearch(value: string): void {
+    setCustomerSearch(value);
+    setDraftCustomerId("");
+    setCustomerMenuOpen(true);
+  }
+
+  /** Selects one customer from the searchable report dropdown. */
+  function selectCustomer(customerId: string, label: string): void {
+    setDraftCustomerId(customerId);
+    setCustomerSearch(label);
+    setCustomerMenuOpen(false);
+  }
+
+  /** Clears the customer report filter selection. */
+  function selectAllCustomers(): void {
+    setDraftCustomerId("");
+    setCustomerSearch("");
+    setCustomerMenuOpen(false);
+  }
+
+  /** Keeps the customer dropdown keyboard behavior aligned with the Sales list. */
+  function handleCustomerKeyDown(
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ): void {
+    if (event.key === "Escape") {
+      setCustomerMenuOpen(false);
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setCustomerMenuOpen(true);
+    }
+  }
+
+  /** Closes the customer dropdown when focus leaves its combobox. */
+  function handleCustomerBlur(event: React.FocusEvent<HTMLDivElement>): void {
+    const nextTarget = event.relatedTarget;
+
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setCustomerMenuOpen(false);
+  }
+
+  /** Updates the typed product-name prefix and clears any previous product selection. */
+  function changeProductSearch(value: string): void {
+    setProductSearch(value);
+    setDraftProductId("");
+    setProductMenuOpen(true);
+  }
+
+  /** Selects one product from the searchable report dropdown. */
+  function selectProduct(productId: string, label: string): void {
+    setDraftProductId(productId);
+    setProductSearch(label);
+    setProductMenuOpen(false);
+  }
+
+  /** Clears the product report filter selection. */
+  function selectAllProducts(): void {
+    setDraftProductId("");
+    setProductSearch("");
+    setProductMenuOpen(false);
+  }
+
+  /** Keeps the product dropdown keyboard behavior aligned with the Sales list. */
+  function handleProductKeyDown(
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ): void {
+    if (event.key === "Escape") {
+      setProductMenuOpen(false);
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setProductMenuOpen(true);
+    }
+  }
+
+  /** Closes the product dropdown when focus leaves its combobox. */
+  function handleProductBlur(event: React.FocusEvent<HTMLDivElement>): void {
+    const nextTarget = event.relatedTarget;
+
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setProductMenuOpen(false);
+  }
+
   /** Applies the selected dates, customer, and product to the report query. */
   function applyFilters(): void {
     setAppliedFilters(
@@ -98,7 +204,11 @@ export function SalesReportPage(): React.JSX.Element {
 
     setDraftDates(nextDates);
     setDraftCustomerId("");
+    setCustomerSearch("");
+    setCustomerMenuOpen(false);
     setDraftProductId("");
+    setProductSearch("");
+    setProductMenuOpen(false);
     setAppliedFilters(createSalesFilters(nextDates, "", ""));
   }
 
@@ -125,37 +235,135 @@ export function SalesReportPage(): React.JSX.Element {
         />
 
         <div className="payment-filter-grid">
-          <label className="ui-field">
+          <div className="ui-field">
             <span>Customer</span>
-            <select
-              disabled={customersQuery.isPending || salesReportQuery.isFetching}
-              onChange={(event) => setDraftCustomerId(event.target.value)}
-              value={draftCustomerId}
+            <div
+              className="sale-customer-combobox"
+              onBlur={handleCustomerBlur}
             >
-              <option value="">All customers</option>
-              {customerOptions.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.code} - {customer.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <input
+                aria-autocomplete="list"
+                aria-expanded={customerMenuOpen}
+                aria-haspopup="listbox"
+                autoComplete="off"
+                disabled={salesReportQuery.isFetching}
+                placeholder="All customers"
+                role="combobox"
+                value={customerSearch}
+                onChange={(event) => changeCustomerSearch(event.target.value)}
+                onClick={() => setCustomerMenuOpen(true)}
+                onFocus={(event) => {
+                  setCustomerMenuOpen(true);
 
-          <label className="ui-field">
+                  if (draftCustomerId) {
+                    event.currentTarget.select();
+                  }
+                }}
+                onKeyDown={handleCustomerKeyDown}
+              />
+
+              {customerMenuOpen ? (
+                <div className="sale-customer-options" role="listbox">
+                  <button
+                    aria-selected={!draftCustomerId}
+                    className="sale-customer-option"
+                    onClick={selectAllCustomers}
+                    role="option"
+                    type="button"
+                  >
+                    All customers
+                  </button>
+                  {customerOptions.map((customer) => (
+                    <button
+                      aria-selected={draftCustomerId === customer.id}
+                      className="sale-customer-option"
+                      key={customer.id}
+                      onClick={() =>
+                        selectCustomer(
+                          customer.id,
+                          `${customer.code} - ${customer.name}`,
+                        )
+                      }
+                      role="option"
+                      type="button"
+                    >
+                      {customer.code} - {customer.name}
+                    </button>
+                  ))}
+                  {customerSearch &&
+                  !customersQuery.isPending &&
+                  customerOptions.length === 0 ? (
+                    <p className="sale-customer-empty">No customers found.</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="ui-field">
             <span>Product</span>
-            <select
-              disabled={productsQuery.isPending || salesReportQuery.isFetching}
-              onChange={(event) => setDraftProductId(event.target.value)}
-              value={draftProductId}
+            <div
+              className="sale-customer-combobox"
+              onBlur={handleProductBlur}
             >
-              <option value="">All products</option>
-              {productOptions.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.sku} - {product.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <input
+                aria-autocomplete="list"
+                aria-expanded={productMenuOpen}
+                aria-haspopup="listbox"
+                autoComplete="off"
+                disabled={salesReportQuery.isFetching}
+                placeholder="All products"
+                role="combobox"
+                value={productSearch}
+                onChange={(event) => changeProductSearch(event.target.value)}
+                onClick={() => setProductMenuOpen(true)}
+                onFocus={(event) => {
+                  setProductMenuOpen(true);
+
+                  if (draftProductId) {
+                    event.currentTarget.select();
+                  }
+                }}
+                onKeyDown={handleProductKeyDown}
+              />
+
+              {productMenuOpen ? (
+                <div className="sale-customer-options" role="listbox">
+                  <button
+                    aria-selected={!draftProductId}
+                    className="sale-customer-option"
+                    onClick={selectAllProducts}
+                    role="option"
+                    type="button"
+                  >
+                    All products
+                  </button>
+                  {productOptions.map((product) => (
+                    <button
+                      aria-selected={draftProductId === product.id}
+                      className="sale-customer-option"
+                      key={product.id}
+                      onClick={() =>
+                        selectProduct(
+                          product.id,
+                          `${product.sku} - ${product.name}`,
+                        )
+                      }
+                      role="option"
+                      type="button"
+                    >
+                      {product.sku} - {product.name}
+                    </button>
+                  ))}
+                  {productSearch &&
+                  !productsQuery.isPending &&
+                  productOptions.length === 0 ? (
+                    <p className="sale-customer-empty">No products found.</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         {customersQuery.isError ? (

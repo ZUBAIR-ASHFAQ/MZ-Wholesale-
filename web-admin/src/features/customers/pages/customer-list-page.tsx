@@ -1,12 +1,13 @@
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Button } from "../../../components/ui/button.tsx";
+import { Dialog } from "../../../components/ui/dialog.tsx";
 import type { CustomerListFilters } from "../api/customers.api.ts";
 import {
   CustomerFilters,
   type CustomerFilterValues,
 } from "../components/customer-filters.tsx";
+import { CustomerForm } from "../components/customer-form.tsx";
 import { CustomerTable } from "../components/customer-table.tsx";
 import { useCustomers } from "../hooks/use-customers.ts";
 
@@ -38,6 +39,7 @@ export function CustomerListPage(): React.JSX.Element {
   const [appliedFilters, setAppliedFilters] =
     useState<CustomerFilterValues>(emptyFilters);
   const [page, setPage] = useState(1);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const customersQuery = useCustomers(createApiFilters(appliedFilters, page));
   const result = customersQuery.data?.data;
@@ -54,6 +56,16 @@ export function CustomerListPage(): React.JSX.Element {
     setDraftFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
     setPage(1);
+  }
+
+  /** Opens the New Customer dialog without leaving the customer list. */
+  function openCreateDialog(): void {
+    setIsCreateDialogOpen(true);
+  }
+
+  /** Closes the New Customer dialog. */
+  function closeCreateDialog(): void {
+    setIsCreateDialogOpen(false);
   }
 
   /** Opens the previous customer page when it exists. */
@@ -74,9 +86,7 @@ export function CustomerListPage(): React.JSX.Element {
           <h1>Customers</h1>
           <p>Search regular and Walk-in customers used by counter sales.</p>
         </div>
-        <Link className="primary-link" to="/customers/new">
-          Add customer
-        </Link>
+        <Button label="Add customer" onClick={openCreateDialog} />
       </div>
 
       <section className="management-card customer-list-card">
@@ -115,6 +125,18 @@ export function CustomerListPage(): React.JSX.Element {
           </div>
         ) : null}
       </section>
+
+      <Dialog
+        className="customer-create-dialog"
+        isOpen={isCreateDialogOpen}
+        onClose={closeCreateDialog}
+        title="New customer"
+      >
+        <CustomerForm
+          onCancel={closeCreateDialog}
+          onSaved={closeCreateDialog}
+        />
+      </Dialog>
     </section>
   );
 }

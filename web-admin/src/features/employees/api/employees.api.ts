@@ -178,6 +178,15 @@ export interface CreateAttendanceInput {
   notes?: string | null;
 }
 
+/** Fields accepted when correcting one existing attendance record. */
+export interface UpdateAttendanceInput {
+  status?: AttendanceStatus;
+  checkIn?: string | null;
+  checkOut?: string | null;
+  workedHours?: string | null;
+  notes?: string | null;
+}
+
 /** Builds the query string accepted by one employee's attendance history route. */
 function buildAttendanceListQuery(filters: AttendanceListFilters): string {
   const params = new URLSearchParams();
@@ -207,6 +216,17 @@ export async function createAttendance(
 ): Promise<ApiSuccess<AttendanceRecord>> {
   return requestApi<ApiSuccess<AttendanceRecord>>("/employees/attendance", {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** Corrects one saved attendance row without changing employee/date identity. */
+export async function updateAttendance(
+  attendanceId: string,
+  input: UpdateAttendanceInput,
+): Promise<ApiSuccess<AttendanceRecord>> {
+  return requestApi<ApiSuccess<AttendanceRecord>>(`/employees/attendance/${attendanceId}`, {
+    method: "PATCH",
     body: JSON.stringify(input),
   });
 }

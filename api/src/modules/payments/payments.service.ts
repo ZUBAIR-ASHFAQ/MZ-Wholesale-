@@ -217,6 +217,17 @@ interface PaymentAllocationForValidation {
   amount: string;
 }
 
+/** Orders payment splits by account so transactions acquire outflow locks consistently. */
+function sortPaymentSplitsByAccount<T extends PaymentSplitForValidation>(
+  splits: readonly T[],
+): T[] {
+  return [...splits].sort((left, right) => {
+    const leftAccountId = left.cashAccountId ?? left.bankAccountId ?? "";
+    const rightAccountId = right.cashAccountId ?? right.bankAccountId ?? "";
+    return `${left.method}:${leftAccountId}`.localeCompare(`${right.method}:${rightAccountId}`);
+  });
+}
+
 /** Contains trusted document data loaded by Sales or Purchases. */
 interface ResolvedAllocationDocument {
   documentId: string;
@@ -868,9 +879,21 @@ async function writeAccountMovement(
 
   const cashAccountId = method === "CASH" ? input.accountId : null;
   const bankAccountId = method === "BANK_TRANSFER" ? input.accountId : null;
-  const account = method === "CASH"
-    ? await requireCashAccount(database, input.accountId)
-    : await requireBankAccount(database, input.accountId);
+  const account = direction === "OUTFLOW"
+    ? method === "CASH"
+      ? await lockCashAccount(database, input.accountId)
+      : await lockBankAccount(database, input.accountId)
+    : method === "CASH"
+      ? await requireCashAccount(database, input.accountId)
+      : await requireBankAccount(database, input.accountId);
+
+  if (!account) {
+    throw paymentError(
+      "ACCOUNT_NOT_FOUND",
+      method === "CASH" ? "Cash account was not found." : "Bank account was not found.",
+      404,
+    );
+  }
 
   if (!account.isActive) {
     throw paymentError(
@@ -878,6 +901,21 @@ async function writeAccountMovement(
       "Inactive accounts cannot be used for new movements.",
       409,
     );
+  }
+
+  if (direction === "OUTFLOW") {
+    const balance = method === "CASH"
+      ? await readCashAccountBalance(database, input.accountId)
+      : await readBankAccountBalance(database, input.accountId);
+
+    if (moneyToCents(balance) < moneyToCents(input.amount)) {
+      throw paymentError(
+        "INSUFFICIENT_ACCOUNT_BALANCE",
+        "The account does not have enough balance for this outflow.",
+        409,
+        "amount",
+      );
+    }
   }
 
   const duplicate = await findMovementBySource(database, {
@@ -1880,7 +1918,7 @@ export async function reverseCustomerReceipt(
     notes: input.reason.trim(),
   });
 
-  for (const split of splits) {
+  for (const split of sortPaymentSplitsByAccount(splits)) {
     const movement = {
       accountId: (split.cashAccountId ?? split.bankAccountId) as string,
       sourceType: "CUSTOMER_RECEIPT_REVERSAL" as const,
@@ -2010,7 +2048,7 @@ export async function recordPurchaseInitialSupplierPayment(
     notes: payment.notes,
   });
 
-  for (const split of input.splits) {
+  for (const split of sortPaymentSplitsByAccount(input.splits)) {
     const movement = {
       accountId: (split.cashAccountId ?? split.bankAccountId) as string,
       sourceType: "PURCHASE_INITIAL_PAYMENT" as const,
@@ -2310,7 +2348,7 @@ export async function createSupplierPayment(
     notes: payment.notes,
   });
 
-  for (const split of input.splits) {
+  for (const split of sortPaymentSplitsByAccount(input.splits)) {
     const movement = {
       accountId: (split.cashAccountId ?? split.bankAccountId) as string,
       sourceType: "SUPPLIER_PAYMENT" as const,

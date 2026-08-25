@@ -64,6 +64,7 @@ export interface PaginatedProducts {
 /** Filters accepted by GET /products. */
 export interface ProductListFilters {
   search?: string;
+  namePrefix?: string;
   barcode?: string;
   categoryId?: string;
   active?: boolean;
@@ -148,6 +149,7 @@ function buildProductListQuery(filters: ProductListFilters): string {
   const params = new URLSearchParams();
 
   addTextFilter(params, "search", filters.search);
+  addTextFilter(params, "namePrefix", filters.namePrefix);
   addTextFilter(params, "barcode", filters.barcode);
   addTextFilter(params, "categoryId", filters.categoryId);
 

@@ -6,6 +6,7 @@ import { Dialog } from "../../../components/ui/dialog.tsx";
 import { StatusBadge } from "../../../components/ui/status-badge.tsx";
 import { ApiError } from "../../../lib/api-types.ts";
 import {
+  currentBusinessDate,
   formatBusinessDate,
   formatBusinessDateTime,
   formatMoney,
@@ -61,6 +62,7 @@ function isPositiveMoney(value: string): boolean {
 
 /** Displays and edits one Payroll Run, confirms it, then pays salary from the same full page. */
 export function PayrollDetailPage({ payrollRunId }: PayrollDetailPageProps): React.JSX.Element {
+  const today = currentBusinessDate();
   const payrollQuery = usePayrollRun(payrollRunId);
   const updatePayroll = useUpdatePayrollRun();
   const confirmPayroll = useConfirmPayrollRun();
@@ -114,6 +116,10 @@ export function PayrollDetailPage({ payrollRunId }: PayrollDetailPageProps): Rea
     if (!payroll || payroll.run.status !== "DRAFT") return;
     if (!periodStart || !periodEnd || periodEnd < periodStart) {
       setSaveError("Enter a valid payroll period.");
+      return;
+    }
+    if (periodEnd > today) {
+      setSaveError("Payroll period cannot end in the future.");
       return;
     }
     if (notes.trim().length > 500) {
@@ -218,11 +224,11 @@ export function PayrollDetailPage({ payrollRunId }: PayrollDetailPageProps): Rea
           <div className="employee-form-grid">
             <label className="ui-field">
               <span>Period start</span>
-              <input disabled={updatePayroll.isPending} onChange={(event) => setPeriodStart(event.target.value)} type="date" value={periodStart} />
+              <input disabled={updatePayroll.isPending} max={today} onChange={(event) => setPeriodStart(event.target.value)} type="date" value={periodStart} />
             </label>
             <label className="ui-field">
               <span>Period end</span>
-              <input disabled={updatePayroll.isPending} onChange={(event) => setPeriodEnd(event.target.value)} type="date" value={periodEnd} />
+              <input disabled={updatePayroll.isPending} max={today} onChange={(event) => setPeriodEnd(event.target.value)} type="date" value={periodEnd} />
             </label>
             <label className="ui-field employee-form-wide">
               <span>Notes</span>

@@ -22,6 +22,48 @@ test("inventory valuation uses current quantities and weighted-average cost with
   assert.doesNotMatch(repository, /\.(?:insert|update|delete)\(/);
 });
 
+/** Verifies aging arithmetic converts text aggregate aliases back to numeric before subtraction. */
+test("customer and supplier aging subtract numeric allocation and return totals", async () => {
+  const repository = await source("src/modules/reports/reports.repository.ts");
+
+  const customerStart = repository.indexOf("function customerAgingOutstandingInvoices");
+  const customerEnd = repository.indexOf("function customerAgingGroupedInvoices", customerStart);
+  const customerSource = repository.slice(customerStart, customerEnd);
+  assert.match(customerSource, /allocations\.allocatedAmount}::numeric/);
+  assert.match(customerSource, /returns\.returnedAmount}::numeric/);
+
+  const supplierStart = repository.indexOf("function supplierAgingOutstandingPurchases");
+  const supplierEnd = repository.indexOf("function supplierAgingGroupedSuppliers", supplierStart);
+  const supplierSource = repository.slice(supplierStart, supplierEnd);
+  assert.match(supplierSource, /allocations\.allocatedAmount}::numeric/);
+  assert.match(supplierSource, /returns\.returnedAmount}::numeric/);
+});
+
+/** Verifies aging subqueries expose only one id column and aggregate text aliases as numeric. */
+test("customer and supplier aging avoid ambiguous id columns and text sums", async () => {
+  const repository = await source("src/modules/reports/reports.repository.ts");
+
+  const customerStart = repository.indexOf("function customerAgingOutstandingInvoices");
+  const customerEnd = repository.indexOf("function customerAgingGroupedInvoices", customerStart);
+  const customerSource = repository.slice(customerStart, customerEnd);
+  assert.doesNotMatch(customerSource, /salesInvoiceId:\s*salesInvoices\.id/);
+  assert.match(customerSource, /customerId:\s*customers\.id/);
+
+  const supplierStart = repository.indexOf("function supplierAgingOutstandingPurchases");
+  const supplierEnd = repository.indexOf("function supplierAgingGroupedSuppliers", supplierStart);
+  const supplierSource = repository.slice(supplierStart, supplierEnd);
+  assert.doesNotMatch(supplierSource, /purchaseId:\s*purchases\.id/);
+  assert.match(supplierSource, /supplierId:\s*suppliers\.id/);
+
+  const supplierTotalsStart = repository.indexOf("async function readSupplierAgingTotals");
+  const supplierTotalsEnd = repository.indexOf("export async function listSupplierAging", supplierTotalsStart);
+  const supplierTotalsSource = repository.slice(supplierTotalsStart, supplierTotalsEnd);
+  assert.match(supplierTotalsSource, /grouped\.bucket0To30}::numeric/);
+  assert.match(supplierTotalsSource, /grouped\.bucket31To60}::numeric/);
+  assert.match(supplierTotalsSource, /grouped\.bucket61To90}::numeric/);
+  assert.match(supplierTotalsSource, /grouped\.bucket90Plus}::numeric/);
+  assert.match(supplierTotalsSource, /grouped\.totalPayable}::numeric/);
+});
 test("customer aging subtracts valid allocations and sales returns and excludes walk-in customer", async () => {
   const repository = await source("src/modules/reports/reports.repository.ts");
 
@@ -34,6 +76,30 @@ test("customer aging subtracts valid allocations and sales returns and excludes 
   assert.match(repository, /bucket61To90/);
   assert.match(repository, /bucket90Plus/);
   assert.match(repository, /totalOutstanding/);
+});
+
+/** Verifies Customer Aging totals cast grouped text decimals back to numeric before PostgreSQL SUM. */
+test("customer aging totals aggregate numeric values instead of calling sum(text)", async () => {
+  const repository = await source("src/modules/reports/reports.repository.ts");
+  const start = repository.indexOf("async function readCustomerAgingTotals");
+  const end = repository.indexOf("export async function listCustomerAging", start);
+  const totalsSource = repository.slice(start, end);
+
+  assert.ok(start >= 0);
+  assert.ok(end > start);
+  for (const field of [
+    "bucket0To30",
+    "bucket31To60",
+    "bucket61To90",
+    "bucket90Plus",
+    "totalOutstanding",
+  ]) {
+    assert.match(
+      totalsSource,
+      new RegExp(`sum\\(\\$\\{grouped\\.${field}\\}::numeric\\)`),
+      `${field} must be numeric before SUM`,
+    );
+  }
 });
 
 test("customer aging keeps an original receipt until its reversal business date", async () => {
@@ -65,6 +131,30 @@ test("supplier aging subtracts valid allocations and purchase returns", async ()
   assert.match(repository, /bucket61To90/);
   assert.match(repository, /bucket90Plus/);
   assert.match(repository, /totalPayable/);
+});
+
+/** Verifies Supplier Aging totals cast grouped text decimals back to numeric before PostgreSQL SUM. */
+test("supplier aging totals aggregate numeric values instead of calling sum(text)", async () => {
+  const repository = await source("src/modules/reports/reports.repository.ts");
+  const start = repository.indexOf("async function readSupplierAgingTotals");
+  const end = repository.indexOf("export async function listSupplierAging", start);
+  const totalsSource = repository.slice(start, end);
+
+  assert.ok(start >= 0);
+  assert.ok(end > start);
+  for (const field of [
+    "bucket0To30",
+    "bucket31To60",
+    "bucket61To90",
+    "bucket90Plus",
+    "totalPayable",
+  ]) {
+    assert.match(
+      totalsSource,
+      new RegExp(`sum\\(\\$\\{grouped\\.${field}\\}::numeric\\)`),
+      `${field} must be numeric before SUM`,
+    );
+  }
 });
 
 test("supplier aging keeps an original payment until its reversal business date", async () => {

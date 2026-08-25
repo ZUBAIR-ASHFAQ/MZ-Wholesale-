@@ -1464,8 +1464,8 @@ function customerAgingOutstandingInvoices(
   const returns = customerAgingReturnTotals(database, query);
   const outstandingAmount = sql<string>`greatest(
     ${salesInvoices.totalAmount}
-      - coalesce(${allocations.allocatedAmount}, 0)
-      - coalesce(${returns.returnedAmount}, 0),
+      - coalesce(${allocations.allocatedAmount}::numeric, 0)
+      - coalesce(${returns.returnedAmount}::numeric, 0),
     0
   )`;
   const search = query.search
@@ -1478,7 +1478,6 @@ function customerAgingOutstandingInvoices(
 
   return database
     .select({
-      salesInvoiceId: salesInvoices.id,
       invoiceDate: salesInvoices.invoiceDate,
       customerId: customers.id,
       customerCode: customers.code,
@@ -1502,8 +1501,8 @@ function customerAgingOutstandingInvoices(
     .as("customer_aging_outstanding_invoices");
 }
 
-/** Builds customer-level aging buckets from unpaid invoice rows. */
-function customerAgingGroupedCustomers(
+/** Builds customer-level aging buckets from unpaid confirmed invoice rows. */
+function customerAgingGroupedInvoices(
   database: ReportsDatabase,
   query: CustomerAgingRepositoryQuery,
 ) {
@@ -1534,10 +1533,101 @@ function customerAgingGroupedCustomers(
       invoices.customerName,
       invoices.phone,
     )
+    .as("customer_aging_grouped_invoices");
+}
+
+/** Builds each customer ledger balance and opening-balance date as of the report date. */
+function customerAgingLedgerBalances(
+  database: ReportsDatabase,
+  query: CustomerAgingRepositoryQuery,
+) {
+  const businessDate = sql<string>`timezone('Asia/Karachi', ${customerLedgerEntries.occurredAt})::date`;
+  const ledgerBalance = sql<string>`sum(${customerLedgerEntries.debit} - ${customerLedgerEntries.credit})`;
+  const openingDate = sql<string | null>`min(case
+    when ${customerLedgerEntries.referenceType} = 'OPENING_BALANCE' then ${businessDate}
+    else null
+  end)`;
+  const search = query.search
+    ? or(
+        ilike(customers.code, `%${query.search}%`),
+        ilike(customers.name, `%${query.search}%`),
+        ilike(customers.phone, `%${query.search}%`),
+      )
+    : undefined;
+
+  return database
+    .select({
+      customerId: customers.id,
+      customerCode: customers.code,
+      customerName: customers.name,
+      phone: customers.phone,
+      openingDate: openingDate.as("opening_date"),
+      ledgerBalance: ledgerBalance.as("ledger_balance"),
+    })
+    .from(customerLedgerEntries)
+    .innerJoin(customers, eq(customers.id, customerLedgerEntries.customerId))
+    .where(
+      and(
+        eq(customers.isWalkIn, false),
+        lte(businessDate, query.asOfDate),
+        search,
+      ),
+    )
+    .groupBy(
+      customers.id,
+      customers.code,
+      customers.name,
+      customers.phone,
+    )
+    .having(gt(ledgerBalance, "0"))
+    .as("customer_aging_ledger_balances");
+}
+
+/** Reconciles invoice aging with ledger-only opening due so every remaining customer due is shown. */
+function customerAgingGroupedCustomers(
+  database: ReportsDatabase,
+  query: CustomerAgingRepositoryQuery,
+) {
+  const invoices = customerAgingGroupedInvoices(database, query);
+  const balances = customerAgingLedgerBalances(database, query);
+  const openingDue = sql<string>`greatest(
+    ${balances.ledgerBalance}::numeric - coalesce(${invoices.totalOutstanding}::numeric, 0),
+    0
+  )`;
+  const openingAgeInDays = sql<number>`${query.asOfDate}::date - ${balances.openingDate}`;
+
+  return database
+    .select({
+      customerId: balances.customerId,
+      customerCode: balances.customerCode,
+      customerName: balances.customerName,
+      phone: balances.phone,
+      bucket0To30: sql<string>`(
+        coalesce(${invoices.bucket0To30}::numeric, 0)
+        + case when ${openingAgeInDays} between 0 and 30 then ${openingDue} else 0 end
+      )::text`.as("bucket_0_to_30"),
+      bucket31To60: sql<string>`(
+        coalesce(${invoices.bucket31To60}::numeric, 0)
+        + case when ${openingAgeInDays} between 31 and 60 then ${openingDue} else 0 end
+      )::text`.as("bucket_31_to_60"),
+      bucket61To90: sql<string>`(
+        coalesce(${invoices.bucket61To90}::numeric, 0)
+        + case when ${openingAgeInDays} between 61 and 90 then ${openingDue} else 0 end
+      )::text`.as("bucket_61_to_90"),
+      bucket90Plus: sql<string>`(
+        coalesce(${invoices.bucket90Plus}::numeric, 0)
+        + case when ${openingAgeInDays} > 90 then ${openingDue} else 0 end
+      )::text`.as("bucket_90_plus"),
+      totalOutstanding: sql<string>`${balances.ledgerBalance}::numeric::text`.as(
+        "total_outstanding",
+      ),
+    })
+    .from(balances)
+    .leftJoin(invoices, eq(invoices.customerId, balances.customerId))
     .as("customer_aging_grouped_customers");
 }
 
-/** Lists one page of customers with outstanding invoices grouped by invoice age. */
+/** Lists one page of customers with remaining due grouped by age. */
 async function listCustomerAgingRows(
   database: ReportsDatabase,
   query: CustomerAgingRepositoryQuery,
@@ -1565,11 +1655,11 @@ async function readCustomerAgingTotals(
   const rows = await database
     .select({
       total: count(),
-      bucket0To30: sql<string>`coalesce(sum(${grouped.bucket0To30}), 0)::text`,
-      bucket31To60: sql<string>`coalesce(sum(${grouped.bucket31To60}), 0)::text`,
-      bucket61To90: sql<string>`coalesce(sum(${grouped.bucket61To90}), 0)::text`,
-      bucket90Plus: sql<string>`coalesce(sum(${grouped.bucket90Plus}), 0)::text`,
-      totalOutstanding: sql<string>`coalesce(sum(${grouped.totalOutstanding}), 0)::text`,
+      bucket0To30: sql<string>`coalesce(sum(${grouped.bucket0To30}::numeric), 0)::text`,
+      bucket31To60: sql<string>`coalesce(sum(${grouped.bucket31To60}::numeric), 0)::text`,
+      bucket61To90: sql<string>`coalesce(sum(${grouped.bucket61To90}::numeric), 0)::text`,
+      bucket90Plus: sql<string>`coalesce(sum(${grouped.bucket90Plus}::numeric), 0)::text`,
+      totalOutstanding: sql<string>`coalesce(sum(${grouped.totalOutstanding}::numeric), 0)::text`,
     })
     .from(grouped);
 
@@ -1674,8 +1764,8 @@ function supplierAgingOutstandingPurchases(
   const returns = supplierAgingReturnTotals(database, query);
   const outstandingAmount = sql<string>`greatest(
     ${purchases.totalAmount}
-      - coalesce(${allocations.allocatedAmount}, 0)
-      - coalesce(${returns.returnedAmount}, 0),
+      - coalesce(${allocations.allocatedAmount}::numeric, 0)
+      - coalesce(${returns.returnedAmount}::numeric, 0),
     0
   )`;
   const search = query.search
@@ -1688,7 +1778,6 @@ function supplierAgingOutstandingPurchases(
 
   return database
     .select({
-      purchaseId: purchases.id,
       purchaseDate: purchases.purchaseDate,
       supplierId: suppliers.id,
       supplierCode: suppliers.code,
@@ -1774,11 +1863,11 @@ async function readSupplierAgingTotals(
   const rows = await database
     .select({
       total: count(),
-      bucket0To30: sql<string>`coalesce(sum(${grouped.bucket0To30}), 0)::text`,
-      bucket31To60: sql<string>`coalesce(sum(${grouped.bucket31To60}), 0)::text`,
-      bucket61To90: sql<string>`coalesce(sum(${grouped.bucket61To90}), 0)::text`,
-      bucket90Plus: sql<string>`coalesce(sum(${grouped.bucket90Plus}), 0)::text`,
-      totalPayable: sql<string>`coalesce(sum(${grouped.totalPayable}), 0)::text`,
+      bucket0To30: sql<string>`coalesce(sum(${grouped.bucket0To30}::numeric), 0)::text`,
+      bucket31To60: sql<string>`coalesce(sum(${grouped.bucket31To60}::numeric), 0)::text`,
+      bucket61To90: sql<string>`coalesce(sum(${grouped.bucket61To90}::numeric), 0)::text`,
+      bucket90Plus: sql<string>`coalesce(sum(${grouped.bucket90Plus}::numeric), 0)::text`,
+      totalPayable: sql<string>`coalesce(sum(${grouped.totalPayable}::numeric), 0)::text`,
     })
     .from(grouped);
 
@@ -2066,7 +2155,7 @@ export async function readAttendanceSummaryReport(
       leaveDays: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'LEAVE')::int`,
       holidayDays: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'HOLIDAY')::int`,
       weeklyOffDays: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'WEEKLY_OFF')::int`,
-      workedHours: sql<string>`coalesce(sum(${attendanceRecords.workedHours}), 0)::text`,
+      workedHours: sql<string>`coalesce(sum(${attendanceRecords.workedHours}) filter (where ${attendanceRecords.status} in ('PRESENT', 'HALF_DAY')), 0)::text`,
     })
     .from(attendanceRecords)
     .innerJoin(employees, eq(employees.id, attendanceRecords.employeeId))

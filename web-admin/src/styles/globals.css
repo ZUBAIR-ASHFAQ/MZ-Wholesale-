@@ -2025,65 +2025,6 @@ input {
   background: #fee2e2;
 }
 
-.wireframe-preview-page {
-  display: grid;
-  gap: 20px;
-  min-height: calc(100vh - 80px);
-}
-
-.wireframe-preview-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 24px;
-  border: 1px solid #dbe1de;
-  border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 12px 28px rgb(23 32 51 / 6%);
-}
-
-.wireframe-preview-header h1,
-.wireframe-preview-header p {
-  margin: 0;
-}
-
-.wireframe-preview-header p:not(.eyebrow) {
-  margin-top: 8px;
-  color: #5b6a64;
-}
-
-.wireframe-preview-frame {
-  width: 100%;
-  min-height: 760px;
-  border: 1px solid #dbe1de;
-  border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 18px 45px rgb(23 32 51 / 8%);
-}
-
-.wireframe-preview-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 14px;
-  border-radius: 8px;
-  color: #ffffff;
-  background: #2d7b64;
-  font-weight: 700;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-@media (max-width: 760px) {
-  .wireframe-preview-header {
-    flex-direction: column;
-  }
-
-  .wireframe-preview-frame {
-    min-height: 640px;
-  }
-}
 
 /* --------------------------------------------------------------------------
    Live professional wholesale wireframe skin
@@ -2991,6 +2932,35 @@ h3 {
   box-shadow: 0 30px 70px rgb(21 33 29 / 25%);
 }
 
+/* Keeps the Customer create dialog centered, two-column and free of horizontal scrolling. */
+.customer-create-dialog {
+  width: min(760px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  overflow-x: hidden;
+}
+
+.customer-create-dialog .customer-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.customer-create-dialog .customer-form-wide {
+  grid-column: auto;
+}
+
+.customer-create-dialog .ui-field,
+.customer-create-dialog input,
+.customer-create-dialog textarea {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  .customer-create-dialog .customer-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .record-information {
   border-top-color: var(--erp-line-200);
 }
@@ -3472,4 +3442,156 @@ h3 {
   padding: 0.6rem 0.75rem;
   color: var(--erp-ink-600);
   font-size: 12px;
+}
+
+/* Profit Summary: scoped layout that reuses the existing ERP card and color system. */
+.profit-summary-filter-card,
+.profit-summary-result-card {
+  margin-top: 16px;
+}
+
+.profit-summary-result-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.profit-summary-result-heading span,
+.profit-summary-detail-heading > span {
+  color: var(--erp-blue-700);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.profit-summary-result-heading h2,
+.profit-summary-result-heading p,
+.profit-summary-detail-heading h3 {
+  margin: 0;
+}
+
+.profit-summary-result-heading h2 {
+  margin-top: 3px;
+}
+
+.profit-summary-result-heading p,
+.profit-summary-result-heading > small {
+  color: var(--erp-ink-500);
+  font-size: 10px;
+}
+
+.profit-summary-result-heading p {
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.profit-summary-result-heading > small {
+  padding: 5px 8px;
+  border: 1px solid var(--erp-line-200);
+  border-radius: 999px;
+  background: var(--erp-surface-2);
+  white-space: nowrap;
+}
+
+.profit-summary-kpi-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.profit-summary-primary-kpi {
+  border-color: #b7d6ca;
+  background: #f4faf7;
+}
+
+.profit-summary-primary-kpi strong {
+  color: var(--erp-blue-700);
+}
+
+.profit-summary-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.profit-summary-detail-card {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.profit-summary-detail-heading {
+  padding: 14px 15px 11px;
+  border-bottom: 1px solid var(--erp-line-100);
+  background: #fafbf9;
+}
+
+.profit-summary-detail-heading h3 {
+  margin-top: 3px;
+}
+
+.profit-summary-detail-list {
+  display: grid;
+  padding: 3px 15px 11px;
+}
+
+.profit-summary-detail-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 39px;
+  border-bottom: 1px solid var(--erp-line-100);
+}
+
+.profit-summary-detail-list > div:last-child {
+  border-bottom: 0;
+}
+
+.profit-summary-detail-list span {
+  color: var(--erp-ink-600);
+  font-size: 10px;
+}
+
+.profit-summary-detail-list strong {
+  color: var(--erp-ink-950);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.profit-summary-detail-list .profit-summary-detail-total {
+  margin-top: 3px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--erp-surface-2);
+}
+
+.profit-summary-detail-total span,
+.profit-summary-detail-total strong {
+  color: var(--erp-ink-950);
+  font-weight: 850;
+}
+
+@media (max-width: 980px) {
+  .profit-summary-breakdown-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .profit-summary-result-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .profit-summary-kpi-grid {
+    grid-template-columns: 1fr;
+  }
 }

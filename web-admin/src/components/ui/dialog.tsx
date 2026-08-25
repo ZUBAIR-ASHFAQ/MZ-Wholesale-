@@ -6,6 +6,7 @@ interface DialogProps {
   children: ReactNode;
   isOpen: boolean;
   wide?: boolean;
+  className?: string;
   onClose(): void;
 }
 
@@ -15,6 +16,7 @@ export function Dialog({
   children,
   isOpen,
   wide = false,
+  className,
   onClose,
 }: DialogProps): React.JSX.Element | null {
   useEffect(() => {
@@ -51,7 +53,13 @@ export function Dialog({
     >
       <section
         aria-modal="true"
-        className={wide ? "ui-dialog ui-dialog-wide" : "ui-dialog"}
+        className={[
+          "ui-dialog",
+          wide ? "ui-dialog-wide" : "",
+          className ?? "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         role="dialog"
       >
         <header>

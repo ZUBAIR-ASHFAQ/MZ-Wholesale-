@@ -14,6 +14,7 @@ import {
 import { createDataResponse } from "../../shared/http/response.js";
 import { recordAuditLog } from "../system/system.service.js";
 import {
+  attendanceIdParamsSchema,
   createAttendanceBulkSchema,
   createEmployeeAdvanceSchema,
   createAttendanceSchema,
@@ -34,6 +35,7 @@ import {
   salaryPaymentIdParamsSchema,
   recoverEmployeeAdvanceSchema,
   reverseSalaryPaymentSchema,
+  updateAttendanceSchema,
   updateEmployeeLeaveSchema,
   updateEmployeeSchema,
   updateLeaveTypeSchema,
@@ -62,6 +64,7 @@ import {
   createPayrollRunInTransaction,
   createSalaryPaymentInTransaction,
   updatePayrollRunInTransaction,
+  updateAttendance,
   updateEmployee,
   recoverEmployeeAdvanceInTransaction,
   reverseSalaryPaymentInTransaction,
@@ -176,6 +179,19 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     const attendance = await createAttendance(app.db, input);
     await auditMutation(request, "EMPLOYEE_ATTENDANCE_CREATED", attendance, "EMPLOYEE_ATTENDANCE");
     reply.status(201).send(createDataResponse(attendance));
+  }
+
+  /** Corrects one existing attendance row without replacing its identity. */
+  async function handleUpdateAttendance(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const params = attendanceIdParamsSchema.parse(request.params);
+    const input = updateAttendanceSchema.parse(request.body);
+    const attendance = await app.db.transaction((transaction) =>
+      updateAttendance(transaction, params.id, input));
+    await auditMutation(request, "EMPLOYEE_ATTENDANCE_UPDATED", attendance, "EMPLOYEE_ATTENDANCE");
+    reply.send(createDataResponse(attendance));
   }
 
   /** Creates one validated attendance batch in one database statement. */
@@ -481,6 +497,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
   app.get("/employees", privateRoute("List and search employees"), handleListEmployees);
   app.post("/employees", privateRoute("Create an employee", true), handleCreateEmployee);
   app.post("/employees/attendance", privateRoute("Create employee attendance", true), handleCreateAttendance);
+  app.patch("/employees/attendance/:id", privateRoute("Correct employee attendance", true), handleUpdateAttendance);
   app.post("/employees/attendance/bulk", privateRoute("Create bulk employee attendance", true), handleCreateAttendanceBulk);
   app.get("/employees/:id/attendance", privateRoute("List employee attendance"), handleListEmployeeAttendance);
   app.get("/employees/:id", privateRoute("Load an employee"), handleGetEmployee);

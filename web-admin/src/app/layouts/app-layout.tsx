@@ -139,12 +139,6 @@ export function AppLayout({
                 <Link className={linkClass(currentPath === "/inventory/adjustments")} to="/inventory/adjustments">
                   Stock adjustments
                 </Link>
-                <Link className={linkClass(currentPath === "/inventory/counts")} to="/inventory/counts">
-                  Stock counts
-                </Link>
-                <Link className={linkClass(currentPath === "/inventory/counts/new")} to="/inventory/counts/new">
-                  New stock count
-                </Link>
               </div>
             </details>
           </div>
@@ -169,9 +163,6 @@ export function AppLayout({
               <div className="sidebar-subnav">
                 <Link className={linkClass(currentPath === "/customers")} to="/customers">
                   Customer list
-                </Link>
-                <Link className={linkClass(currentPath === "/customers/new")} to="/customers/new">
-                  New customer
                 </Link>
                 <Link className={linkClass(currentPath === "/payments/customer-receipts")} to="/payments/customer-receipts">
                   Customer receipts
@@ -380,9 +371,6 @@ export function AppLayout({
                 </Link>
                 <Link className={linkClass(currentPath === "/system/exports")} to="/system/exports">
                   Exports
-                </Link>
-                <Link className={linkClass(currentPath === "/system/wireframe")} to="/system/wireframe">
-                  UI wireframe
                 </Link>
               </div>
             </details>
