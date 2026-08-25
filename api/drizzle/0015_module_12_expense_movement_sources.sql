@@ -1,0 +1,2 @@
+ALTER TYPE "movement_source_type" ADD VALUE IF NOT EXISTS 'EXPENSE';
+ALTER TYPE "movement_source_type" ADD VALUE IF NOT EXISTS 'EXPENSE_REVERSAL';

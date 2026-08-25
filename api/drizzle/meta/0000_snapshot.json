@@ -1,0 +1,229 @@
+{
+  "id": "30ab3613-8c09-41d8-a56a-6ac4b45e82f3",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.business_settings": {
+      "name": "business_settings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "singleton_key": {
+          "name": "singleton_key",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "business_name": {
+          "name": "business_name",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "logo_url": {
+          "name": "logo_url",
+          "type": "varchar(2048)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PKR'"
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Asia/Karachi'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "business_settings_singleton_key_unique": {
+          "name": "business_settings_singleton_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "singleton_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "business_settings_singleton_key_check": {
+          "name": "business_settings_singleton_key_check",
+          "value": "\"business_settings\".\"singleton_key\" = 1"
+        },
+        "business_settings_currency_check": {
+          "name": "business_settings_currency_check",
+          "value": "\"business_settings\".\"currency\" = 'PKR'"
+        },
+        "business_settings_timezone_check": {
+          "name": "business_settings_timezone_check",
+          "value": "\"business_settings\".\"timezone\" = 'Asia/Karachi'"
+        },
+        "business_settings_name_not_blank_check": {
+          "name": "business_settings_name_not_blank_check",
+          "value": "length(trim(\"business_settings\".\"business_name\")) > 0"
+        },
+        "business_settings_phone_not_blank_check": {
+          "name": "business_settings_phone_not_blank_check",
+          "value": "length(trim(\"business_settings\".\"phone\")) > 0"
+        },
+        "business_settings_address_not_blank_check": {
+          "name": "business_settings_address_not_blank_check",
+          "value": "length(trim(\"business_settings\".\"address\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.document_sequences": {
+      "name": "document_sequences",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "document_type": {
+          "name": "document_type",
+          "type": "document_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prefix": {
+          "name": "prefix",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "next_number": {
+          "name": "next_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "document_sequences_document_type_unique": {
+          "name": "document_sequences_document_type_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "document_type"
+          ]
+        },
+        "document_sequences_prefix_unique": {
+          "name": "document_sequences_prefix_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "prefix"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "document_sequences_prefix_not_blank_check": {
+          "name": "document_sequences_prefix_not_blank_check",
+          "value": "length(trim(\"document_sequences\".\"prefix\")) > 0"
+        },
+        "document_sequences_next_number_positive_check": {
+          "name": "document_sequences_next_number_positive_check",
+          "value": "\"document_sequences\".\"next_number\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.document_type": {
+      "name": "document_type",
+      "schema": "public",
+      "values": [
+        "SALE",
+        "PURCHASE",
+        "CUSTOMER_RECEIPT",
+        "SUPPLIER_PAYMENT",
+        "SALES_RETURN",
+        "PURCHASE_RETURN",
+        "EXPENSE"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
