@@ -1,3 +1,4 @@
+import Fastify from "fastify";
 import { createApp } from "./application.js";
 import {
   createDatabaseClient,
