@@ -1,4 +1,4 @@
-import { createApp } from "./app.js";
+import { createApp } from "./application.js";
 import {
   createDatabaseClient,
   verifyDatabaseConnection,
