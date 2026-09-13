@@ -124,7 +124,7 @@ function inventoryError(
 }
 
 /** Trims optional text and converts an empty value to null. */
-function optionalText(value: string | undefined): string | null {
+function optionalText(value: string | null | undefined): string | null {
   return value ?? null;
 }
 

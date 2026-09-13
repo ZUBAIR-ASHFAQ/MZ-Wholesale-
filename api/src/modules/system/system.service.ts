@@ -653,7 +653,7 @@ export async function buildSystemPdfExport(
     size: "A4",
     margin: 40,
     bufferPages: true,
-    info: { title: source.fileNameBase },
+    info: { Title: source.fileNameBase },
   });
   const contentPromise = collectPdfBuffer(document);
 

@@ -42,12 +42,15 @@ function readPostgresValue(
     return null;
   }
 
-  if (property in error && typeof error[property] === "string") {
-    return error[property];
+  const errorRecord = error as Record<string, unknown>;
+  const value = errorRecord[property];
+
+  if (typeof value === "string") {
+    return value;
   }
 
-  if ("cause" in error) {
-    return readPostgresValue(error.cause, property, depth + 1);
+  if ("cause" in errorRecord) {
+    return readPostgresValue(errorRecord.cause, property, depth + 1);
   }
 
   return null;

@@ -47,6 +47,8 @@ export {
   validateBusinessSettingsQuery,
 };
 
+export type { BusinessSettingsDatabase } from "./business-settings.repository.js";
+
 export type {
   BusinessSettingsSetupInput,
   BusinessSettingsView,

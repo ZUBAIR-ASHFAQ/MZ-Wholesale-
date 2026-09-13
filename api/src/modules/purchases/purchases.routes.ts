@@ -64,7 +64,7 @@ export async function registerPurchaseRoutes(
         {
           key: request.headers["idempotency-key"],
           method: request.method,
-          path: request.routeOptions.url,
+          path: request.routeOptions.url ?? request.url,
           body: input,
         },
         async (transaction) => ({
@@ -121,7 +121,7 @@ export async function registerPurchaseRoutes(
       {
         key: request.headers["idempotency-key"],
         method: request.method,
-        path: request.routeOptions.url,
+        path: request.routeOptions.url ?? request.url,
         // Include the resource ID because routeOptions.url contains the :id template.
         body: { purchaseId: params.id, ...input },
       },

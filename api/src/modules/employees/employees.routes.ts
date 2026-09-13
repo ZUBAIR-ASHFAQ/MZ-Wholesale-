@@ -102,7 +102,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
       {
         key: request.headers["idempotency-key"],
         method: request.method,
-        path: request.routeOptions.url,
+        path: request.routeOptions.url ?? request.url,
         body,
       },
       async (transaction) => ({
@@ -375,7 +375,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
       {
         key: request.headers["idempotency-key"],
         method: request.method,
-        path: request.routeOptions.url,
+        path: request.routeOptions.url ?? request.url,
         body: { payrollRunId: params.id },
       },
       async (transaction) => ({

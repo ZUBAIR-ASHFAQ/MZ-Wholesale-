@@ -252,7 +252,7 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
       {
         key: request.headers["idempotency-key"],
         method: request.method,
-        path: request.routeOptions.url,
+        path: request.routeOptions.url ?? request.url,
         body: { importJobId: params.id },
       },
       async (transaction) => {
@@ -303,7 +303,7 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
       {
         key: request.headers["idempotency-key"],
         method: request.method,
-        path: request.routeOptions.url,
+        path: request.routeOptions.url ?? request.url,
         body: {
           importType: params.type,
           fileName: file.fileName,

@@ -82,7 +82,7 @@ export async function registerInventoryRoutes(
       {
         key: request.headers["idempotency-key"],
         method: request.method,
-        path: request.routeOptions.url,
+        path: request.routeOptions.url ?? request.url,
         body: input,
       },
       async (transaction) => ({
@@ -107,7 +107,7 @@ export async function registerInventoryRoutes(
       {
         key: request.headers["idempotency-key"],
         method: request.method,
-        path: request.routeOptions.url,
+        path: request.routeOptions.url ?? request.url,
         body: input,
       },
       async (transaction) => ({
@@ -175,7 +175,7 @@ export async function registerInventoryRoutes(
       {
         key: request.headers["idempotency-key"],
         method: request.method,
-        path: request.routeOptions.url,
+        path: request.routeOptions.url ?? request.url,
         body: params,
       },
       async (transaction) => ({

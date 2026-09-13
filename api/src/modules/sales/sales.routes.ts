@@ -62,7 +62,7 @@ export async function registerSalesRoutes(app: FastifyInstance): Promise<void> {
         {
           key: request.headers["idempotency-key"],
           method: request.method,
-          path: request.routeOptions.url,
+          path: request.routeOptions.url ?? request.url,
           body: input,
         },
         async (transaction) => ({
@@ -119,7 +119,7 @@ export async function registerSalesRoutes(app: FastifyInstance): Promise<void> {
       {
         key: request.headers["idempotency-key"],
         method: request.method,
-        path: request.routeOptions.url,
+        path: request.routeOptions.url ?? request.url,
         body: { saleId: params.id, ...input },
       },
       async (transaction) => ({

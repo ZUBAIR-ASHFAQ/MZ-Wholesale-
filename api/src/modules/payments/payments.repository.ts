@@ -22,7 +22,7 @@ import {
 /** Contains only the database methods needed by the Payments repository. */
 export type PaymentsDatabase = Pick<
   NodePgDatabase,
-  "select" | "insert" | "update"
+  "select" | "insert" | "update" | "execute"
 > & {
   transaction?: NodePgDatabase["transaction"];
 };

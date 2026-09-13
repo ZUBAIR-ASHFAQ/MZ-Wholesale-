@@ -9,7 +9,7 @@ import {
 /** Contains the database methods used by the Auth repository. */
 export type AuthDatabase = Pick<
   NodePgDatabase,
-  "select" | "insert" | "update"
+  "select" | "insert" | "update" | "delete" | "execute"
 >;
 
 /** Represents the one saved administrator account. */

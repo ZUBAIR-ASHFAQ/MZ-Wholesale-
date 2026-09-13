@@ -207,8 +207,8 @@ export interface AccountMovementInput {
 interface PaymentSplitForValidation {
   method: "CASH" | "BANK_TRANSFER";
   amount: string;
-  cashAccountId?: string;
-  bankAccountId?: string;
+  cashAccountId?: string | null;
+  bankAccountId?: string | null;
 }
 
 /** Describes one document allocation before it is saved. */

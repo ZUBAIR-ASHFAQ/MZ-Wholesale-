@@ -93,7 +93,7 @@ async function sendIdempotentMutation(
     {
       key: request.headers["idempotency-key"],
       method: request.method,
-      path: request.routeOptions.url,
+      path: request.routeOptions.url ?? request.url,
       body,
     },
     async (transaction) => ({
