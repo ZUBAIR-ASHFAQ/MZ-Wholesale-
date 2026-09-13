@@ -29,11 +29,23 @@ export async function checkDatabaseReady(
       sql`select hash from drizzle.__drizzle_migrations`,
     );
     const appliedMigrationHashes = new Set(result.rows.map((row) => row.hash));
+    const missingMigrationCount = expectedMigrationHashes.filter(
+      (hash) => !appliedMigrationHashes.has(hash),
+    ).length;
 
-    return expectedMigrationHashes.every((hash) =>
-      appliedMigrationHashes.has(hash),
+    if (missingMigrationCount > 0) {
+      console.error(
+        `Database readiness migration mismatch: expected=${expectedMigrationHashes.length} applied=${result.rows.length} missing=${missingMigrationCount}`,
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error(
+      "Database readiness query failed:",
+      error instanceof Error ? error.message : "Unknown database readiness error.",
     );
-  } catch {
     return false;
   }
 }
