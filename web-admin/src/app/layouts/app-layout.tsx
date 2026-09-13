@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import type { AdminProfile } from "../../features/auth/api/auth.api.ts";
 import { useLogoutAdmin } from "../../features/auth/hooks/use-auth.ts";
+import { useBusinessSettings } from "../../features/business-settings/hooks/use-business-settings.ts";
 
 interface AppLayoutProps {
   admin: AdminProfile;
@@ -54,6 +55,9 @@ export function AppLayout({
   currentPath,
 }: AppLayoutProps): React.JSX.Element {
   const logout = useLogoutAdmin();
+  const businessSettings = useBusinessSettings();
+  const businessName =
+    businessSettings.data?.data.settings?.businessName ?? "Wholesale ERP";
   const dashboardActive = currentPath === "/dashboard";
   const productsActive = currentPath.startsWith("/products");
   const customerReceiptsActive = currentPath.startsWith("/payments/customer-receipts");
@@ -81,9 +85,9 @@ export function AppLayout({
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="sidebar-brand-mark" aria-hidden="true">W</div>
+          <div className="sidebar-brand-mark" aria-hidden="true">{businessName.trim().charAt(0).toUpperCase() || "W"}</div>
           <div className="sidebar-brand-copy">
-            <strong>Wholesale ERP</strong>
+            <strong>{businessName.toUpperCase()}</strong>
             <span>Counter administration</span>
           </div>
         </div>
