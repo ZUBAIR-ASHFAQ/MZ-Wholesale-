@@ -135,7 +135,7 @@ export function InventoryAdjustmentForm({
           stockCondition: values.stockCondition,
           direction: values.direction,
           quantity: values.quantity,
-          reason: values.reason.trim(),
+          reason: values.reason,
           unitCost: values.direction === "IN" ? values.unitCost : undefined,
           notes: optionalNotes(values.notes),
         },

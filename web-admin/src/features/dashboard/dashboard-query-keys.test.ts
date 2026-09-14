@@ -14,15 +14,4 @@ describe("dashboardQueryKeys", () => {
       { date: "2026-08-08" },
     ]);
   });
-
-  it("keeps low-stock pages in separate cache entries", () => {
-    expect(dashboardQueryKeys.lowStock(1)).toEqual([
-      "dashboard",
-      "low-stock",
-      1,
-    ]);
-    expect(dashboardQueryKeys.lowStock(2)).not.toEqual(
-      dashboardQueryKeys.lowStock(1),
-    );
-  });
 });

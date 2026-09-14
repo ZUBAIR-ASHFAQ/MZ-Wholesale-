@@ -12,7 +12,7 @@ interface PaymentSplitsFormProps {
   value: PaymentSplitInput[];
   accounts: PaymentAccounts;
   onChange(value: PaymentSplitInput[]): void;
-  errors?: Record<string, string>;
+  errors?: Record<string, string | undefined>;
   disabled?: boolean;
   required?: boolean;
 }
@@ -53,7 +53,7 @@ function calculateSplitTotal(splits: PaymentSplitInput[]): string {
 
 /** Returns the field-level error written by a parent receipt or payment form. */
 function readSplitError(
-  errors: Record<string, string> | undefined,
+  errors: Record<string, string | undefined> | undefined,
   index: number,
   field: "method" | "account" | "amount",
 ): string | undefined {

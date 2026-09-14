@@ -83,9 +83,6 @@ export interface ProductMovementFilters {
 /** One item accepted by the opening-stock route. */
 export interface OpeningStockItemInput {
   productId: string;
-  productSku: string;
-  productName: string;
-  baseUnitName: string;
   stockCondition: StockCondition;
   quantity: string;
   unitCost: string;
