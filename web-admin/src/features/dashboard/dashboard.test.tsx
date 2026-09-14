@@ -21,6 +21,15 @@ function createOverview(
       invoiceCount: 0,
       totalSalesAmount: "0.00",
     },
+    salesTrend: [
+      { date: "2026-08-02", invoiceCount: 0, totalSalesAmount: "0.00" },
+      { date: "2026-08-03", invoiceCount: 0, totalSalesAmount: "0.00" },
+      { date: "2026-08-04", invoiceCount: 0, totalSalesAmount: "0.00" },
+      { date: "2026-08-05", invoiceCount: 0, totalSalesAmount: "0.00" },
+      { date: "2026-08-06", invoiceCount: 0, totalSalesAmount: "0.00" },
+      { date: "2026-08-07", invoiceCount: 0, totalSalesAmount: "0.00" },
+      { date: "2026-08-08", invoiceCount: 0, totalSalesAmount: "0.00" },
+    ],
     purchases: {
       purchaseCount: 0,
       totalPurchaseAmount: "0.00",
@@ -124,6 +133,8 @@ describe("DashboardPage", () => {
     expect(html).toContain("No low-stock products.");
     expect(html).toContain("No confirmed sales for this date.");
     expect(html).toContain("No confirmed purchases for this date.");
+    expect(html).toContain("Sales trend");
+    expect(html).toContain("Operations snapshot");
   });
 
   it("renders summary values, recent records, and stock alerts returned by the API", () => {
@@ -133,6 +144,15 @@ describe("DashboardPage", () => {
           invoiceCount: 2,
           totalSalesAmount: "2500.00",
         },
+        salesTrend: [
+          { date: "2026-08-02", invoiceCount: 1, totalSalesAmount: "500.00" },
+          { date: "2026-08-03", invoiceCount: 1, totalSalesAmount: "750.00" },
+          { date: "2026-08-04", invoiceCount: 0, totalSalesAmount: "0.00" },
+          { date: "2026-08-05", invoiceCount: 2, totalSalesAmount: "1250.00" },
+          { date: "2026-08-06", invoiceCount: 1, totalSalesAmount: "900.00" },
+          { date: "2026-08-07", invoiceCount: 1, totalSalesAmount: "1100.00" },
+          { date: "2026-08-08", invoiceCount: 2, totalSalesAmount: "2500.00" },
+        ],
         purchases: {
           purchaseCount: 1,
           totalPurchaseAmount: "1000.00",
@@ -230,9 +250,11 @@ describe("DashboardPage", () => {
 
     const html = renderDashboard();
 
-    expect(html).toContain("PKR 2500");
+    expect(html).toContain("PKR 2,500");
     expect(html).toContain("2 confirmed invoices");
-    expect(html).toContain("PKR 1000");
+    expect(html).toContain("Sales trend");
+    expect(html).toContain("7 days");
+    expect(html).toContain("PKR 1,000");
     expect(html).toContain("Alpha Traders");
     expect(html).toContain("SALE-0001");
     expect(html).toContain("Prime Supplier");
@@ -241,11 +263,12 @@ describe("DashboardPage", () => {
     expect(html).toContain("Low stock");
     expect(html).toContain("Out Of Stock Product");
     expect(html).toContain("Out of stock");
-    expect(html).toContain("4");
-    expect(html).toContain("3 present");
-    expect(html).toContain("PKR 4,000");
+    expect((html.match(/dashboard-kpi-card/g) ?? []).length).toBe(4);
+    expect(html).toContain("3");
+    expect(html).toContain("4 active employees");
+    expect(html).toContain("PKR 1,600");
     expect(html).toContain("PKR 1,500");
-    expect(html).toContain("PKR 700");
+    expect(html).toContain("PKR 500");
   });
 
   it("requests the default Dashboard overview without inventing a business date", () => {

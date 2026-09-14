@@ -12,6 +12,13 @@ export interface DashboardSalesSummary {
   totalSalesAmount: string;
 }
 
+/** One day in the confirmed-sales trend ending on the selected business date. */
+export interface DashboardSalesTrendPoint {
+  date: string;
+  invoiceCount: number;
+  totalSalesAmount: string;
+}
+
 /** Confirmed purchase totals displayed on the Dashboard. */
 export interface DashboardPurchaseSummary {
   purchaseCount: number;
@@ -117,6 +124,7 @@ export interface DashboardLowStockPage {
 export interface DashboardOverview {
   businessDate: string;
   sales: DashboardSalesSummary;
+  salesTrend: DashboardSalesTrendPoint[];
   purchases: DashboardPurchaseSummary;
   inventory: DashboardInventorySummary;
   customerOutstanding: DashboardCustomerOutstandingSummary;

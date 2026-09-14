@@ -14,6 +14,7 @@ import {
   getDashboardRecentPurchases,
   getDashboardRecentSales,
   getDashboardSalesSummary,
+  getDashboardSalesTrend,
   getDashboardSupplierPayableSummary,
   type DashboardCashBankSummary,
   type DashboardCustomerOutstandingSummary,
@@ -27,6 +28,7 @@ import {
   type DashboardRecentPurchase,
   type DashboardRecentSale,
   type DashboardSalesSummary,
+  type DashboardSalesTrendPoint,
   type DashboardSupplierPayableSummary,
 } from "./dashboard.repository.js";
 
@@ -36,6 +38,7 @@ const DASHBOARD_RECENT_RECORD_LIMIT = 5;
 export interface DashboardOverviewResult {
   businessDate: string;
   sales: DashboardSalesSummary;
+  salesTrend: DashboardSalesTrendPoint[];
   purchases: DashboardPurchaseSummary;
   inventory: DashboardInventorySummary;
   customerOutstanding: DashboardCustomerOutstandingSummary;
@@ -78,6 +81,7 @@ export async function getDashboardOverview(
 
   const [
     sales,
+    salesTrend,
     purchases,
     inventory,
     customerOutstanding,
@@ -91,6 +95,7 @@ export async function getDashboardOverview(
     lowStock,
   ] = await Promise.all([
     getDashboardSalesSummary(database, businessDate),
+    getDashboardSalesTrend(database, businessDate),
     getDashboardPurchaseSummary(database, businessDate),
     getDashboardInventorySummary(database),
     getDashboardCustomerOutstandingSummary(database),
@@ -111,6 +116,7 @@ export async function getDashboardOverview(
   return {
     businessDate,
     sales,
+    salesTrend,
     purchases,
     inventory,
     customerOutstanding,

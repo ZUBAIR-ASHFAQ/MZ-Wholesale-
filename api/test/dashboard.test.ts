@@ -105,6 +105,22 @@ test("dashboard sales and purchases read only confirmed records for the selected
   assert.match(source, /eq\(purchases\.purchaseDate, businessDate\)/);
 });
 
+
+
+test("dashboard sales trend reads one bounded confirmed-sales date range", async () => {
+  const source = await readSource(dashboardRepositoryPath);
+  const trendSection = source.slice(
+    source.indexOf("export async function getDashboardSalesTrend"),
+    source.indexOf("export interface DashboardRecentSale"),
+  );
+
+  assert.match(trendSection, /eq\(salesInvoices\.status, "CONFIRMED"\)/);
+  assert.match(trendSection, /gte\(salesInvoices\.invoiceDate, startDate\)/);
+  assert.match(trendSection, /lte\(salesInvoices\.invoiceDate, businessDate\)/);
+  assert.match(trendSection, /groupBy\(salesInvoices\.invoiceDate\)/);
+  assert.match(trendSection, /Array\.from\(\{ length: DASHBOARD_SALES_TREND_DAYS \}/);
+});
+
 test("dashboard recent records are also limited to confirmed sales and purchases", async () => {
   const source = await readSource(dashboardRepositoryPath);
 
@@ -195,6 +211,7 @@ test("dashboard service combines all approved overview sections and requests fir
   const source = await readSource(dashboardServicePath);
 
   assert.match(source, /getDashboardSalesSummary/);
+  assert.match(source, /getDashboardSalesTrend/);
   assert.match(source, /getDashboardPurchaseSummary/);
   assert.match(source, /getDashboardInventorySummary/);
   assert.match(source, /getDashboardCustomerOutstandingSummary/);

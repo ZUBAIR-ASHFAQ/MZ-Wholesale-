@@ -34,6 +34,62 @@ export interface DashboardSalesSummary {
   totalSalesAmount: string;
 }
 
+/** Represents one day in the seven-day confirmed-sales trend. */
+export interface DashboardSalesTrendPoint {
+  date: string;
+  invoiceCount: number;
+  totalSalesAmount: string;
+}
+
+const DASHBOARD_SALES_TREND_DAYS = 7;
+
+/** Returns one YYYY-MM-DD date shifted by the requested number of UTC days. */
+function shiftDashboardDate(value: string, dayOffset: number): string {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + dayOffset);
+  return date.toISOString().slice(0, 10);
+}
+
+/** Reads a fixed confirmed-sales trend ending on the selected business date. */
+export async function getDashboardSalesTrend(
+  database: DashboardDatabase,
+  businessDate: string,
+): Promise<DashboardSalesTrendPoint[]> {
+  const startDate = shiftDashboardDate(
+    businessDate,
+    -(DASHBOARD_SALES_TREND_DAYS - 1),
+  );
+  const rows = await database
+    .select({
+      date: salesInvoices.invoiceDate,
+      invoiceCount: count(salesInvoices.id),
+      totalSalesAmount: sql<string>`coalesce(sum(${salesInvoices.totalAmount}), 0)::text`,
+    })
+    .from(salesInvoices)
+    .where(
+      and(
+        eq(salesInvoices.status, "CONFIRMED"),
+        gte(salesInvoices.invoiceDate, startDate),
+        lte(salesInvoices.invoiceDate, businessDate),
+      ),
+    )
+    .groupBy(salesInvoices.invoiceDate)
+    .orderBy(asc(salesInvoices.invoiceDate));
+
+  const rowsByDate = new Map(rows.map((row) => [row.date, row]));
+
+  return Array.from({ length: DASHBOARD_SALES_TREND_DAYS }, (_, index) => {
+    const date = shiftDashboardDate(startDate, index);
+    const row = rowsByDate.get(date);
+
+    return {
+      date,
+      invoiceCount: Number(row?.invoiceCount ?? 0),
+      totalSalesAmount: row?.totalSalesAmount ?? "0.00",
+    };
+  });
+}
+
 /** Represents one recent confirmed sale displayed in the Dashboard overview. */
 export interface DashboardRecentSale {
   id: string;

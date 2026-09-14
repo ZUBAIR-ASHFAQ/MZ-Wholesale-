@@ -426,6 +426,12 @@ integrationTest("Dashboard overview aggregates the real Module 1-13 source table
     invoiceCount: 1,
     totalSalesAmount: "200.00",
   });
+  assert.equal(result.salesTrend.length, 7);
+  assert.deepEqual(result.salesTrend.at(-1), {
+    date: businessDate,
+    invoiceCount: 1,
+    totalSalesAmount: "200.00",
+  });
   assert.deepEqual(result.purchases, {
     purchaseCount: 1,
     totalPurchaseAmount: "150.00",
