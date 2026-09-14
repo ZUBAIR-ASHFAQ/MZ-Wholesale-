@@ -42,7 +42,7 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
     async (request: FastifyRequest, reply: FastifyReply) => {
       const params = customerStatementParamsSchema.parse(request.params);
       const query = ledgerStatementQuerySchema.parse(request.query);
-      const statement = await getCustomerStatement(app.db, params.customerId, query);
+      const statement = await getCustomerStatement(request.db, params.customerId, query);
 
       return reply.send(createDataResponse(statement));
     },
@@ -54,7 +54,7 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
     async (request: FastifyRequest, reply: FastifyReply) => {
       const params = supplierStatementParamsSchema.parse(request.params);
       const query = ledgerStatementQuerySchema.parse(request.query);
-      const statement = await getSupplierStatement(app.db, params.supplierId, query);
+      const statement = await getSupplierStatement(request.db, params.supplierId, query);
 
       return reply.send(createDataResponse(statement));
     },
@@ -65,7 +65,7 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
     privateReadRoute(app, "List outstanding customer balances"),
     async (request: FastifyRequest, reply: FastifyReply) => {
       const query = outstandingListQuerySchema.parse(request.query);
-      const result = await getCustomerOutstanding(app.db, query);
+      const result = await getCustomerOutstanding(request.db, query);
 
       return reply.send(createDataResponse(result));
     },
@@ -76,7 +76,7 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
     privateReadRoute(app, "List supplier payable balances"),
     async (request: FastifyRequest, reply: FastifyReply) => {
       const query = outstandingListQuerySchema.parse(request.query);
-      const result = await getSupplierPayables(app.db, query);
+      const result = await getSupplierPayables(request.db, query);
 
       return reply.send(createDataResponse(result));
     },

@@ -81,7 +81,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     afterData: unknown,
     entityType = "EMPLOYEE",
   ): Promise<void> {
-    await recordAuditLog(app.db, {
+    await recordAuditLog(request.db, {
       adminUserId: request.admin?.adminUserId ?? null,
       requestId: request.id,
       ipAddress: request.ip ?? null,
@@ -98,7 +98,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     statusCode = 201,
   ): Promise<boolean> {
     const response = await executeIdempotentMutation(
-      app.db,
+      request.db,
       {
         key: request.headers["idempotency-key"],
         method: request.method,
@@ -121,7 +121,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const query = listEmployeesQuerySchema.parse(request.query);
-    const result = await listEmployees(app.db, query);
+    const result = await listEmployees(request.db, query);
     reply.send(createDataResponse(result));
   }
 
@@ -131,7 +131,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const input = createEmployeeSchema.parse(request.body);
-    const employee = await createEmployee(app.db, input);
+    const employee = await createEmployee(request.db, input);
     await auditMutation(request, "EMPLOYEE_CREATED", employee);
     reply.status(201).send(createDataResponse(employee));
   }
@@ -142,7 +142,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const params = employeeIdParamsSchema.parse(request.params);
-    const employee = await getEmployee(app.db, params.id);
+    const employee = await getEmployee(request.db, params.id);
     reply.send(createDataResponse(employee));
   }
 
@@ -153,7 +153,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
   ): Promise<void> {
     const params = employeeIdParamsSchema.parse(request.params);
     const input = updateEmployeeSchema.parse(request.body);
-    const employee = await updateEmployee(app.db, params.id, input);
+    const employee = await updateEmployee(request.db, params.id, input);
     await auditMutation(request, "EMPLOYEE_UPDATED", employee);
     reply.send(createDataResponse(employee));
   }
@@ -166,7 +166,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
   ): Promise<void> {
     const params = employeeIdParamsSchema.parse(request.params);
     const query = listEmployeeAttendanceQuerySchema.parse(request.query);
-    const result = await listEmployeeAttendance(app.db, params.id, query);
+    const result = await listEmployeeAttendance(request.db, params.id, query);
     reply.send(createDataResponse(result));
   }
 
@@ -176,7 +176,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const input = createAttendanceSchema.parse(request.body);
-    const attendance = await createAttendance(app.db, input);
+    const attendance = await createAttendance(request.db, input);
     await auditMutation(request, "EMPLOYEE_ATTENDANCE_CREATED", attendance, "EMPLOYEE_ATTENDANCE");
     reply.status(201).send(createDataResponse(attendance));
   }
@@ -188,7 +188,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
   ): Promise<void> {
     const params = attendanceIdParamsSchema.parse(request.params);
     const input = updateAttendanceSchema.parse(request.body);
-    const attendance = await app.db.transaction((transaction) =>
+    const attendance = await request.db.transaction((transaction) =>
       updateAttendance(transaction, params.id, input));
     await auditMutation(request, "EMPLOYEE_ATTENDANCE_UPDATED", attendance, "EMPLOYEE_ATTENDANCE");
     reply.send(createDataResponse(attendance));
@@ -200,17 +200,17 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const input = createAttendanceBulkSchema.parse(request.body);
-    const attendance = await createAttendanceBulk(app.db, input);
+    const attendance = await createAttendanceBulk(request.db, input);
     await auditMutation(request, "EMPLOYEE_ATTENDANCE_BULK_CREATED", attendance, "EMPLOYEE_ATTENDANCE");
     reply.status(201).send(createDataResponse(attendance));
   }
 
   /** Lists reusable Leave Types. */
   async function handleListLeaveTypes(
-    _request: FastifyRequest,
+    request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
-    reply.send(createDataResponse(await listLeaveTypes(app.db)));
+    reply.send(createDataResponse(await listLeaveTypes(request.db)));
   }
 
   /** Creates one reusable Leave Type. */
@@ -219,7 +219,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const input = createLeaveTypeSchema.parse(request.body);
-    const leaveType = await createLeaveType(app.db, input);
+    const leaveType = await createLeaveType(request.db, input);
     await auditMutation(request, "EMPLOYEE_LEAVE_TYPE_CREATED", leaveType, "EMPLOYEE_LEAVE_TYPE");
     reply.status(201).send(createDataResponse(leaveType));
   }
@@ -231,7 +231,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
   ): Promise<void> {
     const params = leaveTypeIdParamsSchema.parse(request.params);
     const input = updateLeaveTypeSchema.parse(request.body);
-    const leaveType = await updateLeaveType(app.db, params.id, input);
+    const leaveType = await updateLeaveType(request.db, params.id, input);
     await auditMutation(request, "EMPLOYEE_LEAVE_TYPE_UPDATED", leaveType, "EMPLOYEE_LEAVE_TYPE");
     reply.send(createDataResponse(leaveType));
   }
@@ -242,7 +242,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const query = listEmployeeLeavesQuerySchema.parse(request.query);
-    reply.send(createDataResponse(await listEmployeeLeaves(app.db, query)));
+    reply.send(createDataResponse(await listEmployeeLeaves(request.db, query)));
   }
 
   /** Creates one Employee Leave workflow row. */
@@ -251,7 +251,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const input = createEmployeeLeaveSchema.parse(request.body);
-    const leave = await app.db.transaction((transaction) =>
+    const leave = await request.db.transaction((transaction) =>
       createEmployeeLeave(transaction, input));
     await auditMutation(request, "EMPLOYEE_LEAVE_CREATED", leave, "EMPLOYEE_LEAVE");
     reply.status(201).send(createDataResponse(leave));
@@ -264,7 +264,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
   ): Promise<void> {
     const params = employeeLeaveIdParamsSchema.parse(request.params);
     const input = updateEmployeeLeaveSchema.parse(request.body);
-    const leave = await app.db.transaction((transaction) =>
+    const leave = await request.db.transaction((transaction) =>
       updateEmployeeLeave(transaction, params.id, input));
     await auditMutation(request, "EMPLOYEE_LEAVE_UPDATED", leave, "EMPLOYEE_LEAVE");
     reply.send(createDataResponse(leave));
@@ -276,7 +276,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const query = listEmployeeAdvancesQuerySchema.parse(request.query);
-    reply.send(createDataResponse(await listEmployeeAdvances(app.db, query)));
+    reply.send(createDataResponse(await listEmployeeAdvances(request.db, query)));
   }
 
   /** Creates one Employee Advance through an idempotent financial transaction. */
@@ -327,7 +327,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const query = listPayrollRunsQuerySchema.parse(request.query);
-    reply.send(createDataResponse(await listPayrollRuns(app.db, query)));
+    reply.send(createDataResponse(await listPayrollRuns(request.db, query)));
   }
 
   /** Creates and calculates one DRAFT Payroll Run atomically. */
@@ -336,7 +336,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const input = createPayrollRunSchema.parse(request.body);
-    const payroll = await app.db.transaction((transaction) =>
+    const payroll = await request.db.transaction((transaction) =>
       createPayrollRunInTransaction(transaction, input));
     await auditMutation(request, "PAYROLL_DRAFT_CREATED", payroll, "PAYROLL_RUN");
     reply.status(201).send(createDataResponse(payroll));
@@ -348,7 +348,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const params = payrollRunIdParamsSchema.parse(request.params);
-    reply.send(createDataResponse(await getPayrollRun(app.db, params.id)));
+    reply.send(createDataResponse(await getPayrollRun(request.db, params.id)));
   }
 
   /** Recalculates editable fields of one DRAFT Payroll Run atomically. */
@@ -358,7 +358,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
   ): Promise<void> {
     const params = payrollRunIdParamsSchema.parse(request.params);
     const input = updatePayrollRunSchema.parse(request.body);
-    const payroll = await app.db.transaction((transaction) =>
+    const payroll = await request.db.transaction((transaction) =>
       updatePayrollRunInTransaction(transaction, params.id, input));
     await auditMutation(request, "PAYROLL_DRAFT_UPDATED", payroll, "PAYROLL_RUN");
     reply.send(createDataResponse(payroll));
@@ -371,7 +371,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
   ): Promise<void> {
     const params = payrollRunIdParamsSchema.parse(request.params);
     const response = await executeIdempotentMutation(
-      app.db,
+      request.db,
       {
         key: request.headers["idempotency-key"],
         method: request.method,
@@ -404,7 +404,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const query = listSalaryPaymentsQuerySchema.parse(request.query);
-    reply.send(createDataResponse(await listSalaryPayments(app.db, query)));
+    reply.send(createDataResponse(await listSalaryPayments(request.db, query)));
   }
 
   /** Creates one Salary Payment through the shared idempotency transaction. */
@@ -431,7 +431,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance): Promise<void
     reply: FastifyReply,
   ): Promise<void> {
     const params = salaryPaymentIdParamsSchema.parse(request.params);
-    reply.send(createDataResponse(await getSalaryPayment(app.db, params.id)));
+    reply.send(createDataResponse(await getSalaryPayment(request.db, params.id)));
   }
 
   /** Reverses one Salary Payment through the shared idempotency transaction. */

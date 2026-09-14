@@ -20,6 +20,12 @@ const newPasswordSchema = z
   .min(15, "New password must contain at least 15 characters.")
   .max(128, "New password must be 128 characters or fewer.");
 
+/** Uses the same password policy with signup-specific field wording. */
+const signupPasswordSchema = z
+  .string()
+  .min(15, "Password must contain at least 15 characters.")
+  .max(128, "Password must be 128 characters or fewer.");
+
 /** Validates and trims the administrator name used during bootstrap. */
 const bootstrapAdminNameSchema = z
   .string()
@@ -34,6 +40,26 @@ export const loginRequestSchema = z
     password: existingPasswordSchema,
   })
   .strict();
+
+
+/** Validates a public signup body and matching password confirmation. */
+export const signupRequestSchema = z
+  .object({
+    name: bootstrapAdminNameSchema,
+    email: loginEmailSchema,
+    password: signupPasswordSchema,
+    confirmPassword: signupPasswordSchema,
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (input.password !== input.confirmPassword) {
+      context.addIssue({
+        code: "custom",
+        path: ["confirmPassword"],
+        message: "Password confirmation must match the password.",
+      });
+    }
+  });
 
 /** Adds readable field errors for password confirmation and password reuse. */
 function validatePasswordChange(
@@ -102,6 +128,9 @@ export const adminSessionIdParamsSchema = z
 
 /** Accepts only an absent request body for logout-all. */
 export const logoutAllRequestBodySchema = z.undefined();
+
+/** Contains the public signup fields after validation and normalization. */
+export type SignupInput = z.infer<typeof signupRequestSchema>;
 
 /** Contains the public login fields after validation and normalization. */
 export type LoginInput = z.infer<typeof loginRequestSchema>;

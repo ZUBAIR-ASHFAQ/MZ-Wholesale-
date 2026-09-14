@@ -2,6 +2,8 @@ import { timingSafeEqual } from "node:crypto";
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
 
+import { acquireTenantDatabase } from "../database/client.js";
+
 import { AppError } from "../shared/errors/app-error.js";
 
 /** Name of the HttpOnly cookie that carries the access JWT. */
@@ -126,6 +128,23 @@ export function installAuthPlugin(
   sessionVerifier: AdminSessionVerifier,
   csrfTokenVerifier: CsrfTokenVerifier,
 ): void {
+  const tenantDatabaseReleases = new WeakMap<
+    FastifyRequest,
+    () => Promise<void>
+  >();
+
+  /** Releases one dedicated tenant connection after Fastify finishes the request. */
+  async function releaseTenantDatabase(request: FastifyRequest): Promise<void> {
+    const release = tenantDatabaseReleases.get(request);
+
+    if (!release) {
+      return;
+    }
+
+    tenantDatabaseReleases.delete(request);
+    await release();
+  }
+
   /** Verifies the JWT, active DB session and CSRF token for private requests. */
   async function authenticate(request: FastifyRequest): Promise<void> {
     const accessToken = readAccessToken(request);
@@ -176,8 +195,34 @@ export function installAuthPlugin(
     }
 
     request.admin = admin;
+    request.db = app.db;
+
+    if (!request.routeOptions.url.startsWith("/auth/")) {
+      try {
+        const lease = await acquireTenantDatabase(
+          app.databasePool,
+          admin.adminUserId,
+        );
+        request.db = lease.database;
+        tenantDatabaseReleases.set(request, lease.release);
+      } catch (error) {
+        const errorName = error instanceof Error ? error.name : "UnknownError";
+        request.log.error(
+          { errorName, requestId: request.id },
+          "Tenant database connection could not be acquired.",
+        );
+        throw new AppError(
+          "INTERNAL_SERVER_ERROR",
+          "The authenticated database scope could not be created.",
+          500,
+        );
+      }
+    }
   }
 
   app.decorateRequest("admin", null);
+  app.decorateRequest("db", null);
+  app.addHook("onResponse", releaseTenantDatabase);
+  app.addHook("onRequestAbort", releaseTenantDatabase);
   app.decorate("authenticate", authenticate);
 }

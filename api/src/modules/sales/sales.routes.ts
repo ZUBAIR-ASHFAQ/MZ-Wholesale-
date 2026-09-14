@@ -31,7 +31,7 @@ import {
 export async function registerSalesRoutes(app: FastifyInstance): Promise<void> {
   /** Records one important successful mutation without changing the business response if audit storage is unavailable. */
   async function auditMutation(request: FastifyRequest, action: string, entity: string, afterData: unknown): Promise<void> {
-    await recordAuditLog(app.db, {
+    await recordAuditLog(request.db, {
       adminUserId: request.admin?.adminUserId ?? null,
       requestId: request.id,
       ipAddress: request.ip ?? null,
@@ -45,7 +45,7 @@ export async function registerSalesRoutes(app: FastifyInstance): Promise<void> {
     reply: FastifyReply,
   ): Promise<void> {
     const query = listSalesQuerySchema.parse(request.query);
-    const result = await listSales(app.db, query);
+    const result = await listSales(request.db, query);
     reply.send(createDataResponse(result));
   }
 
@@ -58,7 +58,7 @@ export async function registerSalesRoutes(app: FastifyInstance): Promise<void> {
 
     if (input.status === "CONFIRMED") {
       const response = await executeIdempotentMutation(
-        app.db,
+        request.db,
         {
           key: request.headers["idempotency-key"],
           method: request.method,
@@ -80,7 +80,7 @@ export async function registerSalesRoutes(app: FastifyInstance): Promise<void> {
       return;
     }
 
-    const result = await createSale(app.db, input);
+    const result = await createSale(request.db, input);
     await auditMutation(request, "SALE_DRAFT_CREATED", "SALE", result);
     reply.status(201).send(createDataResponse(result));
   }
@@ -91,7 +91,7 @@ export async function registerSalesRoutes(app: FastifyInstance): Promise<void> {
     reply: FastifyReply,
   ): Promise<void> {
     const params = saleIdParamsSchema.parse(request.params);
-    const result = await getSale(app.db, params.id);
+    const result = await getSale(request.db, params.id);
     reply.send(createDataResponse(result));
   }
 
@@ -102,7 +102,7 @@ export async function registerSalesRoutes(app: FastifyInstance): Promise<void> {
   ): Promise<void> {
     const params = saleIdParamsSchema.parse(request.params);
     const input = updateSaleDraftSchema.parse(request.body);
-    const result = await updateSaleDraft(app.db, params.id, input);
+    const result = await updateSaleDraft(request.db, params.id, input);
     await auditMutation(request, "SALE_DRAFT_UPDATED", "SALE", result);
     reply.send(createDataResponse(result));
   }
@@ -115,7 +115,7 @@ export async function registerSalesRoutes(app: FastifyInstance): Promise<void> {
     const params = saleIdParamsSchema.parse(request.params);
     const input = confirmSaleSchema.parse(request.body ?? {});
     const response = await executeIdempotentMutation(
-      app.db,
+      request.db,
       {
         key: request.headers["idempotency-key"],
         method: request.method,
@@ -143,7 +143,7 @@ export async function registerSalesRoutes(app: FastifyInstance): Promise<void> {
   ): Promise<void> {
     const params = saleIdParamsSchema.parse(request.params);
     const input = cancelSaleSchema.parse(request.body ?? {});
-    const result = await cancelSaleDraft(app.db, params.id, input);
+    const result = await cancelSaleDraft(request.db, params.id, input);
     await auditMutation(request, "SALE_DRAFT_CANCELLED", "SALE", result);
     reply.send(createDataResponse(result));
   }

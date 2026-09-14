@@ -74,7 +74,7 @@ function readNewBusinessSettings(
   };
 }
 
-/** Creates first-time settings and all seven sequences in one transaction. */
+/** Saves first-time settings while preserving account sequences provisioned at signup. */
 async function createInitialSetup(
   database: BusinessSettingsDatabase,
   input: BusinessSettingsSetupInput,
@@ -92,14 +92,34 @@ async function createInitialSetup(
     );
   }
 
-  const sequences = await createDocumentSequences(database, input.sequences);
+  const existingSequences = await findDocumentSequences(database);
+  const existingDocumentTypes = new Set(
+    existingSequences.map((sequence) => sequence.documentType),
+  );
+  const sequencesToUpdate = input.sequences.filter((sequence) =>
+    existingDocumentTypes.has(sequence.documentType),
+  );
+  const sequencesToCreate = input.sequences.filter(
+    (sequence) => !existingDocumentTypes.has(sequence.documentType),
+  );
 
-  if (sequences.length !== input.sequences.length) {
-    throw createServiceError(
-      "DOCUMENT_SEQUENCE_CREATE_FAILED",
-      "Not all document sequences were created.",
-      500,
+  if (sequencesToUpdate.length > 0) {
+    await updateSequences(database, sequencesToUpdate);
+  }
+
+  if (sequencesToCreate.length > 0) {
+    const createdSequences = await createDocumentSequences(
+      database,
+      sequencesToCreate,
     );
+
+    if (createdSequences.length !== sequencesToCreate.length) {
+      throw createServiceError(
+        "DOCUMENT_SEQUENCE_CREATE_FAILED",
+        "Not all document sequences were created.",
+        500,
+      );
+    }
   }
 }
 

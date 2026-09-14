@@ -7,6 +7,14 @@ export interface LoginRequest {
   password: string;
 }
 
+/** Contains fields accepted by the public account-creation endpoint. */
+export interface SignupRequest {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
 /** Contains password fields accepted by the password-change endpoint. */
 export interface ChangePasswordRequest {
   currentPassword: string;
@@ -35,6 +43,16 @@ export interface LogoutData {
 export interface ChangePasswordData {
   admin: AdminProfile;
   sessionsRevoked: true;
+}
+
+/** Creates an administrator account and starts its first session. */
+export async function signupAdmin(
+  input: SignupRequest,
+): Promise<ApiSuccess<AdminSessionData>> {
+  return requestApi<ApiSuccess<AdminSessionData>>("/auth/signup", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 /** Sends administrator credentials to the Fastify login route. */

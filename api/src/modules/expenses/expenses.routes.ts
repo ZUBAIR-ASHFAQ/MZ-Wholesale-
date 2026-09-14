@@ -59,7 +59,7 @@ async function sendIdempotentExpenseMutation(
   operation: (transaction: FastifyInstance["db"]) => Promise<unknown>,
 ): Promise<boolean> {
   const response = await executeIdempotentMutation(
-    app.db,
+    request.db,
     {
       key: request.headers["idempotency-key"],
       method: request.method,
@@ -80,7 +80,7 @@ async function sendIdempotentExpenseMutation(
 export async function registerExpenseRoutes(app: FastifyInstance): Promise<void> {
   /** Records one important successful mutation without changing the business response if audit storage is unavailable. */
   async function auditMutation(request: FastifyRequest, action: string, entity: string, afterData: unknown): Promise<void> {
-    await recordAuditLog(app.db, {
+    await recordAuditLog(request.db, {
       adminUserId: request.admin?.adminUserId ?? null,
       requestId: request.id,
       ipAddress: request.ip ?? null,
@@ -90,10 +90,10 @@ export async function registerExpenseRoutes(app: FastifyInstance): Promise<void>
 
   /** Lists all expense categories. */
   async function handleListExpenseCategories(
-    _request: FastifyRequest,
+    request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
-    reply.send(createDataResponse(await listExpenseCategories(app.db)));
+    reply.send(createDataResponse(await listExpenseCategories(request.db)));
   }
 
   /** Creates one expense category. */
@@ -102,7 +102,7 @@ export async function registerExpenseRoutes(app: FastifyInstance): Promise<void>
     reply: FastifyReply,
   ): Promise<void> {
     const input = createExpenseCategorySchema.parse(request.body);
-    const category = await createExpenseCategory(app.db, input);
+    const category = await createExpenseCategory(request.db, input);
     await auditMutation(request, "EXPENSE_CATEGORY_CREATED", "EXPENSE_CATEGORY", category);
     reply.status(201).send(createDataResponse(category));
   }
@@ -114,7 +114,7 @@ export async function registerExpenseRoutes(app: FastifyInstance): Promise<void>
   ): Promise<void> {
     const params = expenseCategoryIdParamsSchema.parse(request.params);
     const input = updateExpenseCategorySchema.parse(request.body);
-    const category = await updateExpenseCategory(app.db, params.id, input);
+    const category = await updateExpenseCategory(request.db, params.id, input);
     await auditMutation(request, "EXPENSE_CATEGORY_UPDATED", "EXPENSE_CATEGORY", category);
     reply.send(createDataResponse(category));
   }
@@ -125,7 +125,7 @@ export async function registerExpenseRoutes(app: FastifyInstance): Promise<void>
     reply: FastifyReply,
   ): Promise<void> {
     const query = listExpensesQuerySchema.parse(request.query);
-    reply.send(createDataResponse(await listExpenses(app.db, query)));
+    reply.send(createDataResponse(await listExpenses(request.db, query)));
   }
 
   /** Creates one expense through an idempotent financial transaction. */
@@ -160,7 +160,7 @@ export async function registerExpenseRoutes(app: FastifyInstance): Promise<void>
     reply: FastifyReply,
   ): Promise<void> {
     const params = expenseIdParamsSchema.parse(request.params);
-    reply.send(createDataResponse(await getExpense(app.db, params.id)));
+    reply.send(createDataResponse(await getExpense(request.db, params.id)));
   }
 
   /** Reverses one expense through an idempotent financial transaction. */

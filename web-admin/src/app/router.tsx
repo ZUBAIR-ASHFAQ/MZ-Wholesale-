@@ -11,6 +11,7 @@ import {
 import { useCurrentAdmin } from "../features/auth/hooks/use-auth.ts";
 import { ChangePasswordPage } from "../features/auth/pages/change-password-page.tsx";
 import { LoginPage } from "../features/auth/pages/login-page.tsx";
+import { SignupPage } from "../features/auth/pages/signup-page.tsx";
 import { SessionsPage } from "../features/auth/pages/sessions-page.tsx";
 import { BusinessSettingsPage } from "../features/business-settings/pages/business-settings-page.tsx";
 import { CustomerDetailPage } from "../features/customers/pages/customer-detail-page.tsx";
@@ -96,15 +97,15 @@ function RootRouteComponent(): React.JSX.Element {
   const currentPath = useRouterState({
     select: (state) => state.location.pathname,
   });
-  const isLoginPage = currentPath === "/login";
+  const isAuthPage = currentPath === "/login" || currentPath === "/signup";
 
-  if (currentAdmin.isPending) {
+  if (currentAdmin.isPending || currentAdmin.isFetching) {
     return <p className="page-status">Checking admin session...</p>;
   }
 
-  const admin = currentAdmin.data?.data.admin;
+  const admin = currentAdmin.isError ? undefined : currentAdmin.data?.data.admin;
 
-  if (isLoginPage) {
+  if (isAuthPage) {
     if (admin) {
       return <Navigate to="/dashboard" replace />;
     }
@@ -248,6 +249,12 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   component: LoginPage,
+});
+
+const signupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/signup",
+  component: SignupPage,
 });
 
 const changePasswordRoute = createRoute({
@@ -813,6 +820,7 @@ const productDetailRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
+  signupRoute,
   changePasswordRoute,
   sessionsRoute,
   settingsRoute,

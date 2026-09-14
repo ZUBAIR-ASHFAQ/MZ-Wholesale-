@@ -25,7 +25,7 @@ async function handleGetBusinessSettings(
 ): Promise<void> {
   validateBusinessSettingsQuery(request.query);
 
-  const view = await getBusinessSettingsView(request.server.db);
+  const view = await getBusinessSettingsView(request.db);
   reply.send(createDataResponse(view));
 }
 
@@ -34,8 +34,8 @@ async function handlePatchBusinessSettings(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const view = await saveBusinessSettings(request.server.db, request.body);
-  await recordAuditLog(request.server.db, {
+  const view = await saveBusinessSettings(request.db, request.body);
+  await recordAuditLog(request.db, {
     adminUserId: request.admin?.adminUserId ?? null,
     requestId: request.id,
     ipAddress: request.ip ?? null,

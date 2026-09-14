@@ -33,14 +33,15 @@ test("application registers Modules 1 to 7 in dependency order", async () => {
   assert.ok(ledgersIndex > inventoryIndex);
 });
 
-/** Verifies the Admin session has the required direct UUID relationship. */
-test("admin sessions reference the single admin account", async () => {
+/** Verifies sessions reference independent accounts without the old singleton restriction. */
+test("admin sessions reference independent admin accounts", async () => {
   const source = await readProjectFile(
     "../src/database/schema/auth.schema.ts",
   );
 
-  assert.match(source, /admin_users_singleton_key_unique/);
-  assert.match(source, /admin_users_singleton_key_check/);
+  assert.doesNotMatch(source, /admin_users_singleton_key_unique/);
+  assert.doesNotMatch(source, /admin_users_singleton_key_check/);
+  assert.match(source, /admin_users_email_unique/);
   assert.match(
     source,
     /columns:\s*\[table\.adminUserId\][\s\S]*foreignColumns:\s*\[adminUsers\.id\]/,
@@ -1898,6 +1899,7 @@ test("all backend modules expose exactly the approved API route contracts", asyn
       "PATCH /business-settings",
     ],
     auth: [
+      "POST /auth/signup",
       "POST /auth/login",
       "POST /auth/refresh",
       "POST /auth/logout",

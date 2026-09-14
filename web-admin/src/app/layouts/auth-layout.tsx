@@ -30,8 +30,8 @@ export function AuthLayout({ children }: AuthLayoutProps): React.JSX.Element {
               <span>Fixed currency</span>
             </div>
             <div>
-              <strong>1</strong>
-              <span>Admin operator</span>
+              <strong>Private</strong>
+              <span>Per-account data</span>
             </div>
           </div>
         </div>

@@ -130,13 +130,14 @@ test("CSRF cookie and header must match", () => {
   );
 });
 
-test("Auth exposes the original routes plus production session-security routes", async () => {
+test("Auth exposes signup, login and production session-security routes", async () => {
   const source = await readAuthRoutes();
   const routes = [...source.matchAll(/app\.(get|post|delete)\(\s*"([^"]+)"/g)].map(
     (match) => `${match[1].toUpperCase()} ${match[2]}`,
   );
 
   assert.deepEqual(routes, [
+    "POST /auth/signup",
     "POST /auth/login",
     "POST /auth/refresh",
     "POST /auth/logout",
@@ -149,9 +150,10 @@ test("Auth exposes the original routes plus production session-security routes",
   assert.doesNotMatch(source, /app\.(?:patch|put)\(/);
 });
 
-test("login and refresh keep route-level rate limits", async () => {
+test("signup, login and refresh keep route-level rate limits", async () => {
   const source = await readAuthRoutes();
 
+  assert.match(source, /"\/auth\/signup"[\s\S]*config:\s*\{ rateLimit: loginRateLimit \}/);
   assert.match(source, /"\/auth\/login"[\s\S]*config:\s*\{ rateLimit: loginRateLimit \}/);
   assert.match(source, /"\/auth\/refresh"[\s\S]*config:\s*\{ rateLimit: refreshRateLimit \}/);
 });

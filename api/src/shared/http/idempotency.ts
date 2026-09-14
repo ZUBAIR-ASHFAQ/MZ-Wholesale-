@@ -106,7 +106,7 @@ export async function executeIdempotentMutation(
         requestHash,
         expiresAt: new Date(now.getTime() + IDEMPOTENCY_TTL_MILLISECONDS),
       })
-      .onConflictDoNothing({ target: idempotencyRequests.key })
+      .onConflictDoNothing()
       .returning({ id: idempotencyRequests.id });
 
     if (!created) {

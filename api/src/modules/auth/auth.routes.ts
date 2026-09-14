@@ -33,6 +33,7 @@ import {
   getCurrentAdminProfile,
   listAdminSessions,
   loginAdmin,
+  signupAdmin,
   logoutAdmin,
   logoutAllAdminSessions,
   refreshAdminSession,
@@ -177,6 +178,23 @@ export async function registerAuthRoutes(
       60_000,
     ),
   };
+
+  /** Creates an account, starts its first session and returns safe cookies. */
+  async function handleSignup(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const session = await signupAdmin(
+      app.db,
+      request.body,
+      signingSecret,
+      new Date(),
+      createAuditContext(request),
+    );
+
+    setSessionCookies(app, reply, session, secureCookies, csrfCookieDomain);
+    reply.status(201).send(createDataResponse({ admin: session.admin }));
+  }
 
   /** Receives credentials, calls login and returns safe session cookies. */
   async function handleLogin(
@@ -344,6 +362,25 @@ export async function registerAuthRoutes(
     reply.send(createDataResponse({ admin, sessionsRevoked: true }));
   }
 
+  app.post(
+    "/auth/signup",
+    {
+      config: { rateLimit: loginRateLimit },
+      schema: {
+        tags: ["auth"],
+        summary: "Create an administrator account",
+        description: "Creates an independent account and starts its first authenticated session.",
+        response: {
+          201: openApiSuccessResponse,
+          400: openApiErrorResponse,
+          409: openApiErrorResponse,
+          429: openApiErrorResponse,
+          500: openApiErrorResponse,
+        },
+      },
+    },
+    handleSignup,
+  );
   app.post(
     "/auth/login",
     {

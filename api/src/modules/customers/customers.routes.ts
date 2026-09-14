@@ -34,7 +34,7 @@ export async function registerCustomerRoutes(
 ): Promise<void> {
   /** Records one important successful mutation without changing the business response if audit storage is unavailable. */
   async function auditMutation(request: FastifyRequest, action: string, entity: string, afterData: unknown): Promise<void> {
-    await recordAuditLog(app.db, {
+    await recordAuditLog(request.db, {
       adminUserId: request.admin?.adminUserId ?? null,
       requestId: request.id,
       ipAddress: request.ip ?? null,
@@ -48,7 +48,7 @@ export async function registerCustomerRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = listCustomersQuerySchema.parse(request.query);
-    const result = await listCustomers(app.db, query);
+    const result = await listCustomers(request.db, query);
 
     reply.send(createDataResponse(result));
   }
@@ -59,7 +59,7 @@ export async function registerCustomerRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const input = createCustomerSchema.parse(request.body);
-    const customer = await createCustomer(app.db, input);
+    const customer = await createCustomer(request.db, input);
     await auditMutation(request, "CUSTOMER_CREATED", "CUSTOMER", customer);
 
     reply.status(201).send(createDataResponse(customer));
@@ -71,7 +71,7 @@ export async function registerCustomerRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const params = customerIdParamsSchema.parse(request.params);
-    const profile = await getCustomerProfile(app.db, params.id);
+    const profile = await getCustomerProfile(request.db, params.id);
 
     reply.send(createDataResponse(profile));
   }
@@ -83,7 +83,7 @@ export async function registerCustomerRoutes(
   ): Promise<void> {
     const params = customerIdParamsSchema.parse(request.params);
     const input = updateCustomerSchema.parse(request.body);
-    const customer = await updateCustomer(app.db, params.id, input);
+    const customer = await updateCustomer(request.db, params.id, input);
     await auditMutation(request, "CUSTOMER_UPDATED", "CUSTOMER", customer);
 
     reply.send(createDataResponse(customer));
@@ -97,7 +97,7 @@ export async function registerCustomerRoutes(
     const params = customerOpenInvoicesParamsSchema.parse(request.params);
     const query = customerOpenInvoicesQuerySchema.parse(request.query);
     const result = await getCustomerOpenInvoices(
-      app.db,
+      request.db,
       params.customerId,
       query,
     );

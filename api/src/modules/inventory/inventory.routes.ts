@@ -42,7 +42,7 @@ export async function registerInventoryRoutes(
 ): Promise<void> {
   /** Records one important successful mutation without changing the business response if audit storage is unavailable. */
   async function auditMutation(request: FastifyRequest, action: string, entity: string, afterData: unknown): Promise<void> {
-    await recordAuditLog(app.db, {
+    await recordAuditLog(request.db, {
       adminUserId: request.admin?.adminUserId ?? null,
       requestId: request.id,
       ipAddress: request.ip ?? null,
@@ -56,7 +56,7 @@ export async function registerInventoryRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = listInventoryQuerySchema.parse(request.query);
-    const result = await listInventoryStock(app.db, query);
+    const result = await listInventoryStock(request.db, query);
     reply.send(createDataResponse(result));
   }
 
@@ -67,7 +67,7 @@ export async function registerInventoryRoutes(
   ): Promise<void> {
     const params = productMovementsParamsSchema.parse(request.params);
     const query = listProductMovementsQuerySchema.parse(request.query);
-    const result = await getProductMovements(app.db, params.productId, query);
+    const result = await getProductMovements(request.db, params.productId, query);
     reply.send(createDataResponse(result));
   }
 
@@ -78,7 +78,7 @@ export async function registerInventoryRoutes(
   ): Promise<void> {
     const input = createOpeningStockSchema.parse(request.body);
     const response = await executeIdempotentMutation(
-      app.db,
+      request.db,
       {
         key: request.headers["idempotency-key"],
         method: request.method,
@@ -103,7 +103,7 @@ export async function registerInventoryRoutes(
   ): Promise<void> {
     const input = createAdjustmentSchema.parse(request.body);
     const response = await executeIdempotentMutation(
-      app.db,
+      request.db,
       {
         key: request.headers["idempotency-key"],
         method: request.method,
@@ -127,7 +127,7 @@ export async function registerInventoryRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = listStockCountsQuerySchema.parse(request.query);
-    const result = await listStockCounts(app.db, query);
+    const result = await listStockCounts(request.db, query);
     reply.send(createDataResponse(result));
   }
 
@@ -137,7 +137,7 @@ export async function registerInventoryRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const input = createStockCountSchema.parse(request.body);
-    const result = await createDraftStockCount(app.db, input);
+    const result = await createDraftStockCount(request.db, input);
     await auditMutation(request, "STOCK_COUNT_CREATED", "STOCK_COUNT", result);
     reply.status(201).send(createDataResponse(result));
   }
@@ -148,7 +148,7 @@ export async function registerInventoryRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const params = stockCountIdParamsSchema.parse(request.params);
-    const result = await getStockCount(app.db, params.id);
+    const result = await getStockCount(request.db, params.id);
     reply.send(createDataResponse(result));
   }
 
@@ -159,7 +159,7 @@ export async function registerInventoryRoutes(
   ): Promise<void> {
     const params = stockCountIdParamsSchema.parse(request.params);
     const input = updateStockCountSchema.parse(request.body);
-    const result = await updateDraftStockCount(app.db, params.id, input);
+    const result = await updateDraftStockCount(request.db, params.id, input);
     await auditMutation(request, "STOCK_COUNT_UPDATED", "STOCK_COUNT", result);
     reply.send(createDataResponse(result));
   }
@@ -171,7 +171,7 @@ export async function registerInventoryRoutes(
   ): Promise<void> {
     const params = stockCountIdParamsSchema.parse(request.params);
     const response = await executeIdempotentMutation(
-      app.db,
+      request.db,
       {
         key: request.headers["idempotency-key"],
         method: request.method,

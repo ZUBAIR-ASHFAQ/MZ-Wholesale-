@@ -843,7 +843,9 @@ export async function lockPayrollRunById(
 export async function lockPayrollConfirmationScope(
   database: EmployeesDatabase,
 ): Promise<void> {
-  await database.execute(sql`select pg_advisory_xact_lock(16, 7)`);
+  await database.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended('wholesale_erp_payroll_confirmation:' || coalesce(current_tenant_admin_user_id()::text, 'system'), 0))`,
+  );
 }
 
 /** Finds one already-confirmed Payroll Run whose period overlaps the supplied run. */

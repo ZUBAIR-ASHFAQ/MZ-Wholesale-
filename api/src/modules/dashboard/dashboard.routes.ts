@@ -62,7 +62,7 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseDashboardQuery(dashboardOverviewQuerySchema, request.query);
-    const result = await getDashboardOverview(app.db, query);
+    const result = await getDashboardOverview(request.db, query);
 
     reply.send(createDataResponse(result));
   }
@@ -73,7 +73,7 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseDashboardQuery(dashboardLowStockQuerySchema, request.query);
-    const result = await getDashboardLowStock(app.db, query);
+    const result = await getDashboardLowStock(request.db, query);
 
     reply.send(createDataResponse(result));
   }

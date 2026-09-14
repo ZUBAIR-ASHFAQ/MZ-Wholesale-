@@ -182,7 +182,7 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseSystemValue(systemImportListQuerySchema, request.query);
-    const result = await listSystemImports(app.db, query);
+    const result = await listSystemImports(request.db, query);
     reply.send(createDataResponse(result));
   }
 
@@ -192,7 +192,7 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseSystemValue(systemAuditLogQuerySchema, request.query);
-    const result = await listSystemAuditLogs(app.db, query);
+    const result = await listSystemAuditLogs(request.db, query);
     reply.send(createDataResponse(result));
   }
 
@@ -213,7 +213,7 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
       "EXPORT_FILTER_INVALID",
       "The requested export type or filter is invalid.",
     );
-    const source = await getSystemExportSource(app.db, params.type, query);
+    const source = await getSystemExportSource(request.db, params.type, query);
     let file;
     if (query.format === "xlsx") {
       file = await buildSystemExcelExport(source);
@@ -235,7 +235,7 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
     reply: FastifyReply,
   ): Promise<void> {
     const params = parseSystemValue(systemImportJobParamsSchema, request.params);
-    const result = await getSystemImport(app.db, params.id);
+    const result = await getSystemImport(request.db, params.id);
     reply.send(createDataResponse(result));
   }
 
@@ -248,7 +248,7 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
     parseSystemValue(systemIdempotencyHeadersSchema, request.headers);
 
     const response = await executeIdempotentMutation(
-      app.db,
+      request.db,
       {
         key: request.headers["idempotency-key"],
         method: request.method,
@@ -299,7 +299,7 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
     const fileHash = createImportFileHash(file.content);
 
     const response = await executeIdempotentMutation(
-      app.db,
+      request.db,
       {
         key: request.headers["idempotency-key"],
         method: request.method,

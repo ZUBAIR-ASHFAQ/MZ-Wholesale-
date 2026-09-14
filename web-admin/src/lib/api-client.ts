@@ -135,6 +135,7 @@ function canRefreshRequest(path: string, response: Response): boolean {
 
   return ![
     "/auth/login",
+    "/auth/signup",
     "/auth/refresh",
     "/auth/logout",
     "/auth/change-password",

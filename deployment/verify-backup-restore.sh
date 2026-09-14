@@ -82,6 +82,12 @@ main() {
     --exit-on-error \
     "$decrypted_dump"
 
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  psql "$RESTORE_DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f "$script_dir/restore-tenant-access.sql" >/dev/null
+
   echo "6/7 Comparing restored table row counts with the source snapshot..."
   capture_public_table_counts "$RESTORE_DATABASE_URL" "$restored_counts"
   if ! diff -u "$source_counts" "$restored_counts"; then

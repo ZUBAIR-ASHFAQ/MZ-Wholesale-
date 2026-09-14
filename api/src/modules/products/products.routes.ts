@@ -41,7 +41,7 @@ import {
 export async function registerProductRoutes(app: FastifyInstance): Promise<void> {
   /** Records one important successful mutation without changing the business response if audit storage is unavailable. */
   async function auditMutation(request: FastifyRequest, action: string, entity: string, afterData: unknown): Promise<void> {
-    await recordAuditLog(app.db, {
+    await recordAuditLog(request.db, {
       adminUserId: request.admin?.adminUserId ?? null,
       requestId: request.id,
       ipAddress: request.ip ?? null,
@@ -55,7 +55,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
     reply: FastifyReply,
   ): Promise<void> {
     const query = listProductsQuerySchema.parse(request.query);
-    const result = await listProducts(app.db, query);
+    const result = await listProducts(request.db, query);
     reply.send(createDataResponse(result));
   }
 
@@ -65,7 +65,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
     reply: FastifyReply,
   ): Promise<void> {
     const input = createProductSchema.parse(request.body);
-    const product = await createProduct(app.db, input);
+    const product = await createProduct(request.db, input);
     await auditMutation(request, "PRODUCT_CREATED", "PRODUCT", product);
     reply.status(201).send(createDataResponse(product));
   }
@@ -76,7 +76,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
     reply: FastifyReply,
   ): Promise<void> {
     const params = productIdParamsSchema.parse(request.params);
-    const product = await getProduct(app.db, params.id);
+    const product = await getProduct(request.db, params.id);
     reply.send(createDataResponse(product));
   }
 
@@ -87,17 +87,17 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
   ): Promise<void> {
     const params = productIdParamsSchema.parse(request.params);
     const input = updateProductSchema.parse(request.body);
-    const product = await updateProduct(app.db, params.id, input);
+    const product = await updateProduct(request.db, params.id, input);
     await auditMutation(request, "PRODUCT_UPDATED", "PRODUCT", product);
     reply.send(createDataResponse(product));
   }
 
   /** Returns all product categories in stable name order. */
   async function handleListCategories(
-    _request: FastifyRequest,
+    request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
-    const categories = await listCategories(app.db);
+    const categories = await listCategories(request.db);
     reply.send(createDataResponse(categories));
   }
 
@@ -107,7 +107,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
     reply: FastifyReply,
   ): Promise<void> {
     const input = createCategorySchema.parse(request.body);
-    const category = await createCategory(app.db, input);
+    const category = await createCategory(request.db, input);
     await auditMutation(request, "PRODUCT_CATEGORY_CREATED", "PRODUCT_CATEGORY", category);
     reply.status(201).send(createDataResponse(category));
   }
@@ -119,17 +119,17 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
   ): Promise<void> {
     const params = categoryIdParamsSchema.parse(request.params);
     const input = updateCategorySchema.parse(request.body);
-    const category = await updateCategory(app.db, params.id, input);
+    const category = await updateCategory(request.db, params.id, input);
     await auditMutation(request, "PRODUCT_CATEGORY_UPDATED", "PRODUCT_CATEGORY", category);
     reply.send(createDataResponse(category));
   }
 
   /** Returns all brands in stable name order. */
   async function handleListBrands(
-    _request: FastifyRequest,
+    request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
-    const brands = await listBrands(app.db);
+    const brands = await listBrands(request.db);
     reply.send(createDataResponse(brands));
   }
 
@@ -139,7 +139,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
     reply: FastifyReply,
   ): Promise<void> {
     const input = createBrandSchema.parse(request.body);
-    const brand = await createBrand(app.db, input);
+    const brand = await createBrand(request.db, input);
     await auditMutation(request, "BRAND_CREATED", "BRAND", brand);
     reply.status(201).send(createDataResponse(brand));
   }
@@ -151,7 +151,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
   ): Promise<void> {
     const params = brandIdParamsSchema.parse(request.params);
     const input = updateBrandSchema.parse(request.body);
-    const brand = await updateBrand(app.db, params.id, input);
+    const brand = await updateBrand(request.db, params.id, input);
     await auditMutation(request, "BRAND_UPDATED", "BRAND", brand);
     reply.send(createDataResponse(brand));
   }

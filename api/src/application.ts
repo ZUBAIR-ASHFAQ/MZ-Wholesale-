@@ -7,6 +7,7 @@ import Fastify, {
   type FastifyServerOptions,
 } from "fastify";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import type { Pool } from "pg";
 
 import {
   createAdminSessionVerifier,
@@ -53,6 +54,7 @@ import {
 /** Contains the dependencies needed to create the Fastify application. */
 export interface ApplicationOptions {
   database: NodePgDatabase;
+  databasePool: Pool;
   authSigningSecret: string;
   secureCookies: boolean;
   webAdminUrl?: string;
@@ -135,7 +137,7 @@ export async function createApp(
     sign: { algorithm: "HS256" },
     verify: { algorithms: ["HS256"] },
   });
-  installDatabasePlugin(app, options.database);
+  installDatabasePlugin(app, options.database, options.databasePool);
   installErrorHandlerPlugin(app);
   await registerCorsPlugin(
     app,

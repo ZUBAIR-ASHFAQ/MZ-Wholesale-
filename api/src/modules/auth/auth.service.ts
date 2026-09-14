@@ -42,9 +42,11 @@ import {
   bootstrapAdminSchema,
   changePasswordRequestSchema,
   loginRequestSchema,
+  signupRequestSchema,
   type BootstrapAdminInput,
   type ChangePasswordInput,
   type LoginInput,
+  type SignupInput,
 } from "./auth.schema.js";
 
 /** Access tokens expire quickly and are always checked against a database session. */
@@ -321,6 +323,36 @@ function createAuthServiceError(
   return new AppError(code, message, statusCode);
 }
 
+/** Reads a PostgreSQL error code without assuming a driver-specific error type. */
+function readPostgresCode(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return null;
+  }
+
+  return typeof error.code === "string" ? error.code : null;
+}
+
+/** Reads a PostgreSQL constraint name without exposing arbitrary error details. */
+function readPostgresConstraint(error: unknown): string | null {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("constraint" in error)
+  ) {
+    return null;
+  }
+
+  return typeof error.constraint === "string" ? error.constraint : null;
+}
+
+/** Checks whether account creation raced with an existing normalized email. */
+function isAdminEmailConflict(error: unknown): boolean {
+  return (
+    readPostgresCode(error) === "23505" &&
+    readPostgresConstraint(error) === "admin_users_email_unique"
+  );
+}
+
 /** Requires the CSRF cookie and header to contain the same safe token. */
 export function requireMatchingCsrfToken(
   cookieToken: string | undefined,
@@ -400,7 +432,7 @@ function createAdminProfile(admin: AdminUserRecord): AdminProfile {
   };
 }
 
-/** Creates the singleton administrator inside the bootstrap transaction. */
+/** Creates the initial administrator inside the bootstrap transaction. */
 async function createInitialAdmin(
   database: AuthDatabase,
   input: BootstrapAdminInput,
@@ -514,6 +546,79 @@ async function saveLoginSession(
   await recordSuccessfulLogin(database, admin.id, loggedInAt);
 
   return session;
+}
+
+/** Creates one independent administrator account and signs it in immediately. */
+export async function signupAdmin(
+  database: NodePgDatabase,
+  requestBody: unknown,
+  signingSecret: string,
+  signedUpAt = new Date(),
+  auditContext?: AuthAuditContext,
+): Promise<LoginSessionResult> {
+  const input: SignupInput = signupRequestSchema.parse(requestBody);
+  validateDate(signedUpAt, "Signup time");
+  validateSigningSecret(signingSecret);
+  const passwordHash = await hashPassword(input.password);
+  const refreshToken = createRefreshToken();
+
+  let result: LoginSessionResult;
+
+  try {
+    result = await database.transaction(async (transaction) => {
+      const admin = await createAdminUser(transaction, {
+        name: input.name,
+        email: input.email,
+        passwordHash,
+      });
+
+      if (!admin) {
+        throw createAuthServiceError(
+          "ACCOUNT_CREATE_FAILED",
+          "The account could not be created.",
+          500,
+        );
+      }
+
+      const session = await saveLoginSession(
+        transaction,
+        admin,
+        refreshToken,
+        signedUpAt,
+      );
+
+      return createLoginSessionResult(
+        admin,
+        session,
+        refreshToken,
+        signedUpAt,
+        signingSecret,
+      );
+    });
+  } catch (error) {
+    if (isAdminEmailConflict(error)) {
+      throw createAuthServiceError(
+        "EMAIL_ALREADY_REGISTERED",
+        "An account with this email already exists.",
+        409,
+      );
+    }
+
+    throw error;
+  }
+
+  if (auditContext) {
+    await recordAuditLog(
+      database,
+      { ...auditContext, adminUserId: result.admin.id },
+      "SIGNUP_SUCCEEDED",
+      "ADMIN_AUTH",
+      null,
+      { adminId: result.admin.id },
+    );
+  }
+
+  return result;
 }
 
 /** Validates credentials and creates a complete login session transactionally. */

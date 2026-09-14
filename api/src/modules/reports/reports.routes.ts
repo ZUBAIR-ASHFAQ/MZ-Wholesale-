@@ -75,15 +75,13 @@ function privateReportRoute(app: FastifyInstance, summary: string) {
 
 /** Registers the approved read-only Module 13 report routes. */
 export async function registerReportRoutes(app: FastifyInstance): Promise<void> {
-  const reportsService = createReportsService(app.db);
-
   /** Returns confirmed sales and sales-return activity for the selected filters. */
   async function handleSalesReport(
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseReportQuery(salesReportQuerySchema, request.query);
-    reply.send(createDataResponse(await reportsService.getSalesReport(query)));
+    reply.send(createDataResponse(await createReportsService(request.db).getSalesReport(query)));
   }
 
   /** Returns confirmed purchase and purchase-return activity for the selected filters. */
@@ -92,7 +90,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseReportQuery(purchasesReportQuerySchema, request.query);
-    reply.send(createDataResponse(await reportsService.getPurchasesReport(query)));
+    reply.send(createDataResponse(await createReportsService(request.db).getPurchasesReport(query)));
   }
 
   /** Returns current stock together with matching immutable stock movements. */
@@ -101,7 +99,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseReportQuery(inventoryReportQuerySchema, request.query);
-    reply.send(createDataResponse(await reportsService.getInventoryReport(query)));
+    reply.send(createDataResponse(await createReportsService(request.db).getInventoryReport(query)));
   }
 
   /** Returns current inventory quantities, weighted cost, and valuation totals. */
@@ -111,7 +109,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   ): Promise<void> {
     const query = parseReportQuery(inventoryValuationReportQuerySchema, request.query);
     reply.send(
-      createDataResponse(await reportsService.getInventoryValuationReport(query)),
+      createDataResponse(await createReportsService(request.db).getInventoryValuationReport(query)),
     );
   }
 
@@ -122,7 +120,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   ): Promise<void> {
     const query = parseReportQuery(customerAgingReportQuerySchema, request.query);
     reply.send(
-      createDataResponse(await reportsService.getCustomerAgingReport(query)),
+      createDataResponse(await createReportsService(request.db).getCustomerAgingReport(query)),
     );
   }
 
@@ -133,7 +131,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   ): Promise<void> {
     const query = parseReportQuery(supplierAgingReportQuerySchema, request.query);
     reply.send(
-      createDataResponse(await reportsService.getSupplierAgingReport(query)),
+      createDataResponse(await createReportsService(request.db).getSupplierAgingReport(query)),
     );
   }
 
@@ -144,7 +142,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   ): Promise<void> {
     const query = parseReportQuery(customerOutstandingReportQuerySchema, request.query);
     reply.send(
-      createDataResponse(await reportsService.getCustomerOutstandingReport(query)),
+      createDataResponse(await createReportsService(request.db).getCustomerOutstandingReport(query)),
     );
   }
 
@@ -154,7 +152,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseReportQuery(supplierPayableReportQuerySchema, request.query);
-    reply.send(createDataResponse(await reportsService.getSupplierPayableReport(query)));
+    reply.send(createDataResponse(await createReportsService(request.db).getSupplierPayableReport(query)));
   }
 
   /** Returns cash and bank opening balances, movements, and closing balances. */
@@ -163,7 +161,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseReportQuery(cashBankReportQuerySchema, request.query);
-    reply.send(createDataResponse(await reportsService.getCashBankReport(query)));
+    reply.send(createDataResponse(await createReportsService(request.db).getCashBankReport(query)));
   }
 
   /** Returns expense and expense-reversal activity for the selected filters. */
@@ -172,7 +170,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseReportQuery(expenseReportQuerySchema, request.query);
-    reply.send(createDataResponse(await reportsService.getExpenseReport(query)));
+    reply.send(createDataResponse(await createReportsService(request.db).getExpenseReport(query)));
   }
 
   /** Returns the estimated profit summary based on immutable cost snapshots and expenses. */
@@ -181,7 +179,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseReportQuery(profitSummaryReportQuerySchema, request.query);
-    reply.send(createDataResponse(await reportsService.getProfitSummaryReport(query)));
+    reply.send(createDataResponse(await createReportsService(request.db).getProfitSummaryReport(query)));
   }
 
   /** Returns paginated estimated profit values grouped by product. */
@@ -190,7 +188,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     reply: FastifyReply,
   ): Promise<void> {
     const query = parseReportQuery(productProfitReportQuerySchema, request.query);
-    reply.send(createDataResponse(await reportsService.getProductProfitReport(query)));
+    reply.send(createDataResponse(await createReportsService(request.db).getProductProfitReport(query)));
   }
 
   /** Returns the current Employee Register with derived salary/advance balances. */
@@ -200,7 +198,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   ): Promise<void> {
     const query = parseReportQuery(employeeRegisterReportQuerySchema, request.query);
     reply.send(
-      createDataResponse(await reportsService.getEmployeeRegisterReport(query)),
+      createDataResponse(await createReportsService(request.db).getEmployeeRegisterReport(query)),
     );
   }
 
@@ -211,7 +209,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   ): Promise<void> {
     const query = parseReportQuery(attendanceSummaryReportQuerySchema, request.query);
     reply.send(
-      createDataResponse(await reportsService.getAttendanceSummaryReport(query)),
+      createDataResponse(await createReportsService(request.db).getAttendanceSummaryReport(query)),
     );
   }
 
@@ -222,7 +220,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   ): Promise<void> {
     const query = parseReportQuery(payrollRegisterReportQuerySchema, request.query);
     reply.send(
-      createDataResponse(await reportsService.getPayrollRegisterReport(query)),
+      createDataResponse(await createReportsService(request.db).getPayrollRegisterReport(query)),
     );
   }
 
@@ -233,7 +231,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   ): Promise<void> {
     const query = parseReportQuery(salaryPayableReportQuerySchema, request.query);
     reply.send(
-      createDataResponse(await reportsService.getSalaryPayableReport(query)),
+      createDataResponse(await createReportsService(request.db).getSalaryPayableReport(query)),
     );
   }
 
@@ -248,7 +246,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     );
     reply.send(
       createDataResponse(
-        await reportsService.getEmployeeAdvanceOutstandingReport(query),
+        await createReportsService(request.db).getEmployeeAdvanceOutstandingReport(query),
       ),
     );
   }
@@ -260,7 +258,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   ): Promise<void> {
     const query = parseReportQuery(laborCostSummaryReportQuerySchema, request.query);
     reply.send(
-      createDataResponse(await reportsService.getLaborCostSummaryReport(query)),
+      createDataResponse(await createReportsService(request.db).getLaborCostSummaryReport(query)),
     );
   }
 

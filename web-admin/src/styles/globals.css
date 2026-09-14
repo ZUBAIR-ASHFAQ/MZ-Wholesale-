@@ -3154,6 +3154,14 @@ h3 {
   width: 100%;
 }
 
+.auth-layout .signup-form .ui-button {
+  margin-top: 6px;
+}
+
+.auth-layout .signup-form-error {
+  margin: 0;
+}
+
 .auth-layout-visual {
   position: relative;
   display: grid;

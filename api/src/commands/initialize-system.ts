@@ -1,6 +1,9 @@
 import { ZodError } from "zod";
 
-import { createDatabaseClient } from "../database/client.js";
+import {
+  acquireTenantDatabase,
+  createDatabaseClient,
+} from "../database/client.js";
 import { findExistingAdmin } from "../modules/auth/auth.repository.js";
 import {
   bootstrapAdminSchema,
@@ -101,21 +104,21 @@ function readSafeErrorMessage(error: unknown): string {
 
 async function ensureAdmin(
   database: ReturnType<typeof createDatabaseClient>["database"],
-): Promise<boolean> {
+): Promise<{ adminUserId: string; created: boolean }> {
   const existingAdmin = await findExistingAdmin(database);
 
   if (existingAdmin) {
-    return false;
+    return { adminUserId: existingAdmin.id, created: false };
   }
 
-  const admin = bootstrapAdminSchema.parse({
+  const adminInput = bootstrapAdminSchema.parse({
     name: readRequiredValue(process.env, "ERP_ADMIN_NAME"),
     email: readRequiredValue(process.env, "ERP_ADMIN_EMAIL"),
     password: readRequiredValue(process.env, "ERP_ADMIN_PASSWORD"),
   });
 
-  await bootstrapInitialAdmin(database, admin);
-  return true;
+  const admin = await bootstrapInitialAdmin(database, adminInput);
+  return { adminUserId: admin.id, created: true };
 }
 
 async function ensureBusinessSettings(
@@ -136,17 +139,26 @@ async function initializeSystem(): Promise<InitializationResult> {
   const databaseClient = createDatabaseClient(databaseUrl);
 
   try {
-    const adminCreated = await ensureAdmin(databaseClient.database);
-    const businessSettingsCreated = await ensureBusinessSettings(
-      databaseClient.database,
+    const admin = await ensureAdmin(databaseClient.database);
+    const tenantDatabase = await acquireTenantDatabase(
+      databaseClient.pool,
+      admin.adminUserId,
     );
-    await ensureWalkInCustomerExists(databaseClient.database);
 
-    return {
-      adminCreated,
-      businessSettingsCreated,
-      walkInCustomerReady: true,
-    };
+    try {
+      const businessSettingsCreated = await ensureBusinessSettings(
+        tenantDatabase.database,
+      );
+      await ensureWalkInCustomerExists(tenantDatabase.database);
+
+      return {
+        adminCreated: admin.created,
+        businessSettingsCreated,
+        walkInCustomerReady: true,
+      };
+    } finally {
+      await tenantDatabase.release();
+    }
   } finally {
     await databaseClient.pool.end();
   }

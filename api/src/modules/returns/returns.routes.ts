@@ -32,7 +32,7 @@ export async function registerSalesReturnRoutes(
 ): Promise<void> {
   /** Records one important successful return mutation for later audit review. */
   async function auditMutation(request: FastifyRequest, action: string, entity: string, afterData: unknown): Promise<void> {
-    await recordAuditLog(app.db, {
+    await recordAuditLog(request.db, {
       adminUserId: request.admin?.adminUserId ?? null,
       requestId: request.id,
       ipAddress: request.ip ?? null,
@@ -46,7 +46,7 @@ export async function registerSalesReturnRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = listSalesReturnsQuerySchema.parse(request.query);
-    const result = await listSalesReturns(app.db, query);
+    const result = await listSalesReturns(request.db, query);
     reply.send(createDataResponse(result));
   }
 
@@ -57,7 +57,7 @@ export async function registerSalesReturnRoutes(
   ): Promise<void> {
     const input = createSalesReturnSchema.parse(request.body);
     const response = await executeIdempotentMutation(
-      app.db,
+      request.db,
       {
         key: request.headers["idempotency-key"],
         method: request.method,
@@ -84,7 +84,7 @@ export async function registerSalesReturnRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const params = salesReturnIdParamsSchema.parse(request.params);
-    const result = await getSalesReturn(app.db, params.id);
+    const result = await getSalesReturn(request.db, params.id);
     reply.send(createDataResponse(result));
   }
 
@@ -140,7 +140,7 @@ export async function registerPurchaseReturnRoutes(
 ): Promise<void> {
   /** Records one important successful return mutation for later audit review. */
   async function auditMutation(request: FastifyRequest, action: string, entity: string, afterData: unknown): Promise<void> {
-    await recordAuditLog(app.db, {
+    await recordAuditLog(request.db, {
       adminUserId: request.admin?.adminUserId ?? null,
       requestId: request.id,
       ipAddress: request.ip ?? null,
@@ -154,7 +154,7 @@ export async function registerPurchaseReturnRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = listPurchaseReturnsQuerySchema.parse(request.query);
-    const result = await listPurchaseReturns(app.db, query);
+    const result = await listPurchaseReturns(request.db, query);
     reply.send(createDataResponse(result));
   }
 
@@ -165,7 +165,7 @@ export async function registerPurchaseReturnRoutes(
   ): Promise<void> {
     const input = createPurchaseReturnSchema.parse(request.body);
     const response = await executeIdempotentMutation(
-      app.db,
+      request.db,
       {
         key: request.headers["idempotency-key"],
         method: request.method,
@@ -192,7 +192,7 @@ export async function registerPurchaseReturnRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const params = purchaseReturnIdParamsSchema.parse(request.params);
-    const result = await getPurchaseReturn(app.db, params.id);
+    const result = await getPurchaseReturn(request.db, params.id);
     reply.send(createDataResponse(result));
   }
 

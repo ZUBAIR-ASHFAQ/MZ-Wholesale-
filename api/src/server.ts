@@ -22,6 +22,7 @@ async function startServer(): Promise<void> {
   await verifyDatabaseConnection(databaseClient.pool);
   const app = await createApp({
     database: databaseClient.database,
+    databasePool: databaseClient.pool,
     authSigningSecret: environment.authSigningSecret,
     secureCookies: environment.isProduction,
     webAdminUrl: environment.webAdminUrl,

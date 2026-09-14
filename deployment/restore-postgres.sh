@@ -4,6 +4,7 @@ set -euo pipefail
 # Restores one encrypted ERP backup into an explicitly configured target database.
 main() {
   require_command pg_restore
+  require_command psql
   require_command openssl
   require_env RESTORE_DATABASE_URL
   require_env BACKUP_ENCRYPTION_PASSWORD
@@ -47,6 +48,13 @@ main() {
     --no-acl \
     --exit-on-error \
     "$raw_dump"
+
+  echo "Restoring tenant database access..."
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  psql "$RESTORE_DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f "$script_dir/restore-tenant-access.sql" >/dev/null
 
   echo "Restore completed successfully."
 }

@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import {
@@ -12,7 +12,7 @@ export type AuthDatabase = Pick<
   "select" | "insert" | "update" | "delete" | "execute"
 >;
 
-/** Represents the one saved administrator account. */
+/** Represents one saved administrator account. */
 export type AdminUserRecord = typeof adminUsers.$inferSelect;
 
 /** Contains fields accepted when the deployment bootstrap creates the administrator. */
@@ -60,14 +60,14 @@ export async function findAdminById(
   return rows[0] ?? null;
 }
 
-/** Reads the singleton administrator before a bootstrap attempt. */
+/** Reads any administrator before a first-install bootstrap attempt. */
 export async function findExistingAdmin(
   database: AuthDatabase,
 ): Promise<AdminUserRecord | null> {
   const rows = await database
     .select()
     .from(adminUsers)
-    .where(eq(adminUsers.singletonKey, 1))
+    .orderBy(asc(adminUsers.createdAt), asc(adminUsers.id))
     .limit(1);
 
   return rows[0] ?? null;
@@ -88,7 +88,7 @@ export async function lockAdminById(
   return rows[0] ?? null;
 }
 
-/** Creates the singleton administrator for the later bootstrap command. */
+/** Creates one administrator account. */
 export async function createAdminUser(
   database: AuthDatabase,
   input: NewAdminUser,

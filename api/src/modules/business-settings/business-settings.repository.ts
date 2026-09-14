@@ -67,7 +67,7 @@ export async function lockBusinessSettingsSave(
   database: BusinessSettingsDatabase,
 ): Promise<void> {
   await database.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended('wholesale_erp_business_settings_save', 0))`,
+    sql`select pg_advisory_xact_lock(hashtextextended('wholesale_erp_business_settings_save:' || coalesce(current_tenant_admin_user_id()::text, 'system'), 0))`,
   );
 }
 

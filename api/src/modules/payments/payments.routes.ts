@@ -89,7 +89,7 @@ async function sendIdempotentMutation(
   operation: (transaction: FastifyInstance["db"]) => Promise<unknown>,
 ): Promise<boolean> {
   const response = await executeIdempotentMutation(
-    app.db,
+    request.db,
     {
       key: request.headers["idempotency-key"],
       method: request.method,
@@ -112,7 +112,7 @@ export async function registerPaymentRoutes(
 ): Promise<void> {
   /** Records one important successful mutation without changing the business response if audit storage is unavailable. */
   async function auditMutation(request: FastifyRequest, action: string, entity: string, afterData: unknown): Promise<void> {
-    await recordAuditLog(app.db, {
+    await recordAuditLog(request.db, {
       adminUserId: request.admin?.adminUserId ?? null,
       requestId: request.id,
       ipAddress: request.ip ?? null,
@@ -122,11 +122,11 @@ export async function registerPaymentRoutes(
 
   /** Lists all cash and bank accounts with calculated balances. */
   async function handleListAccounts(
-    _request: FastifyRequest,
+    request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
     reply.header("cache-control", "no-store");
-    reply.send(createDataResponse(await listAccounts(app.db)));
+    reply.send(createDataResponse(await listAccounts(request.db)));
   }
 
   /** Creates one cash account and its optional opening movement. */
@@ -150,7 +150,7 @@ export async function registerPaymentRoutes(
   ): Promise<void> {
     const params = paymentIdParamsSchema.parse(request.params);
     const input = updateCashAccountSchema.parse(request.body);
-    const result = await updateCashAccount(app.db, params.id, input);
+    const result = await updateCashAccount(request.db, params.id, input);
     await auditMutation(request, "CASH_ACCOUNT_UPDATED", "CASH_ACCOUNT", result);
     reply.send(createDataResponse(result));
   }
@@ -176,7 +176,7 @@ export async function registerPaymentRoutes(
   ): Promise<void> {
     const params = paymentIdParamsSchema.parse(request.params);
     const input = updateBankAccountSchema.parse(request.body);
-    const result = await updateBankAccount(app.db, params.id, input);
+    const result = await updateBankAccount(request.db, params.id, input);
     await auditMutation(request, "BANK_ACCOUNT_UPDATED", "BANK_ACCOUNT", result);
     reply.send(createDataResponse(result));
   }
@@ -187,7 +187,7 @@ export async function registerPaymentRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = customerReceiptListQuerySchema.parse(request.query);
-    reply.send(createDataResponse(await listCustomerReceipts(app.db, query)));
+    reply.send(createDataResponse(await listCustomerReceipts(request.db, query)));
   }
 
   /** Creates one customer receipt through an idempotent financial request. */
@@ -210,7 +210,7 @@ export async function registerPaymentRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const params = paymentIdParamsSchema.parse(request.params);
-    reply.send(createDataResponse(await getCustomerReceipt(app.db, params.id)));
+    reply.send(createDataResponse(await getCustomerReceipt(request.db, params.id)));
   }
 
   /** Reverses one customer receipt through an idempotent financial request. */
@@ -239,7 +239,7 @@ export async function registerPaymentRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = supplierPaymentListQuerySchema.parse(request.query);
-    reply.send(createDataResponse(await listSupplierPayments(app.db, query)));
+    reply.send(createDataResponse(await listSupplierPayments(request.db, query)));
   }
 
   /** Creates one supplier payment through an idempotent financial request. */
@@ -262,7 +262,7 @@ export async function registerPaymentRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const params = paymentIdParamsSchema.parse(request.params);
-    reply.send(createDataResponse(await getSupplierPayment(app.db, params.id)));
+    reply.send(createDataResponse(await getSupplierPayment(request.db, params.id)));
   }
 
   /** Reverses one supplier payment through an idempotent financial request. */
@@ -291,7 +291,7 @@ export async function registerPaymentRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = dailyCashSummaryQuerySchema.parse(request.query);
-    reply.send(createDataResponse(await getDailyCashSummary(app.db, query)));
+    reply.send(createDataResponse(await getDailyCashSummary(request.db, query)));
   }
 
   /** Lists immutable cash and bank movement history. */
@@ -300,7 +300,7 @@ export async function registerPaymentRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = movementListQuerySchema.parse(request.query);
-    reply.send(createDataResponse(await listCashBankMovements(app.db, query)));
+    reply.send(createDataResponse(await listCashBankMovements(request.db, query)));
   }
 
   /** Lists confirmed internal account transfers. */
@@ -309,7 +309,7 @@ export async function registerPaymentRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = transferListQuerySchema.parse(request.query);
-    reply.send(createDataResponse(await listTransfers(app.db, query)));
+    reply.send(createDataResponse(await listTransfers(request.db, query)));
   }
 
   /** Creates one internal transfer through an idempotent financial request. */
@@ -332,7 +332,7 @@ export async function registerPaymentRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const params = paymentIdParamsSchema.parse(request.params);
-    reply.send(createDataResponse(await getTransfer(app.db, params.id)));
+    reply.send(createDataResponse(await getTransfer(request.db, params.id)));
   }
 
   /** Lists draft and confirmed cash reconciliations. */
@@ -341,7 +341,7 @@ export async function registerPaymentRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = reconciliationListQuerySchema.parse(request.query);
-    reply.send(createDataResponse(await listCashReconciliations(app.db, query)));
+    reply.send(createDataResponse(await listCashReconciliations(request.db, query)));
   }
 
   /** Creates one editable draft cash reconciliation. */
@@ -350,7 +350,7 @@ export async function registerPaymentRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const input = createCashReconciliationSchema.parse(request.body);
-    const result = await createCashReconciliation(app.db, input);
+    const result = await createCashReconciliation(request.db, input);
     await auditMutation(request, "CASH_RECONCILIATION_CREATED", "CASH_RECONCILIATION", result);
     reply.status(201).send(createDataResponse(result));
   }
@@ -362,7 +362,7 @@ export async function registerPaymentRoutes(
   ): Promise<void> {
     const params = paymentIdParamsSchema.parse(request.params);
     const input = updateCashReconciliationSchema.parse(request.body);
-    const result = await updateCashReconciliation(app.db, params.id, input);
+    const result = await updateCashReconciliation(request.db, params.id, input);
     await auditMutation(request, "CASH_RECONCILIATION_UPDATED", "CASH_RECONCILIATION", result);
     reply.send(createDataResponse(result));
   }

@@ -13,6 +13,7 @@ const expectedRoutes: Record<string, readonly Route[]> = {
     ["PATCH", "/business-settings"],
   ],
   auth: [
+    ["POST", "/auth/signup"],
     ["POST", "/auth/login"],
     ["POST", "/auth/refresh"],
     ["POST", "/auth/logout"],

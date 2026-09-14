@@ -554,3 +554,111 @@ integrationTest("confirmed cash reconciliations cannot be edited", async () => {
     );
   });
 });
+
+integrationTest("tenant isolation prevents cross-account data access and relationships", async () => {
+  await withRollback(async (client) => {
+    const firstAdmin = await client.query<{ id: string }>(
+      `insert into admin_users (name, email, password_hash)
+       values ('Tenant One', $1, 'test-password-hash')
+       returning id`,
+      [`tenant-one-${Date.now()}@example.com`],
+    );
+    const secondAdmin = await client.query<{ id: string }>(
+      `insert into admin_users (name, email, password_hash)
+       values ('Tenant Two', $1, 'test-password-hash')
+       returning id`,
+      [`tenant-two-${Date.now()}@example.com`],
+    );
+    const firstAdminId = firstAdmin.rows[0]?.id;
+    const secondAdminId = secondAdmin.rows[0]?.id;
+
+    assert.ok(firstAdminId);
+    assert.ok(secondAdminId);
+
+    await client.query("set role wholesale_erp_tenant");
+
+    try {
+      await client.query(
+        "select set_config('app.admin_user_id', $1, true)",
+        [firstAdminId],
+      );
+
+      const firstCategory = await client.query<{ id: string }>(
+        `insert into product_categories (name)
+         values ('Shared Tenant Category')
+         returning id`,
+      );
+      const firstCategoryId = firstCategory.rows[0]?.id;
+      assert.ok(firstCategoryId);
+
+      const firstWalkIn = await client.query(
+        "select id from customers where is_walk_in = true",
+      );
+      assert.equal(firstWalkIn.rowCount, 1);
+
+      await client.query(
+        "select set_config('app.admin_user_id', $1, true)",
+        [secondAdminId],
+      );
+
+      const hiddenRows = await client.query(
+        "select id from product_categories where id = $1",
+        [firstCategoryId],
+      );
+      assert.equal(hiddenRows.rowCount, 0);
+
+      const hiddenUpdate = await client.query(
+        "update product_categories set name = 'Tampered' where id = $1",
+        [firstCategoryId],
+      );
+      assert.equal(hiddenUpdate.rowCount, 0);
+
+      const hiddenDelete = await client.query(
+        "delete from product_categories where id = $1",
+        [firstCategoryId],
+      );
+      assert.equal(hiddenDelete.rowCount, 0);
+
+      const secondCategory = await client.query<{ id: string }>(
+        `insert into product_categories (name)
+         values ('Shared Tenant Category')
+         returning id`,
+      );
+      assert.ok(secondCategory.rows[0]?.id);
+
+      const secondWalkIn = await client.query(
+        "select id from customers where is_walk_in = true",
+      );
+      assert.equal(secondWalkIn.rowCount, 1);
+
+      await client.query("savepoint cross_tenant_fk");
+      let crossTenantError: unknown = null;
+
+      try {
+        await client.query(
+          `insert into products (sku, name, category_id)
+           values ('TENANT-TWO-SKU', 'Cross Tenant Product', $1)`,
+          [firstCategoryId],
+        );
+      } catch (error) {
+        crossTenantError = error;
+      } finally {
+        await client.query("rollback to savepoint cross_tenant_fk");
+      }
+
+      assert.equal(isPostgresErrorWithCode(crossTenantError, "23503"), true);
+
+      await client.query(
+        "select set_config('app.admin_user_id', $1, true)",
+        [firstAdminId],
+      );
+      const unchangedRows = await client.query<{ name: string }>(
+        "select name from product_categories where id = $1",
+        [firstCategoryId],
+      );
+      assert.equal(unchangedRows.rows[0]?.name, "Shared Tenant Category");
+    } finally {
+      await client.query("reset role");
+    }
+  });
+});

@@ -7,6 +7,7 @@ export {
   changePasswordRequestSchema,
   currentAdminQuerySchema,
   loginRequestSchema,
+  signupRequestSchema,
   logoutAllRequestBodySchema,
   logoutRequestBodySchema,
   refreshRequestBodySchema,
@@ -16,6 +17,7 @@ export type {
   BootstrapAdminInput,
   ChangePasswordInput,
   LoginInput,
+  SignupInput,
 } from "./auth.schema.js";
 
 export {
@@ -31,6 +33,7 @@ export {
   isCsrfTokenValid,
   isRefreshTokenFormatValid,
   loginAdmin,
+  signupAdmin,
   listAdminSessions,
   logoutAdmin,
   logoutAllAdminSessions,

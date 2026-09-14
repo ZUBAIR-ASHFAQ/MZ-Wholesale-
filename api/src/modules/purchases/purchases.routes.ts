@@ -33,7 +33,7 @@ export async function registerPurchaseRoutes(
 ): Promise<void> {
   /** Records one important successful mutation without changing the business response if audit storage is unavailable. */
   async function auditMutation(request: FastifyRequest, action: string, entity: string, afterData: unknown): Promise<void> {
-    await recordAuditLog(app.db, {
+    await recordAuditLog(request.db, {
       adminUserId: request.admin?.adminUserId ?? null,
       requestId: request.id,
       ipAddress: request.ip ?? null,
@@ -47,7 +47,7 @@ export async function registerPurchaseRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const query = listPurchasesQuerySchema.parse(request.query);
-    const result = await listPurchases(app.db, query);
+    const result = await listPurchases(request.db, query);
     reply.send(createDataResponse(result));
   }
 
@@ -60,7 +60,7 @@ export async function registerPurchaseRoutes(
 
     if (input.status === "CONFIRMED") {
       const response = await executeIdempotentMutation(
-        app.db,
+        request.db,
         {
           key: request.headers["idempotency-key"],
           method: request.method,
@@ -82,7 +82,7 @@ export async function registerPurchaseRoutes(
       return;
     }
 
-    const result = await createPurchase(app.db, input);
+    const result = await createPurchase(request.db, input);
     await auditMutation(request, "PURCHASE_DRAFT_CREATED", "PURCHASE", result);
     reply.status(201).send(createDataResponse(result));
   }
@@ -93,7 +93,7 @@ export async function registerPurchaseRoutes(
     reply: FastifyReply,
   ): Promise<void> {
     const params = purchaseIdParamsSchema.parse(request.params);
-    const result = await getPurchase(app.db, params.id);
+    const result = await getPurchase(request.db, params.id);
     reply.send(createDataResponse(result));
   }
 
@@ -104,7 +104,7 @@ export async function registerPurchaseRoutes(
   ): Promise<void> {
     const params = purchaseIdParamsSchema.parse(request.params);
     const input = updatePurchaseDraftSchema.parse(request.body);
-    const result = await updatePurchaseDraft(app.db, params.id, input);
+    const result = await updatePurchaseDraft(request.db, params.id, input);
     await auditMutation(request, "PURCHASE_DRAFT_UPDATED", "PURCHASE", result);
     reply.send(createDataResponse(result));
   }
@@ -117,7 +117,7 @@ export async function registerPurchaseRoutes(
     const params = purchaseIdParamsSchema.parse(request.params);
     const input = confirmPurchaseSchema.parse(request.body ?? {});
     const response = await executeIdempotentMutation(
-      app.db,
+      request.db,
       {
         key: request.headers["idempotency-key"],
         method: request.method,
@@ -146,7 +146,7 @@ export async function registerPurchaseRoutes(
   ): Promise<void> {
     const params = purchaseIdParamsSchema.parse(request.params);
     const input = cancelPurchaseSchema.parse(request.body ?? {});
-    const result = await cancelPurchase(app.db, params.id, input);
+    const result = await cancelPurchase(request.db, params.id, input);
     await auditMutation(request, "PURCHASE_DRAFT_CANCELLED", "PURCHASE", result);
     reply.send(createDataResponse(result));
   }

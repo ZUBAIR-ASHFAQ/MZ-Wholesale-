@@ -4,7 +4,6 @@ import {
   check,
   foreignKey,
   index,
-  integer,
   pgTable,
   text,
   timestamp,
@@ -13,12 +12,11 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-/** Stores the one Admin/Counter Operator account allowed in version 1. */
+/** Stores administrator accounts that may authenticate independently. */
 export const adminUsers = pgTable(
   "admin_users",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    singletonKey: integer("singleton_key").default(1).notNull(),
     name: varchar("name", { length: 160 }).notNull(),
     email: varchar("email", { length: 254 }).notNull(),
     passwordHash: text("password_hash").notNull(),
@@ -31,15 +29,10 @@ export const adminUsers = pgTable(
       .defaultNow()
       .notNull(),
   },
-  // Builds singleton, normalized-email and required-text protections.
+  // Builds normalized-email and required-text protections.
   function buildAdminUserConstraints(table) {
     return [
-      unique("admin_users_singleton_key_unique").on(table.singletonKey),
       unique("admin_users_email_unique").on(table.email),
-      check(
-        "admin_users_singleton_key_check",
-        sql`${table.singletonKey} = 1`,
-      ),
       check(
         "admin_users_name_not_blank_check",
         sql`length(trim(${table.name})) > 0`,
