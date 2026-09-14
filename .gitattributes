@@ -1,0 +1,2 @@
+api/drizzle/0026_employee_active_leave_date_consistency.sql text eol=crlf
+api/drizzle/0027_employee_leave_days_match_date_range.sql text eol=crlf
