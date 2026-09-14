@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  zoom: 0.8;
   color: #1f2925;
   background: #f6f7f4;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
@@ -2034,6 +2035,7 @@ input {
    -------------------------------------------------------------------------- */
 
 :root {
+  zoom: 0.8;
   --erp-navy-950: #15211d;
   --erp-navy-900: #1b2b26;
   --erp-navy-850: #223630;
@@ -3105,6 +3107,7 @@ h3 {
 
 @media (max-width: 1180px) {
   :root {
+  zoom: 0.8;
     --erp-sidebar-width: 230px;
   }
 
