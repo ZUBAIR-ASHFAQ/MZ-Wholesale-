@@ -3598,3 +3598,17 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
+
+/* Compensate full-height layouts for the global 80% zoom. */
+body {
+  min-height: 125vh;
+}
+
+.auth-layout,
+.app-shell {
+  min-height: 125vh;
+}
+
+.sidebar {
+  height: 125vh;
+}
